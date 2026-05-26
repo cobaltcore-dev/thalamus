@@ -1,0 +1,40 @@
+apiVersion: v2
+name: thalamus-infra
+description: Infrastructure chart for the Thalamus LLM inference stack. Installs CRDs and operators. Deploy before thalamus-llm.
+type: application
+version: 0.1.0
+
+dependencies:
+  # GPU infrastructure — TODO: remove once gardener supports providing the GPU operator
+  - name: node-feature-discovery
+    repository: oci://registry.k8s.io/nfd/charts
+    version: "0.18.3"
+    condition: node-feature-discovery.enabled
+
+  - name: gpu-operator
+    repository: https://helm.ngc.nvidia.com/nvidia
+    version: "v26.3.1"
+    condition: gpu-operator.enabled
+
+  # Observability
+  - name: kube-prometheus-stack
+    repository: oci://ghcr.io/prometheus-community/charts
+    version: "85.1.3"
+    condition: kube-prometheus-stack.enabled
+
+  # Inference gateway
+  - name: agentgateway-crds
+    repository: oci://cr.agentgateway.dev/charts
+    version: "1.2.1"
+    condition: agentgateway-crds.enabled
+
+  - name: agentgateway
+    repository: oci://cr.agentgateway.dev/charts
+    version: "1.2.1"
+    condition: agentgateway.enabled
+
+  # Frontend
+  - name: open-webui
+    repository: https://helm.openwebui.com/
+    version: "14.6.0"
+    condition: open-webui.enabled

@@ -1,0 +1,165 @@
+# EPP (Endpoint Picker) resources are defined here directly rather than using the upstream
+# inferencepool chart because that chart has a local file:// dependency on epplib which
+# makes it unusable as a remote subchart. Additionally, the upstream chart creates one Helm
+# release per model, which requires helmfile-style dynamic releases — not possible in a
+# static Helm chart. These templates are adapted from:
+# https://github.com/kubernetes-sigs/gateway-api-inference-extension/tree/main/config/charts/epplib
+# When upgrading the EPP image version, diff _deployment.yaml and _config.yaml against this file.
+{{- $accelMap := .Values.accelerators }}
+{{- range .Values.models }}
+{{- $m := . }}
+{{- $slug := $m.slug }}
+{{- $epp := printf "vllm-%s-epp" $slug }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $epp }}
+  namespace: {{ $.Values.namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $epp }}
+  namespace: {{ $.Values.namespace }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $epp }}
+  namespace: {{ $.Values.namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $epp }}
+    namespace: {{ $.Values.namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $epp }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $epp }}
+  namespace: {{ $.Values.namespace }}
+data:
+  default-plugins.yaml: |
+    apiVersion: inference.networking.x-k8s.io/v1alpha1
+    kind: EndpointPickerConfig
+    plugins:
+    - type: queue-scorer
+    - type: kv-cache-utilization-scorer
+    - type: prefix-cache-scorer
+    - type: metrics-data-source
+      parameters:
+        scheme: "http"
+        path: "/metrics"
+        insecureSkipVerify: true
+    - type: core-metrics-extractor
+    schedulingProfiles:
+    - name: default
+      plugins:
+      - pluginRef: queue-scorer
+        weight: 2
+      - pluginRef: kv-cache-utilization-scorer
+        weight: 2
+      - pluginRef: prefix-cache-scorer
+        weight: 3
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $epp }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    inferencepool: {{ $epp }}
+    inference.networking.k8s.io/igw-mode: inferencepool
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      inferencepool: {{ $epp }}
+  template:
+    metadata:
+      labels:
+        inferencepool: {{ $epp }}
+        inference.networking.k8s.io/igw-mode: inferencepool
+    spec:
+      serviceAccountName: {{ $epp }}
+      terminationGracePeriodSeconds: 130
+      containers:
+        - name: epp
+          image: {{ $.Values.epp.image }}
+          imagePullPolicy: IfNotPresent
+          args:
+            - --pool-name
+            - vllm-{{ $slug }}
+            - --pool-namespace
+            - {{ $.Values.namespace }}
+            - --pool-group
+            - inference.networking.k8s.io
+            - --zap-encoder
+            - json
+            - --config-file
+            - /config/default-plugins.yaml
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          resources: {{ $.Values.epp.resources | toYaml | nindent 12 }}
+          ports:
+            - name: grpc
+              containerPort: 9002
+            - name: grpc-health
+              containerPort: 9003
+            - name: metrics
+              containerPort: 9090
+          livenessProbe:
+            grpc:
+              port: 9003
+              service: inference-extension
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            grpc:
+              port: 9003
+              service: inference-extension
+            periodSeconds: 2
+          volumeMounts:
+            - name: plugins-config-volume
+              mountPath: /config
+      volumes:
+        - name: plugins-config-volume
+          configMap:
+            name: {{ $epp }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $epp }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    inferencepool: {{ $epp }}
+spec:
+  selector:
+    inferencepool: {{ $epp }}
+  ports:
+    - name: grpc-ext-proc
+      protocol: TCP
+      port: 9002
+    - name: http-metrics
+      protocol: TCP
+      port: 9090
+  type: ClusterIP
+{{- end }}

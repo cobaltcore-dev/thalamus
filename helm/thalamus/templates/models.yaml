@@ -1,0 +1,146 @@
+{{- $accelMap := .Values.accelerators }}
+{{- range .Values.models }}
+{{- $m     := . }}
+{{- $accel := index $accelMap $m.accelerator | default dict }}
+{{- $replicas := $m.replicas | default 1 }}
+{{- $args  := concat ($accel.baseArgs | default list) ($m.extraArgs | default list) }}
+{{- $env   := concat ($accel.baseEnv  | default list) ($m.extraEnv  | default list) }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-{{ $m.slug }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    app: vllm-{{ $m.slug }}
+    llm-d.ai/inference-serving: "true"
+spec:
+  replicas: {{ $replicas }}
+  selector:
+    matchLabels:
+      app: vllm-{{ $m.slug }}
+      llm-d.ai/inference-serving: "true"
+  template:
+    metadata:
+      labels:
+        app: vllm-{{ $m.slug }}
+        llm-d.ai/inference-serving: "true"
+    spec:
+      containers:
+        - name: vllm
+          image: {{ $accel.image }}
+          imagePullPolicy: IfNotPresent
+          command:
+            - vllm
+            - serve
+          args:
+            - {{ $m.model | quote }}
+            - "--port=8000"
+            - "--served-model-name"
+            - {{ $m.model | quote }}
+            - "--disable-uvicorn-access-log"
+            {{- range $args }}
+            - {{ . | quote }}
+            {{- end }}
+          env:
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hf-token
+                  key: HF_TOKEN
+            {{- range $env }}
+            - {{ toYaml . | indent 14 | trim }}
+            {{- end }}
+          {{- with $m.resources }}
+          resources: {{ toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $accel.securityContext }}
+          securityContext: {{ toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - containerPort: 8000
+              name: vllm
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              path: /v1/models
+              port: vllm
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: vllm
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /v1/models
+              port: vllm
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+          volumeMounts:
+            - name: vllm-cache
+              mountPath: /root/.cache
+            - name: dshm
+              mountPath: /dev/shm
+      volumes:
+        - name: vllm-cache
+          emptyDir: {}
+        - name: dshm
+          emptyDir:
+            medium: Memory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-{{ $m.slug }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    app: vllm-{{ $m.slug }}
+spec:
+  selector:
+    app: vllm-{{ $m.slug }}
+  ports:
+    - port: 8000
+      targetPort: vllm
+      name: vllm
+---
+apiVersion: inference.networking.k8s.io/v1
+kind: InferencePool
+metadata:
+  name: vllm-{{ $m.slug }}
+  namespace: {{ $.Values.namespace }}
+spec:
+  targetPorts:
+    - number: 8000
+  selector:
+    matchLabels:
+      app: vllm-{{ $m.slug }}
+  endpointPickerRef:
+    name: vllm-{{ $m.slug }}-epp
+    port:
+      number: 9002
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: vllm-{{ $m.slug }}
+  namespace: {{ $.Values.namespace }}
+spec:
+  parentRefs:
+    - name: {{ $.Values.gateway.name }}
+  rules:
+    - backendRefs:
+        - group: inference.networking.k8s.io
+          kind: InferencePool
+          name: vllm-{{ $m.slug }}
+      matches:
+        - headers:
+            - name: X-Gateway-Base-Model-Name
+              value: {{ $m.model }}
+{{- end }}

@@ -1,22 +1,80 @@
+namespace: thalamus
+
 owner_info:
   support_group: workload-management
   service: thalamus
 
 # The seed is a convenience feature to provision certain resources in the cloud provider.
-# It will only configured if the openstack.stable.sap.cc/v1 CRD and openstack seeder is available in the target cluster.
+# It will only be configured if the openstack.stable.sap.cc/v1 CRD and openstack seeder is available in the target cluster.
 seed:
-  # Service 
+  # Service user
   user: thalamus
   # Password set via secrets. Leave empty here to fail prior to deployment if unset.
-  password: 
+  password:
 
   # Roles to be assigned to the user
   roles:
-  - member
-  - reader
-  - cloud_compute_admin
-  - cloud_dns_webmaster
-  - cloud_network_admin
-  - cloud_objectstore_admin
-  - cloud_registry_admin
-  - cloud_volume_admin
+    - member
+    - reader
+    - cloud_compute_admin
+    - cloud_dns_webmaster
+    - cloud_network_admin
+    - cloud_objectstore_admin
+    - cloud_registry_admin
+    - cloud_volume_admin
+
+# Gateway configuration
+gateway:
+  name: inference-gateway
+  service:
+    type: ClusterIP
+    # loadBalancerIP: ""
+
+# Accelerator profiles
+accelerators:
+  cpu:
+    image: vllm/vllm-openai-cpu:v0.21.0
+    baseArgs: []
+    baseEnv: []
+    securityContext:
+      seccompProfile:
+        type: Unconfined
+      capabilities:
+        add:
+          - SYS_NICE
+  nvidia:
+    image: vllm/vllm-openai:v0.21.0
+    baseArgs:
+      - "--gpu-memory-utilization=0.95"
+    baseEnv:
+      - name: NCCL_P2P_LEVEL
+        value: "PIX"
+      - name: NCCL_IB_DISABLE
+        value: "1"
+    securityContext: {}
+
+# List of models to deploy. Each entry produces a model Deployment, Service, and InferencePool.
+# Example:
+# models:
+#   - slug: my-model
+#     model: org/my-model
+#     accelerator: nvidia
+#     replicas: 1
+#     extraArgs: []
+#     extraEnv: []
+#     resources:
+#       requests:
+#         nvidia.com/gpu: "1"
+#       limits:
+#         nvidia.com/gpu: "1"
+models: []
+
+# Endpoint Picker (EPP)
+epp:
+  image: ghcr.io/llm-d/llm-d-inference-scheduler:v0.7.0
+  resources:
+    requests:
+      cpu: "1"
+      memory: 1Gi
+    limits:
+      memory: 2Gi
