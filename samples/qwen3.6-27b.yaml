@@ -1,0 +1,37 @@
+apiVersion: thalamus.cloud/v1alpha1
+kind: Model
+metadata:
+  name: qwen3-6-27b
+  namespace: thalamus
+spec:
+  displayName: "Qwen3.6 27B"
+  image:
+    ref: keppel.eu-de-2.cloud.sap/ccloud-dockerhub-mirror/vllm/vllm-openai:v0.19.1
+  weights:
+    type: ceph
+    ceph:
+      pool: thalamus-models
+      path: /models/Qwen/Qwen3.6-27B
+  serving:
+    engine: vllm
+    args:
+      - --tensor-parallel-size=2
+      - --max-model-len=32768
+    resources:
+      gpu: 2
+      memory: 96Gi
+  scheduling:
+    scheduler: grove
+    grove:
+      nodePool: nvidia-h100
+  autoscaling:
+    minReplicas: 1
+    maxReplicas: 6
+    metrics:
+      ttftP95Ms: 300
+      queueDepthPerReplica: 12
+  access:
+    rateLimitRpm: 500
+    allowedTenants:
+      - ai-core
+      - naira

@@ -1,0 +1,29 @@
+apiVersion: thalamus.cloud/v1alpha1
+kind: Model
+metadata:
+  name: gemma-4-31b
+  namespace: thalamus
+spec:
+  displayName: "Gemma 4 31B"
+  image:
+    ref: keppel.eu-de-2.cloud.sap/ccloud-dockerhub-mirror/nvcr.io/nvidia/tensorrt:10.7.0
+  weights:
+    type: ceph
+    ceph:
+      pool: thalamus-models
+      path: /models/google/gemma-4-31b-it
+  serving:
+    engine: tensorrt
+    resources:
+      gpu: 2
+      memory: 96Gi
+  scheduling:
+    cortex:
+      nodePool: nvidia-rtx-6000-pro
+      resourceClass: gpu-standard
+  autoscaling:
+    minReplicas: 2
+    maxReplicas: 4
+    metrics:
+      ttftP95Ms: 400
+      queueDepthPerReplica: 8

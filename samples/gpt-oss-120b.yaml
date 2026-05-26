@@ -1,0 +1,35 @@
+apiVersion: thalamus.cloud/v1alpha1
+kind: Model
+metadata:
+  name: gpt-oss-120b
+  namespace: thalamus
+spec:
+  displayName: "GPT-OSS 120B"
+  image:
+    ref: keppel.eu-de-2.cloud.sap/ccloud-dockerhub-mirror/vllm/vllm-openai:v0.19.1
+  weights:
+    type: ceph
+    ceph:
+      pool: thalamus-models
+      path: /models/openai/gpt-oss-120b
+  serving:
+    engine: vllm
+    args:
+      - --tensor-parallel-size=4
+      - --max-model-len=32768
+      - --enable-chunked-prefill
+    resources:
+      gpu: 4
+      memory: 256Gi
+  scheduling:
+    cortex:
+      nodePool: nvidia-h100
+      resourceClass: gpu-premium
+  autoscaling:
+    minReplicas: 1
+    maxReplicas: 8
+    metrics:
+      ttftP95Ms: 500
+      queueDepthPerReplica: 10
+  access:
+    rateLimitRpm: 1000
