@@ -59,7 +59,6 @@ data:
         scheme: "http"
         path: "/metrics"
         insecureSkipVerify: true
-    - type: core-metrics-extractor
     schedulingProfiles:
     - name: default
       plugins:
