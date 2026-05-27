@@ -42,3 +42,9 @@ open-webui:
       value: "False"
   service:
     type: ClusterIP
+  openaiBaseApiUrl: "http://inference-gateway.thalamus.svc.cluster.local/v1"
+  route:
+    enabled: true
+    parentRefs:
+      - name: inference-gateway
+        namespace: thalamus
