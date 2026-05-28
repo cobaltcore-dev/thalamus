@@ -14,8 +14,5 @@ dependencies:
 - name: agentgateway
   repository: oci://cr.agentgateway.dev/charts
   version: 1.2.1
-- name: open-webui
-  repository: https://helm.openwebui.com/
-  version: 14.6.0
-digest: sha256:b5a2cf4e86206ddab96a15417916dab5f670e1928763733315016942849ef2ef
-generated: "2026-05-26T16:32:58.647043+02:00"
+digest: sha256:bad3fb1a63219caea248e2f5a1669447a0798876b28d2872581e4e473458246a
+generated: "2026-05-28T15:48:30.197875+02:00"

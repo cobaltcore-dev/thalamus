@@ -78,3 +78,26 @@ epp:
       memory: 1Gi
     limits:
       memory: 2Gi
+
+# Frontend
+open-webui:
+  enabled: true
+  ollama:
+    enabled: false
+  pipelines:
+    enabled: false
+  tika:
+    enabled: false
+  terminals:
+    enabled: false
+  extraEnvVars:
+    - name: WEBUI_AUTH
+      value: "False"
+  service:
+    type: ClusterIP
+  openaiBaseApiUrl: "http://inference-gateway.thalamus.svc.cluster.local/v1"
+  route:
+    enabled: true
+    parentRefs:
+      - name: inference-gateway
+        namespace: thalamus
