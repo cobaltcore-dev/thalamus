@@ -4,10 +4,10 @@ import markdownItFootnote from 'markdown-it-footnote'
 const docsVersion = process.env.DOCS_VERSION
 const pagesBase = process.env.PAGES_BASE
 const base = docsVersion
-  ? `/thalamus/${docsVersion}/`
+  ? `/${docsVersion}/`
   : pagesBase
-    ? `/thalamus/${pagesBase}/`
-    : '/thalamus/'
+    ? `/${pagesBase}/`
+    : '/'
 
 export default withMermaid({
   title: 'Thalamus',
