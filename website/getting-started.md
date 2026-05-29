@@ -105,7 +105,7 @@ your `open-webui.route.hostnames` value, or via port-forward for local access:
 kubectl port-forward svc/open-webui 8080:80 -n thalamus
 ```
 
-Then open [http://localhost:8080](http://localhost:8080) in your browser.
+Then open `http://localhost:8080` in your browser.
 
 ## Next Steps
 
