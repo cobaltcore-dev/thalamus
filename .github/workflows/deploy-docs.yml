@@ -1,0 +1,92 @@
+# SPDX-FileCopyrightText: Copyright 2026 SAP SE or an SAP affiliate company and cobaltcore-dev contributors
+# SPDX-License-Identifier: Apache-2.0
+
+name: Deploy Docs to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+      - 'release-*'
+    paths:
+      - 'website/**'
+      - 'api/**'
+      - '.github/workflows/deploy-docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Generate API reference docs
+        run: make docs
+
+      - name: Set documentation version
+        id: set-version
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "version=main" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/heads/release-* ]]; then
+            echo "version=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
+          else
+            echo "version=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install dependencies
+        working-directory: website
+        run: npm ci
+
+      - name: Build VitePress site
+        working-directory: website
+        run: npm run docs:build
+        env:
+          DOCS_VERSION: ${{ steps.set-version.outputs.version }}
+
+      - name: Deploy versioned docs
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: website/.vitepress/dist
+          branch: gh-pages
+          target-folder: ${{ steps.set-version.outputs.version }}
+          clean-exclude: pr-preview
+          force: false
+
+      - name: Deploy root redirect
+        if: github.ref == 'refs/heads/main'
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: website/public/root
+          branch: gh-pages
+          target-folder: .
+          clean: false
+          clean-exclude: |
+            pr-preview
+            main
+            release-*
+          force: false
