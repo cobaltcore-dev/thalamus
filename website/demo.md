@@ -13,7 +13,7 @@ Kubernetes cluster via two Helm charts: `thalamus-infra` (GPU operator, monitori
 gateway infrastructure) and `thalamus` (inference workloads, endpoint pickers, frontend).
 To deploy the Thalamus stack onto your own Kubernetes cluster, head over to the [Getting Started guide](/getting-started).
 
-![Stack deployment](./stack-deployment.gif)
+![Stack deployment](/stack-deployment.gif)
 
 ## Model CRD
 
@@ -23,7 +23,7 @@ lifecycle of an inference workload in a single, version-controlled
 object. This includes extensive configuration options, such as the inference engine, model weight location, GPU allocation,
 autoscaling bounds, and scheduler assignment.
 
-![Model CRD in action](./model-crd.gif)
+![Model CRD in action](/model-crd.gif)
 
 ::: warning Operator Under Development
 The Thalamus operator, which reconciles `Model` resources into running inference
@@ -40,7 +40,7 @@ specification.
 In the PoC deployment, all container images are stored in and served from SAP's internal OCI registry called
 [Keppel](https://github.com/sapcc/keppel).
 
-![Container images pulled from Keppel](./keppel-images.gif)
+![Container images pulled from Keppel](/keppel-images.gif)
 
 ::: warning Known Limitation
 At the time of this recording, Keppel is experiencing issues replicating images
@@ -58,7 +58,7 @@ programmatic access.
 Thalamus provides a chat interface which has the option to integrate with an identity provider,
 allowing for direct access without any additional tooling or credentials setup.
 
-<video src="./frontend.mov" controls controlslist="nodownload" width="100%"></video>
+<video src="/frontend.mov" controls controlslist="nodownload" width="100%"></video>
 
 ### API Endpoint — OpenCode
 
@@ -67,4 +67,4 @@ any OpenAI SDK client. The recording below shows [OpenCode](https://opencode.ai)
 configured to use the Thalamus PoC endpoint and sending a prompt to the
 `gpt-oss-120b` model.
 
-![OpenCode using the Thalamus API endpoint](./opencode.gif)
+![OpenCode using the Thalamus API endpoint](/opencode.gif)
