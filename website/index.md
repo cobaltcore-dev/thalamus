@@ -19,6 +19,15 @@ hero:
       link: https://github.com/cobaltcore-dev/thalamus
 
 features:
+  - icon: 🎬
+    title: Demo
+    details: >
+      See the current Proof of Concept in action: stack deployment on a
+      Gardener cluster, images in Keppel, Elektra navigation, and the
+      OpenAI-compatible API endpoint.
+    link: /demo
+    linkText: Watch the demo
+
   - icon: 🧠
     title: Model CRD
     details: >
@@ -34,13 +43,4 @@ features:
       Learn how the components fit together.
     link: /concepts/architecture
     linkText: Architecture overview
-
-  - icon: 🚧
-    title: Under Development
-    details: >
-      Thalamus is in early development. The controller, installation guides,
-      and further documentation are actively being built.
-      Follow the repository for updates.
-    link: https://github.com/cobaltcore-dev/thalamus
-    linkText: Follow on GitHub
 ---

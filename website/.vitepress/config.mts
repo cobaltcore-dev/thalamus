@@ -27,6 +27,7 @@ export default withMermaid({
 
     nav: [
       { text: 'Getting Started', link: '/getting-started' },
+      { text: 'Demo', link: '/demo' },
       { text: 'Concepts', link: '/concepts/architecture' },
       { text: 'Reference', link: '/reference/model-crd-api' },
     ],
@@ -36,6 +37,12 @@ export default withMermaid({
         text: 'Getting Started',
         items: [
           { text: 'Overview', link: '/getting-started' },
+        ],
+      },
+      {
+        text: 'Demo',
+        items: [
+          { text: 'Demo', link: '/demo' },
         ],
       },
       {
