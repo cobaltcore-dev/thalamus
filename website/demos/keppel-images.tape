@@ -5,7 +5,7 @@ Set Height 620
 Set FontSize 22
 Set TypingSpeed 10ms
 
-Type `for ns in thalamus-system thalamus; do kubectl get pods -n $ns -o jsonpath="{range .items[*]}{range .spec.containers[*]}{.image}{\"\n\"}{end}{end}"; done | sort | uniq`
+Type `for ns in thalamus-system thalamus; do kubectl get pods -n $ns -o jsonpath="{range .items[*]}{range .spec.initContainers[*]}{.image}{'\n'}{end}{range .spec.containers[*]}{.image}{'\n'}{end}{end}"; done | sort | uniq`
 Enter
 
 Sleep 10s
