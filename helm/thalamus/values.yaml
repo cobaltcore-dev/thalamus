@@ -122,3 +122,12 @@ open-webui:
     parentRefs:
       - name: inference-gateway
         namespace: thalamus
+
+extraDeploy: []
+  # - apiVersion: v1
+  #   kind: ConfigMap
+  #   metadata:
+  #     name: example-configmap
+  #     namespace: "{{ .Release.Namespace }}"
+  #   data:
+  #     example-key: example-value
