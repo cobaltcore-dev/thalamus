@@ -11,12 +11,7 @@ spec:
       kind: AgentgatewayParameters
       name: {{ .Values.gateway.name }}
   listeners:
-    - port: 80
-      protocol: HTTP
-      name: default
-      allowedRoutes:
-        namespaces:
-          from: All
+    {{- toYaml .Values.gateway.listeners | nindent 4 }}
 ---
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayParameters
@@ -24,27 +19,24 @@ metadata:
   name: {{ .Values.gateway.name }}
   namespace: {{ .Values.namespace }}
 spec:
-  service:
-    spec:
-      type: {{ .Values.gateway.service.type }}
-      {{- if .Values.gateway.service.loadBalancerIP }}
-      loadBalancerIP: {{ .Values.gateway.service.loadBalancerIP }}
-      {{- end }}
+  {{- toYaml .Values.gateway.parameters | nindent 2 }}
+{{- range $name, $policy := .Values.gateway.policies }}
+{{- if ne $policy.enabled false }}
 ---
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy
 metadata:
-  name: bbr
-  namespace: {{ .Values.namespace }}
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace }}
 spec:
   targetRefs:
+    {{- with $policy.targetRefs }}
+    {{- toYaml . | nindent 4 }}
+    {{- else }}
     - group: gateway.networking.k8s.io
       kind: Gateway
-      name: {{ .Values.gateway.name }}
-  traffic:
-    phase: PreRouting
-    transformation:
-      request:
-        set:
-          - name: X-Gateway-Base-Model-Name
-            value: json(request.body).model
+      name: {{ $.Values.gateway.name }}
+    {{- end }}
+  {{- toYaml (omit $policy "enabled" "targetRefs") | nindent 2 }}
+{{- end }}
+{{- end }}

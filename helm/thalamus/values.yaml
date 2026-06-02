@@ -23,12 +23,33 @@ seed:
     - cloud_registry_admin
     - cloud_volume_admin
 
-# Gateway configuration
 gateway:
   name: inference-gateway
-  service:
-    type: ClusterIP
-    # loadBalancerIP: ""
+  listeners:
+    - port: 80
+      protocol: HTTP
+      name: default
+      allowedRoutes:
+        namespaces:
+          from: All
+
+  parameters:
+    service:
+      spec:
+        type: ClusterIP
+        # type: LoadBalancer
+        # loadBalancerIP: ""
+
+  policies:
+    bbr:
+      # enabled: false
+      traffic:
+        phase: PreRouting
+        transformation:
+          request:
+            set:
+              - name: X-Gateway-Base-Model-Name
+                value: json(request.body).model
 
 # Accelerator profiles
 accelerators:
