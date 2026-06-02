@@ -5,7 +5,15 @@ metadata:
   namespace: {{ .Values.namespace }}
 spec:
   parentRefs:
+    {{- if .Values.defaultRoute.parentRefs }}
+    {{- toYaml .Values.defaultRoute.parentRefs | nindent 4 }}
+    {{- else }}
     - name: {{ .Values.gateway.name }}
+    {{- end }}
+  {{- with .Values.defaultRoute.hostnames }}
+  hostnames:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   rules:
     - matches:
         - path:

@@ -131,3 +131,11 @@ extraDeploy: []
   #     namespace: "{{ .Release.Namespace }}"
   #   data:
   #     example-key: example-value
+
+defaultRoute: {}
+  # parentRefs:
+  #   - name: inference-gateway
+  #     namespace: thalamus
+  #     sectionName: https-api
+  # hostnames:
+  #   - api.example.com
