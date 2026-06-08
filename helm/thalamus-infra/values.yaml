@@ -9,6 +9,7 @@ gpu-operator:
 
 # Observability
 kube-prometheus-stack:
+# WARN: must be disabled on Gardener clusters — the Greenhouse kube-monitoring plugin is used instead
   enabled: true
   kubeStateMetrics:
     enabled: false

@@ -1,0 +1,3 @@
+{{- if and (.Capabilities.APIVersions.Has "dns.gardener.cloud/v1alpha1") (index .Values "kube-prometheus-stack" "enabled") }}
+{{- fail "kube-prometheus-stack must be disabled on Gardener clusters — use the Greenhouse kube-monitoring plugin instead" }}
+{{- end }}

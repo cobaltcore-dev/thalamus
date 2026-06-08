@@ -40,6 +40,10 @@ Thalamus integrates natively with [CobaltCore](https://cobaltcore-dev.github.io/
 - Observability via Prometheus, OpenTelemetry, and GPU exporters. Integrates natively with [Greenhouse](https://github.com/cloudoperators).
 - Ready for air-gapped satellite deployments
 
+## Deployment Notes
+
+`kube-prometheus-stack` in `helm/thalamus-infra` is enabled by default for standalone clusters. On Gardener/Greenhouse-onboarded clusters, set `kube-prometheus-stack.enabled=false` — the Greenhouse `kube-monitoring` plugin is used instead.
+
 ## Support, Feedback, Contributing
 
 This project is open to feature requests/suggestions, bug reports etc. via [GitHub issues](https://github.com/cobaltcore-dev/thalamus/issues). 
