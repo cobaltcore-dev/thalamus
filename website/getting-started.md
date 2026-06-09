@@ -103,7 +103,7 @@ helm install thalamus ./helm/thalamus \
 - Adjust `resources` for your selected model. If it fails without a visible
 error, it might be OOM-killed due to RAM overflowing the specified `limit`.
 - If your resources are limited, you may try setting up
-`- "--max-model-len=8192` under `baseArgs` and explore other options to
+`"--max-model-len=8192"` under `baseArgs` and explore other options to
 optimize the model.
 - Model slugs must be valid DNS-1035 labels: lowercase alphanumeric and hyphens
 only, starting with a letter. Dots and underscores are not allowed (e.g. use
@@ -122,7 +122,7 @@ IP or internal service address to send requests:
 curl http://<gateway-ip>/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "Qwen/Qwen3-27B",
+    "model": "Qwen/Qwen3.6-27B",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
 ```
@@ -154,7 +154,6 @@ configuration with the commented one and choose CPU-based lightweight models.
 > **Note:** The CPU image has no Apple Silicon / Metal acceleration. Inference
 > will be significantly slower than on a GPU or native macOS runtimes like
 > Ollama.
-
 > **Note:** When using the Docker driver (default on macOS), Docker does not
 > fully virtualize memory — vLLM sees the entire host RAM and will attempt to
 > allocate a large fraction of it, exceeding your container limits and causing
