@@ -10,9 +10,15 @@ and [Cortex](https://github.com/cobaltcore-dev/cortex).
 
 ## Prerequisites
 
-- A Kubernetes cluster with GPU nodes (NVIDIA)
-- `kubectl` and `helm` configured for your cluster
-- A [Hugging Face](https://huggingface.co) account with access to the models you want to serve
+### Tools
+
+- [kubectl](https://kubernetes.io/docs/tasks/tools/) — Kubernetes CLI
+- [helm](https://helm.sh/docs/intro/install/) — Kubernetes package manager (v3.x)
+- A Kubernetes cluster with GPU nodes (NVIDIA), or [minikube](https://minikube.sigs.k8s.io/docs/start/) / any other local cluster for development
+
+### Accounts
+
+- A [Hugging Face](https://huggingface.co) account with a [read token](https://huggingface.co/settings/tokens) and access to the models you want to serve
 
 ## Step 1 — Create the Hugging Face secret
 
