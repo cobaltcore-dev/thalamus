@@ -50,12 +50,11 @@ The charts depend on repositories that must be added before building dependencie
 ```bash
 helm repo add nvidia https://helm.ngc.nvidia.com/nvidia
 helm repo add open-webui https://helm.openwebui.com/
-helm repo update
 ```
 
 ## Step 3 — Build chart dependencies
 
-Run from the **repo root** (not from inside the chart directory — that triggers a Helm OCI client bug):
+Run from the repo root:
 
 ```bash
 helm dependency build helm/thalamus-infra
@@ -84,34 +83,25 @@ Models are declared under the `models:` key in your values file.
 > enabling fully declarative, per-resource lifecycle control. Until then, models
 > are managed through the `models:` values key described below.
 
-Create a `my-values.yaml`:
-
-```yaml
-models:
-  - slug: qwen3-27b
-    model: Qwen/Qwen3-27B
-    accelerator: nvidia
-    extraArgs:
-      - "--tensor-parallel-size=2"
-      - "--reasoning-parser=qwen3"
-    resources:
-      requests:
-        nvidia.com/gpu: "2"
-      limits:
-        nvidia.com/gpu: "2"
-```
-
-Model slugs must be valid DNS-1035 labels: lowercase alphanumeric and hyphens
-only, starting with a letter. Dots and underscores are not allowed (e.g. use
-`qwen3-27b`, not `qwen3-27.b`).
+Write your own values file based on `example.values.yaml` or use it directly.
 
 Then install:
 
 ```bash
 helm install thalamus ./helm/thalamus \
   --namespace thalamus \
-  --values my-values.yaml
+  --values example.values.yaml
 ```
+
+**Caveats for values file:**
+- Adjust `resources` for your selected model. If it fails without a visible
+error, it might be OOM-killed due to RAM overflowing the specified `limit`.
+- If your resources are limited, you may try setting up
+`- "--max-model-len=8192` under `baseArgs` and explore other options to
+optimize the model.
+- Model slugs must be valid DNS-1035 labels: lowercase alphanumeric and hyphens
+only, starting with a letter. Dots and underscores are not allowed (e.g. use
+`qwen3-0-6b`, not `qwen3-0.6b`).
 
 ## Step 6 — Access the stack
 
@@ -151,8 +141,9 @@ Then open `http://localhost:8080` in your browser.
 
 ## Local development (CPU, no GPU)
 
-To run Thalamus locally without a GPU (e.g. on a laptop with minikube), use
-the `cpu` accelerator profile with a small model.
+The default model and config provided are for the GPU setup. If you want the
+most lightweight LLM deploy fast out of box on your laptop, replace the
+configuration with the commented one and choose CPU-based lightweight models.
 
 > **Note:** The CPU image has no Apple Silicon / Metal acceleration. Inference
 > will be significantly slower than on a GPU or native macOS runtimes like
@@ -162,29 +153,6 @@ the `cpu` accelerator profile with a small model.
 > fully virtualize memory — vLLM sees the entire host RAM and will attempt to
 > allocate a large fraction of it, exceeding your container limits and causing
 > an OOM kill. Set `--gpu-memory-utilization` explicitly to avoid this.
-
-Example `my-values.yaml` for CPU:
-
-```yaml
-accelerators:
-  cpu:
-    image: vllm/vllm-openai-cpu:v0.21.0-arm64  # use x86_64 tag on non-ARM hosts
-    baseArgs:
-      - "--gpu-memory-utilization=0.5"
-      - "--max-model-len=8192"
-
-models:
-  - slug: smollm2-135m
-    model: HuggingFaceTB/SmolLM2-135M-Instruct
-    accelerator: cpu
-    resources:
-      requests:
-        cpu: "4"
-        memory: 16Gi
-      limits:
-        cpu: "8"
-        memory: 32Gi
-```
 
 Observed peak usage for small CPU models is ~8 cores and ~24–25 GiB RAM,
 driven primarily by KV cache pre-allocation rather than model size.
