@@ -21,13 +21,48 @@ with your Hugging Face token in the `thalamus` namespace:
 
 ```bash
 kubectl create namespace thalamus
-
-kubectl create secret generic huggingface \
-  --namespace thalamus \
-  --from-literal=token=<your-huggingface-token>
 ```
 
-## Step 2 — Install `thalamus-infra`
+Then create the secret. The chart expects a secret named `hf-token` with key `HF_TOKEN`.
+
+**Option A — one-time (token stays out of shell history):**
+
+```bash
+read -s HF_TOKEN
+kubectl create secret generic hf-token \
+  --from-literal=HF_TOKEN="$HF_TOKEN" \
+  --namespace thalamus
+unset HF_TOKEN
+```
+
+**Option B — from environment (if `HF_TOKEN` is already exported in your shell profile):**
+
+```bash
+kubectl create secret generic hf-token \
+  --from-literal=HF_TOKEN="$HF_TOKEN" \
+  --namespace thalamus
+```
+
+## Step 2 — Add Helm repositories
+
+The charts depend on repositories that must be added before building dependencies:
+
+```bash
+helm repo add nvidia https://helm.ngc.nvidia.com/nvidia
+helm repo add open-webui https://helm.openwebui.com/
+helm repo update
+```
+
+## Step 3 — Build chart dependencies
+
+Run from the **repo root** (not from inside the chart directory — that triggers a Helm OCI client bug):
+
+```bash
+helm dependency build helm/thalamus-infra
+helm dependency build helm/thalamus
+```
+
+## Step 4 — Install `thalamus-infra`
 
 `thalamus-infra` bundles the infrastructure dependencies: GPU operator,
 node feature discovery, monitoring, and the Gateway API inference extension.
@@ -37,12 +72,11 @@ helm install thalamus-infra ./helm/thalamus-infra \
   --namespace thalamus
 ```
 
-## Step 3 — Install `thalamus`
+## Step 5 — Install `thalamus`
 
 The `thalamus` chart installs the operator and registers the `Model` CRD.
 Models are declared under the `models:` key in your values file.
 
-Create a `my-values.yaml`:
 > **Thalamus operator — under development**
 >
 > The Thalamus operator will automate model instance management and move model
@@ -50,14 +84,12 @@ Create a `my-values.yaml`:
 > enabling fully declarative, per-resource lifecycle control. Until then, models
 > are managed through the `models:` values key described below.
 
-```yaml
-accelerators:
-  nvidia:
-    image: vllm/vllm-openai:v0.9.1
+Create a `my-values.yaml`:
 
+```yaml
 models:
-  - slug: qwen3-6-27b
-    model: Qwen/Qwen3.6-27B
+  - slug: qwen3-27b
+    model: Qwen/Qwen3-27B
     accelerator: nvidia
     extraArgs:
       - "--tensor-parallel-size=2"
@@ -69,6 +101,10 @@ models:
         nvidia.com/gpu: "2"
 ```
 
+Model slugs must be valid DNS-1035 labels: lowercase alphanumeric and hyphens
+only, starting with a letter. Dots and underscores are not allowed (e.g. use
+`qwen3-27b`, not `qwen3-27.b`).
+
 Then install:
 
 ```bash
@@ -77,7 +113,7 @@ helm install thalamus ./helm/thalamus \
   --values my-values.yaml
 ```
 
-## Step 4 — Access the stack
+## Step 6 — Access the stack
 
 Once the pods are running, the stack is reachable in two ways.
 
@@ -90,9 +126,15 @@ IP or internal service address to send requests:
 curl http://<gateway-ip>/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "qwen3-6-27b",
+    "model": "Qwen/Qwen3-27B",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
+```
+
+For local clusters without a `LoadBalancer`, use port-forward:
+
+```bash
+kubectl port-forward svc/inference-gateway 8080:80 -n thalamus
 ```
 
 ### Open WebUI
@@ -102,10 +144,50 @@ a browser-based chat interface. It is reachable via the hostname configured in
 your `open-webui.route.hostnames` value, or via port-forward for local access:
 
 ```bash
-kubectl port-forward svc/open-webui 8080:80 -n thalamus
+kubectl port-forward svc/thalamus-open-webui 8080:80 -n thalamus
 ```
 
 Then open `http://localhost:8080` in your browser.
+
+## Local development (CPU, no GPU)
+
+To run Thalamus locally without a GPU (e.g. on a laptop with minikube), use
+the `cpu` accelerator profile with a small model.
+
+> **Note:** The CPU image has no Apple Silicon / Metal acceleration. Inference
+> will be significantly slower than on a GPU or native macOS runtimes like
+> Ollama.
+
+> **Note:** When using the Docker driver (default on macOS), Docker does not
+> fully virtualize memory — vLLM sees the entire host RAM and will attempt to
+> allocate a large fraction of it, exceeding your container limits and causing
+> an OOM kill. Set `--gpu-memory-utilization` explicitly to avoid this.
+
+Example `my-values.yaml` for CPU:
+
+```yaml
+accelerators:
+  cpu:
+    image: vllm/vllm-openai-cpu:v0.21.0-arm64  # use x86_64 tag on non-ARM hosts
+    baseArgs:
+      - "--gpu-memory-utilization=0.5"
+      - "--max-model-len=8192"
+
+models:
+  - slug: smollm2-135m
+    model: HuggingFaceTB/SmolLM2-135M-Instruct
+    accelerator: cpu
+    resources:
+      requests:
+        cpu: "4"
+        memory: 16Gi
+      limits:
+        cpu: "8"
+        memory: 32Gi
+```
+
+Observed peak usage for small CPU models is ~8 cores and ~24–25 GiB RAM,
+driven primarily by KV cache pre-allocation rather than model size.
 
 ## Next Steps
 
