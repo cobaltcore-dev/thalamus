@@ -67,6 +67,7 @@ jobs:
         run: npm run docs:build
         env:
           DOCS_VERSION: ${{ steps.set-version.outputs.version }}
+          PAGES_BASE: thalamus
 
       - name: Deploy versioned docs
         uses: JamesIves/github-pages-deploy-action@v4
