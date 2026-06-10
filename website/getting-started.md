@@ -31,23 +31,10 @@ kubectl create namespace thalamus
 
 Then create the secret. The chart expects a secret named `hf-token` with key `HF_TOKEN`.
 
-**Option A — one-time (token stays out of shell history):**
-
-```bash
-read -s HF_TOKEN
-kubectl create secret generic hf-token \
-  --from-literal=HF_TOKEN="$HF_TOKEN" \
-  --namespace thalamus
-unset HF_TOKEN
-```
-
-**Option B — from environment (if `HF_TOKEN` is already exported in your shell profile):**
-
 ```bash
 kubectl create secret generic hf-token \
   --from-literal=HF_TOKEN="$HF_TOKEN" \
   --namespace thalamus
-```
 
 ## Step 2 — Add Helm repositories
 
