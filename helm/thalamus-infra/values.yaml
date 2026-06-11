@@ -9,8 +9,7 @@ gpu-operator:
 
 # Observability
 kube-prometheus-stack:
-# WARN: disabled by default — only enable for standalone (non-Gardener) clusters
-  enabled: false
+  enabled: true
   kubeStateMetrics:
     enabled: false
   nodeExporter:
