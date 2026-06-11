@@ -42,7 +42,7 @@ Thalamus integrates natively with [CobaltCore](https://cobaltcore-dev.github.io/
 
 ## Deployment Notes
 
-`kube-prometheus-stack` in `helm/thalamus-infra` is **disabled by default**. Enable it explicitly (`kube-prometheus-stack.enabled=true`) only for standalone clusters without Gardener/Greenhouse. On Gardener-onboarded clusters, the Greenhouse `kube-monitoring` plugin is used instead.
+`kube-prometheus-stack` in `helm/thalamus-infra` is **enabled by default**. Disable it explicitly (`kube-prometheus-stack.enabled=false`) if you run in Gardener/Greenhouse. On Gardener-onboarded clusters, the Greenhouse `kube-monitoring` plugin is used instead.
 
 ## Support, Feedback, Contributing
 
