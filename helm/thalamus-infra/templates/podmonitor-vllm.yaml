@@ -1,0 +1,22 @@
+{{- if .Values.monitoring.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: vllm
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- with .Values.monitoring.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- with .Values.monitoring.namespaceSelector }}
+  namespaceSelector:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      llm-d.ai/inference-serving: "true"
+  podMetricsEndpoints:
+    - port: vllm
+      path: /metrics
+{{- end }}

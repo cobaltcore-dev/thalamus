@@ -17,6 +17,15 @@ kube-prometheus-stack:
   grafana:
     enabled: false
 
+# Workload monitoring
+monitoring:
+  enabled: true
+  labels:
+    release: thalamus-infra
+  namespaceSelector:
+    matchNames:
+      - thalamus
+
 # Inference gateway
 agentgateway-crds:
   enabled: true
@@ -25,3 +34,9 @@ agentgateway:
   enabled: true
   inferenceExtension:
     enabled: true
+  monitoring:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      extraLabels:
+        release: thalamus-infra
