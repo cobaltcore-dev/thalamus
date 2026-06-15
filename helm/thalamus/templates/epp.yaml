@@ -113,6 +113,7 @@ spec:
             - json
             - --config-file
             - /config/default-plugins.yaml
+            - --metrics-endpoint-auth=false
           env:
             - name: NAMESPACE
               valueFrom:
