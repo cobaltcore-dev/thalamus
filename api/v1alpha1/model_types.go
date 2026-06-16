@@ -4,158 +4,133 @@
 package v1alpha1
 
 import (
-	"k8s.io/apimachinery/pkg/api/resource"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// +kubebuilder:validation:Enum=ceph
+// +kubebuilder:validation:Enum=hf
 type WeightsType string
 
-const WeightsTypeCeph WeightsType = "ceph"
-
-// +kubebuilder:validation:Enum=vllm;tensorrt
-type ServingEngine string
-
-const (
-	ServingEngineVLLM      ServingEngine = "vllm"
-	ServingEngineTensorRT  ServingEngine = "tensorrt"
-)
-
-// +kubebuilder:validation:Enum=cortex;grove
-type ModelScheduler string
-
-const (
-	ModelSchedulerCortex ModelScheduler = "cortex"
-	ModelSchedulerGrove  ModelScheduler = "grove"
-)
+const WeightsTypeHF WeightsType = "hf"
 
 type ModelPhase string
 
 const (
-	ModelPhasePending   ModelPhase = "Pending"
-	ModelPhaseDeploying ModelPhase = "Deploying"
-	ModelPhaseReady     ModelPhase = "Ready"
-	ModelPhaseFailed    ModelPhase = "Failed"
+	ModelPhasePending  ModelPhase = "Pending"
+	ModelPhaseCreating ModelPhase = "Creating"
+	ModelPhaseReady    ModelPhase = "Ready"
+	ModelPhaseFailed   ModelPhase = "Failed"
 )
 
-const ModelConditionReady = "Ready"
+const (
+	// The model is ready to serve traffic.
+	ModelConditionReady = "Ready"
+)
 
-type ImageSpec struct {
-	// +kubebuilder:validation:Required
-	Ref string `json:"ref"`
+// HFWeightsSpec configures model weights sourced from Hugging Face.
+type HFWeightsSpec struct {
+	// RepoID is the Hugging Face repository ID, e.g. "openai/gpt-oss-120b".
+	RepoID string `json:"repoId"`
+
+	// TokenSecret references the key within a Kubernetes secret containing the Hugging Face token.
+	TokenSecret corev1.SecretKeySelector `json:"tokenSecret"`
 }
 
-type CephWeightsSpec struct {
-	// +kubebuilder:validation:Required
-	Pool string `json:"pool"`
-	// +kubebuilder:validation:Required
-	Path string `json:"path"`
-}
-
+// WeightsSpec defines where the model weights are sourced from.
 type WeightsSpec struct {
-	// +kubebuilder:validation:Required
-	Type WeightsType      `json:"type"`
-	Ceph *CephWeightsSpec `json:"ceph,omitempty"`
+	// Type of the weights source.
+	Type WeightsType `json:"type"`
+
+	// HF configures weights sourced from Hugging Face.
+	// +kubebuilder:validation:Optional
+	HF *HFWeightsSpec `json:"hf,omitempty"`
 }
 
-type ServingResourcesSpec struct {
-	GPU    int               `json:"gpu,omitempty"`
-	Memory resource.Quantity `json:"memory,omitempty"`
+// EngineSpec configures the inference engine instance.
+type EngineSpec struct {
+	// Image is the container image for the inference engine.
+	Image string `json:"image"`
+
+	// Args are passed directly to the inference engine as CLI arguments.
+	// +kubebuilder:validation:Optional
+	Args []string `json:"args,omitempty"`
+
+	// Env defines environment variables for the inference engine container.
+	// +kubebuilder:validation:Optional
+	Env []corev1.EnvVar `json:"env,omitempty"`
+
+	// Resources defines the compute resources required by the inference engine.
+	// +kubebuilder:validation:Optional
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
+// EPPSpec configures the Endpoint Picker Proxy (EPP).
+type EPPSpec struct {
+	// Image is the container image for the EPP.
+	Image string `json:"image"`
+}
+
+// ServingSpec defines the serving configuration for the model instance.
 type ServingSpec struct {
-	// +kubebuilder:validation:Required
-	Engine    ServingEngine         `json:"engine"`
-	// Args are passed directly to the inference engine container as CLI arguments.
-	Args      []string              `json:"args,omitempty"`
-	Resources *ServingResourcesSpec `json:"resources,omitempty"`
+	// Engine configures the inference engine container.
+	Engine EngineSpec `json:"engine"`
+
+	// EPP configures the optional Endpoint Picker Proxy.
+	// +kubebuilder:validation:Optional
+	EPP *EPPSpec `json:"epp,omitempty"`
 }
 
-type CortexSchedulingSpec struct {
-	// +kubebuilder:validation:Required
-	NodePool      string            `json:"nodePool"`
-	ResourceClass string            `json:"resourceClass,omitempty"`
-	NodeSelector  map[string]string `json:"nodeSelector,omitempty"`
-}
-
-type GroveSchedulingSpec struct {
-	// +kubebuilder:validation:Required
-	NodePool     string            `json:"nodePool"`
-	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-}
-
-type SchedulingSpec struct {
-	// +kubebuilder:validation:Required
-	// +kubebuilder:default=cortex
-	Scheduler ModelScheduler        `json:"scheduler"`
-	Cortex    *CortexSchedulingSpec `json:"cortex,omitempty"`
-	Grove     *GroveSchedulingSpec  `json:"grove,omitempty"`
-}
-
-type AutoscalingMetricsSpec struct {
-	TTFTp95Ms            int `json:"ttftP95Ms,omitempty"`
-	QueueDepthPerReplica int `json:"queueDepthPerReplica,omitempty"`
-}
-
-type AutoscalingSpec struct {
-	// +kubebuilder:validation:Minimum=0
-	// +kubebuilder:default=1
-	MinReplicas int `json:"minReplicas"`
-	// +kubebuilder:validation:Minimum=1
-	MaxReplicas int                     `json:"maxReplicas"`
-	Metrics     *AutoscalingMetricsSpec `json:"metrics,omitempty"`
-}
-
-type AccessSpec struct {
-	// +kubebuilder:validation:Minimum=0
-	RateLimitRpm   int      `json:"rateLimitRpm,omitempty"`
-	AllowedTenants []string `json:"allowedTenants,omitempty"`
-}
-
+// ModelSpec defines the configuration for the model instance.
 type ModelSpec struct {
-	DisplayName string        `json:"displayName,omitempty"`
-	// +kubebuilder:validation:Required
-	Image       ImageSpec     `json:"image"`
-	// +kubebuilder:validation:Required
-	Weights     WeightsSpec   `json:"weights"`
-	// +kubebuilder:validation:Required
-	Serving     ServingSpec   `json:"serving"`
-	Scheduling  *SchedulingSpec  `json:"scheduling,omitempty"`
-	Autoscaling *AutoscalingSpec `json:"autoscaling,omitempty"`
-	Access      *AccessSpec      `json:"access,omitempty"`
+	// Serving defines how the model is served.
+	Serving ServingSpec `json:"serving"`
+
+	// Weights defines where the model weights are sourced from.
+	Weights WeightsSpec `json:"weights"`
 }
 
+// ModelStatus defines the observed state of a Model.
 type ModelStatus struct {
-	Phase         ModelPhase       `json:"phase,omitempty"`
-	ReadyReplicas int              `json:"readyReplicas,omitempty"`
-	Conditions    []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+	// DisplayName is the human-readable name of the model.
+	// +kubebuilder:validation:Optional
+	DisplayName string `json:"displayName,omitempty"`
+
+	// Phase summarizes the current lifecycle state of the model.
+	// +kubebuilder:validation:Optional
+	Phase ModelPhase `json:"phase,omitempty"`
+
+	// Conditions represent the latest observations of the model's state.
+	// +kubebuilder:validation:Optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,shortName=mdl,categories=thalamus
-// +kubebuilder:printcolumn:name="Display Name",type="string",JSONPath=".spec.displayName"
-// +kubebuilder:printcolumn:name="Engine",type="string",JSONPath=".spec.serving.engine"
-// +kubebuilder:printcolumn:name="GPU",type="integer",JSONPath=".spec.serving.resources.gpu"
-// +kubebuilder:printcolumn:name="Replicas",type="string",JSONPath=".spec.autoscaling.minReplicas",priority=0
-// +kubebuilder:printcolumn:name="Max",type="integer",JSONPath=".spec.autoscaling.maxReplicas"
-// +kubebuilder:printcolumn:name="Scheduler",type="string",JSONPath=".spec.scheduling.scheduler"
+// +kubebuilder:printcolumn:name="Display Name",type="string",JSONPath=".status.displayName"
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // Model is the Schema for the models API.
 type Model struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta `json:",inline"`
 
-	// +required
-	Spec   ModelSpec   `json:"spec"`
+	// metadata is a standard object metadata.
 	// +optional
-	Status ModelStatus `json:"status,omitempty"`
+	metav1.ObjectMeta `json:"metadata,omitempty,omitzero"`
+
+	// spec defines the desired state of the Model.
+	// +required
+	Spec ModelSpec `json:"spec"`
+
+	// status defines the observed state of the Model.
+	// +optional
+	Status ModelStatus `json:"status,omitempty,omitzero"`
 }
 
 // +kubebuilder:object:root=true
 
+// ModelList contains a list of Model.
 type ModelList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

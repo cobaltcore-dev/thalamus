@@ -21,63 +21,46 @@ Package v1alpha1 contains API Schema definitions for the thalamus.cloud v1alpha1
 
 
 
-#### AccessSpec
+#### EPPSpec
 
 
 
-
-
-
-
-_Appears in:_
-- [ModelSpec](#modelspec)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `rateLimitRpm` _integer_ |  |  | Minimum: 0 <br /> |
-| `allowedTenants` _string array_ |  |  |  |
-
-
-#### AutoscalingMetricsSpec
-
-
-
-
+EPPSpec configures the Endpoint Picker Proxy (EPP).
 
 
 
 _Appears in:_
-- [AutoscalingSpec](#autoscalingspec)
+- [ServingSpec](#servingspec)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `ttftP95Ms` _integer_ |  |  |  |
-| `queueDepthPerReplica` _integer_ |  |  |  |
+| `image` _string_ | Image is the container image for the EPP. |  |  |
 
 
-#### AutoscalingSpec
-
+#### EngineSpec
 
 
 
+EngineSpec configures the inference engine instance.
 
 
 
 _Appears in:_
-- [ModelSpec](#modelspec)
+- [ServingSpec](#servingspec)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `minReplicas` _integer_ |  | 1 | Minimum: 0 <br /> |
-| `maxReplicas` _integer_ |  |  | Minimum: 1 <br /> |
-| `metrics` _[AutoscalingMetricsSpec](#autoscalingmetricsspec)_ |  |  |  |
+| `image` _string_ | Image is the container image for the inference engine. |  |  |
+| `args` _string array_ | Args are passed directly to the inference engine as CLI arguments. |  | Optional: \{\} <br /> |
+| `env` _[EnvVar](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#envvar-v1-core) array_ | Env defines environment variables for the inference engine container. |  | Optional: \{\} <br /> |
+| `resources` _[ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#resourcerequirements-v1-core)_ | Resources defines the compute resources required by the inference engine. |  | Optional: \{\} <br /> |
 
 
-#### CephWeightsSpec
+#### HFWeightsSpec
 
 
 
-
+HFWeightsSpec configures model weights sourced from Hugging Face.
 
 
 
@@ -86,59 +69,8 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `pool` _string_ |  |  | Required: \{\} <br /> |
-| `path` _string_ |  |  | Required: \{\} <br /> |
-
-
-#### CortexSchedulingSpec
-
-
-
-
-
-
-
-_Appears in:_
-- [SchedulingSpec](#schedulingspec)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `nodePool` _string_ |  |  | Required: \{\} <br /> |
-| `resourceClass` _string_ |  |  |  |
-| `nodeSelector` _object (keys:string, values:string)_ |  |  |  |
-
-
-#### GroveSchedulingSpec
-
-
-
-
-
-
-
-_Appears in:_
-- [SchedulingSpec](#schedulingspec)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `nodePool` _string_ |  |  | Required: \{\} <br /> |
-| `nodeSelector` _object (keys:string, values:string)_ |  |  |  |
-
-
-#### ImageSpec
-
-
-
-
-
-
-
-_Appears in:_
-- [ModelSpec](#modelspec)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `ref` _string_ |  |  | Required: \{\} <br /> |
+| `repoId` _string_ | RepoID is the Hugging Face repository ID, e.g. "openai/gpt-oss-120b". |  |  |
+| `tokenSecret` _[SecretKeySelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#secretkeyselector-v1-core)_ | TokenSecret references the key within a Kubernetes secret containing the Hugging Face token. |  |  |
 
 
 #### Model
@@ -158,16 +90,16 @@ _Appears in:_
 | `kind` _string_ | `Model` | | |
 | `kind` _string_ | Kind is a string value representing the REST resource this object represents.<br />Servers may infer this from the endpoint the client submits requests to.<br />Cannot be updated.<br />In CamelCase.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds |  | Optional: \{\} <br /> |
 | `apiVersion` _string_ | APIVersion defines the versioned schema of this representation of an object.<br />Servers should convert recognized schemas to the latest internal value, and<br />may reject unrecognized values.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources |  | Optional: \{\} <br /> |
-| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
-| `spec` _[ModelSpec](#modelspec)_ |  |  | Required: \{\} <br /> |
-| `status` _[ModelStatus](#modelstatus)_ |  |  | Optional: \{\} <br /> |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  | Optional: \{\} <br /> |
+| `spec` _[ModelSpec](#modelspec)_ | spec defines the desired state of the Model. |  | Required: \{\} <br /> |
+| `status` _[ModelStatus](#modelstatus)_ | status defines the observed state of the Model. |  | Optional: \{\} <br /> |
 
 
 #### ModelList
 
 
 
-
+ModelList contains a list of Model.
 
 
 
@@ -197,34 +129,16 @@ _Appears in:_
 | Field | Description |
 | --- | --- |
 | `Pending` |  |
-| `Deploying` |  |
+| `Creating` |  |
 | `Ready` |  |
 | `Failed` |  |
-
-
-#### ModelScheduler
-
-_Underlying type:_ _string_
-
-
-
-_Validation:_
-- Enum: [cortex grove]
-
-_Appears in:_
-- [SchedulingSpec](#schedulingspec)
-
-| Field | Description |
-| --- | --- |
-| `cortex` |  |
-| `grove` |  |
 
 
 #### ModelSpec
 
 
 
-
+ModelSpec defines the configuration for the model instance.
 
 
 
@@ -233,20 +147,15 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `displayName` _string_ |  |  |  |
-| `image` _[ImageSpec](#imagespec)_ |  |  | Required: \{\} <br /> |
-| `weights` _[WeightsSpec](#weightsspec)_ |  |  | Required: \{\} <br /> |
-| `serving` _[ServingSpec](#servingspec)_ |  |  | Required: \{\} <br /> |
-| `scheduling` _[SchedulingSpec](#schedulingspec)_ |  |  |  |
-| `autoscaling` _[AutoscalingSpec](#autoscalingspec)_ |  |  |  |
-| `access` _[AccessSpec](#accessspec)_ |  |  |  |
+| `serving` _[ServingSpec](#servingspec)_ | Serving defines how the model is served. |  |  |
+| `weights` _[WeightsSpec](#weightsspec)_ | Weights defines where the model weights are sourced from. |  |  |
 
 
 #### ModelStatus
 
 
 
-
+ModelStatus defines the observed state of a Model.
 
 
 
@@ -255,69 +164,16 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `phase` _[ModelPhase](#modelphase)_ |  |  |  |
-| `readyReplicas` _integer_ |  |  |  |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#condition-v1-meta) array_ |  |  |  |
-
-
-#### SchedulingSpec
-
-
-
-
-
-
-
-_Appears in:_
-- [ModelSpec](#modelspec)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `scheduler` _[ModelScheduler](#modelscheduler)_ |  | cortex | Enum: [cortex grove] <br />Required: \{\} <br /> |
-| `cortex` _[CortexSchedulingSpec](#cortexschedulingspec)_ |  |  |  |
-| `grove` _[GroveSchedulingSpec](#groveschedulingspec)_ |  |  |  |
-
-
-#### ServingEngine
-
-_Underlying type:_ _string_
-
-
-
-_Validation:_
-- Enum: [vllm tensorrt]
-
-_Appears in:_
-- [ServingSpec](#servingspec)
-
-| Field | Description |
-| --- | --- |
-| `vllm` |  |
-| `tensorrt` |  |
-
-
-#### ServingResourcesSpec
-
-
-
-
-
-
-
-_Appears in:_
-- [ServingSpec](#servingspec)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `gpu` _integer_ |  |  |  |
-| `memory` _[Quantity](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#quantity-resource-api)_ |  |  |  |
+| `displayName` _string_ | DisplayName is the human-readable name of the model. |  | Optional: \{\} <br /> |
+| `phase` _[ModelPhase](#modelphase)_ | Phase summarizes the current lifecycle state of the model. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#condition-v1-meta) array_ | Conditions represent the latest observations of the model's state. |  | Optional: \{\} <br /> |
 
 
 #### ServingSpec
 
 
 
-
+ServingSpec defines the serving configuration for the model instance.
 
 
 
@@ -326,16 +182,15 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `engine` _[ServingEngine](#servingengine)_ |  |  | Enum: [vllm tensorrt] <br />Required: \{\} <br /> |
-| `args` _string array_ | Args are passed directly to the inference engine container as CLI arguments. |  |  |
-| `resources` _[ServingResourcesSpec](#servingresourcesspec)_ |  |  |  |
+| `engine` _[EngineSpec](#enginespec)_ | Engine configures the inference engine container. |  |  |
+| `epp` _[EPPSpec](#eppspec)_ | EPP configures the optional Endpoint Picker Proxy. |  | Optional: \{\} <br /> |
 
 
 #### WeightsSpec
 
 
 
-
+WeightsSpec defines where the model weights are sourced from.
 
 
 
@@ -344,8 +199,8 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `type` _[WeightsType](#weightstype)_ |  |  | Enum: [ceph] <br />Required: \{\} <br /> |
-| `ceph` _[CephWeightsSpec](#cephweightsspec)_ |  |  |  |
+| `type` _[WeightsType](#weightstype)_ | Type of the weights source. |  | Enum: [hf] <br /> |
+| `hf` _[HFWeightsSpec](#hfweightsspec)_ | HF configures weights sourced from Hugging Face. |  | Optional: \{\} <br /> |
 
 
 #### WeightsType
@@ -355,13 +210,13 @@ _Underlying type:_ _string_
 
 
 _Validation:_
-- Enum: [ceph]
+- Enum: [hf]
 
 _Appears in:_
 - [WeightsSpec](#weightsspec)
 
 | Field | Description |
 | --- | --- |
-| `ceph` |  |
+| `hf` |  |
 
 
