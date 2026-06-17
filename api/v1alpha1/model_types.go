@@ -27,6 +27,22 @@ const (
 	ModelConditionReady = "Ready"
 )
 
+// +kubebuilder:validation:Enum=vllm;unknown
+type EngineType string
+
+const (
+	EngineTypeVLLM    EngineType = "vllm"
+	EngineTypeUnknown EngineType = "unknown"
+)
+
+// +kubebuilder:validation:Enum=llm-d;unknown
+type EPPType string
+
+const (
+	EPPTypeLLMD    EPPType = "llm-d"
+	EPPTypeUnknown EPPType = "unknown"
+)
+
 // HFWeightsSpec configures model weights sourced from Hugging Face.
 type HFWeightsSpec struct {
 	// RepoID is the Hugging Face repository ID, e.g. "openai/gpt-oss-120b".
@@ -95,6 +111,14 @@ type ModelStatus struct {
 	// +kubebuilder:validation:Optional
 	DisplayName string `json:"displayName,omitempty"`
 
+	// EngineType is the detected inference engine type, derived from the engine image.
+	// +kubebuilder:validation:Optional
+	EngineType EngineType `json:"engineType,omitempty"`
+
+	// EPPType is the detected EPP type, derived from the EPP image.
+	// +kubebuilder:validation:Optional
+	EPPType EPPType `json:"eppType,omitempty"`
+
 	// Phase summarizes the current lifecycle state of the model.
 	// +kubebuilder:validation:Optional
 	Phase ModelPhase `json:"phase,omitempty"`
@@ -108,6 +132,9 @@ type ModelStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,shortName=mdl,categories=thalamus
 // +kubebuilder:printcolumn:name="Display Name",type="string",JSONPath=".status.displayName"
+// +kubebuilder:printcolumn:name="Engine",type="string",JSONPath=".status.engineType"
+// +kubebuilder:printcolumn:name="EPP",type="string",JSONPath=".status.eppType"
+// +kubebuilder:printcolumn:name="Weights",type="string",JSONPath=".spec.weights.type"
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 

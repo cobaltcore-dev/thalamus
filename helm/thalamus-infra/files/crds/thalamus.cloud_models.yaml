@@ -22,6 +22,15 @@ spec:
     - jsonPath: .status.displayName
       name: Display Name
       type: string
+    - jsonPath: .status.engineType
+      name: Engine
+      type: string
+    - jsonPath: .status.eppType
+      name: EPP
+      type: string
+    - jsonPath: .spec.weights.type
+      name: Weights
+      type: string
     - jsonPath: .status.phase
       name: Phase
       type: string
@@ -417,6 +426,20 @@ spec:
                 type: array
               displayName:
                 description: DisplayName is the human-readable name of the model.
+                type: string
+              engineType:
+                description: EngineType is the detected inference engine type, derived
+                  from the engine image.
+                enum:
+                - vllm
+                - unknown
+                type: string
+              eppType:
+                description: EPPType is the detected EPP type, derived from the EPP
+                  image.
+                enum:
+                - llm-d
+                - unknown
                 type: string
               phase:
                 description: Phase summarizes the current lifecycle state of the model.

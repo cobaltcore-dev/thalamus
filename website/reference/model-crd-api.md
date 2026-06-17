@@ -37,6 +37,24 @@ _Appears in:_
 | `image` _string_ | Image is the container image for the EPP. |  |  |
 
 
+#### EPPType
+
+_Underlying type:_ _string_
+
+
+
+_Validation:_
+- Enum: [llm-d unknown]
+
+_Appears in:_
+- [ModelStatus](#modelstatus)
+
+| Field | Description |
+| --- | --- |
+| `llm-d` |  |
+| `unknown` |  |
+
+
 #### EngineSpec
 
 
@@ -54,6 +72,24 @@ _Appears in:_
 | `args` _string array_ | Args are passed directly to the inference engine as CLI arguments. |  | Optional: \{\} <br /> |
 | `env` _[EnvVar](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#envvar-v1-core) array_ | Env defines environment variables for the inference engine container. |  | Optional: \{\} <br /> |
 | `resources` _[ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#resourcerequirements-v1-core)_ | Resources defines the compute resources required by the inference engine. |  | Optional: \{\} <br /> |
+
+
+#### EngineType
+
+_Underlying type:_ _string_
+
+
+
+_Validation:_
+- Enum: [vllm unknown]
+
+_Appears in:_
+- [ModelStatus](#modelstatus)
+
+| Field | Description |
+| --- | --- |
+| `vllm` |  |
+| `unknown` |  |
 
 
 #### HFWeightsSpec
@@ -165,6 +201,8 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `displayName` _string_ | DisplayName is the human-readable name of the model. |  | Optional: \{\} <br /> |
+| `engineType` _[EngineType](#enginetype)_ | EngineType is the detected inference engine type, derived from the engine image. |  | Enum: [vllm unknown] <br />Optional: \{\} <br /> |
+| `eppType` _[EPPType](#epptype)_ | EPPType is the detected EPP type, derived from the EPP image. |  | Enum: [llm-d unknown] <br />Optional: \{\} <br /> |
 | `phase` _[ModelPhase](#modelphase)_ | Phase summarizes the current lifecycle state of the model. |  | Optional: \{\} <br /> |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#condition-v1-meta) array_ | Conditions represent the latest observations of the model's state. |  | Optional: \{\} <br /> |
 
