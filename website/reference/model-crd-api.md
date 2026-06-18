@@ -181,6 +181,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `serving` _[ServingSpec](#servingspec)_ | Serving defines how the model is served. |  |  |
 | `weights` _[WeightsSpec](#weightsspec)_ | Weights defines where the model weights are sourced from. |  |  |
+| `scheduling` _[SchedulingSpec](#schedulingspec)_ | Scheduling defines scheduling constraints for the model's pods. |  | Optional: \{\} <br /> |
 
 
 #### ModelStatus
@@ -201,6 +202,22 @@ _Appears in:_
 | `eppType` _[EPPType](#epptype)_ | EPPType is the detected EPP type, derived from the EPP image. |  | Enum: [llm-d unknown] <br />Optional: \{\} <br /> |
 | `phase` _[ModelPhase](#modelphase)_ | Phase summarizes the current lifecycle state of the model. |  | Optional: \{\} <br /> |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | Conditions represent the latest observations of the model's state. |  | Optional: \{\} <br /> |
+
+
+#### SchedulingSpec
+
+
+
+SchedulingSpec defines scheduling constraints for the model's pods.
+
+
+
+_Appears in:_
+- [ModelSpec](#modelspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `nodeSelector` _object (keys:string, values:string)_ | NodeSelector constrains the nodes onto which the model's pods may be scheduled. |  | Optional: \{\} <br /> |
 
 
 #### ServingSpec

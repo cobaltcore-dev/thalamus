@@ -62,6 +62,17 @@ spec:
           spec:
             description: spec defines the desired state of the Model.
             properties:
+              scheduling:
+                description: Scheduling defines scheduling constraints for the model's
+                  pods.
+                properties:
+                  nodeSelector:
+                    additionalProperties:
+                      type: string
+                    description: NodeSelector constrains the nodes onto which the
+                      model's pods may be scheduled.
+                    type: object
+                type: object
               serving:
                 description: Serving defines how the model is served.
                 properties:

@@ -96,6 +96,13 @@ type ServingSpec struct {
 	EPP *EPPSpec `json:"epp,omitempty"`
 }
 
+// SchedulingSpec defines scheduling constraints for the model's pods.
+type SchedulingSpec struct {
+	// NodeSelector constrains the nodes onto which the model's pods may be scheduled.
+	// +kubebuilder:validation:Optional
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+}
+
 // ModelSpec defines the configuration for the model instance.
 type ModelSpec struct {
 	// Serving defines how the model is served.
@@ -103,6 +110,10 @@ type ModelSpec struct {
 
 	// Weights defines where the model weights are sourced from.
 	Weights WeightsSpec `json:"weights"`
+
+	// Scheduling defines scheduling constraints for the model's pods.
+	// +kubebuilder:validation:Optional
+	Scheduling *SchedulingSpec `json:"scheduling,omitempty"`
 }
 
 // ModelStatus defines the observed state of a Model.
