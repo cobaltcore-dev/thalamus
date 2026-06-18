@@ -19,9 +19,6 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .status.displayName
-      name: Display Name
-      type: string
     - jsonPath: .status.engineType
       name: Engine
       type: string
@@ -435,9 +432,6 @@ spec:
                   - type
                   type: object
                 type: array
-              displayName:
-                description: DisplayName is the human-readable name of the model.
-                type: string
               engineType:
                 description: EngineType is the detected inference engine type, derived
                   from the engine image.

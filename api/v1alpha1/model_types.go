@@ -118,10 +118,6 @@ type ModelSpec struct {
 
 // ModelStatus defines the observed state of a Model.
 type ModelStatus struct {
-	// DisplayName is the human-readable name of the model.
-	// +kubebuilder:validation:Optional
-	DisplayName string `json:"displayName,omitempty"`
-
 	// EngineType is the detected inference engine type, derived from the engine image.
 	// +kubebuilder:validation:Optional
 	EngineType EngineType `json:"engineType,omitempty"`
@@ -142,7 +138,6 @@ type ModelStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,shortName=mdl,categories=thalamus
-// +kubebuilder:printcolumn:name="Display Name",type="string",JSONPath=".status.displayName"
 // +kubebuilder:printcolumn:name="Engine",type="string",JSONPath=".status.engineType"
 // +kubebuilder:printcolumn:name="EPP",type="string",JSONPath=".status.eppType"
 // +kubebuilder:printcolumn:name="Weights",type="string",JSONPath=".spec.weights.type"

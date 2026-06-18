@@ -197,7 +197,6 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `displayName` _string_ | DisplayName is the human-readable name of the model. |  | Optional: \{\} <br /> |
 | `engineType` _[EngineType](#enginetype)_ | EngineType is the detected inference engine type, derived from the engine image. |  | Enum: [vllm unknown] <br />Optional: \{\} <br /> |
 | `eppType` _[EPPType](#epptype)_ | EPPType is the detected EPP type, derived from the EPP image. |  | Enum: [llm-d unknown] <br />Optional: \{\} <br /> |
 | `phase` _[ModelPhase](#modelphase)_ | Phase summarizes the current lifecycle state of the model. |  | Optional: \{\} <br /> |
