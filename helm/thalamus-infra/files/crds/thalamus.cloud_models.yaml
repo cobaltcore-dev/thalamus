@@ -367,6 +367,9 @@ spec:
                 required:
                 - type
                 type: object
+                x-kubernetes-validations:
+                - message: spec.weights.hf is required when type is hf
+                  rule: self.type != 'hf' || has(self.hf)
             required:
             - serving
             - weights

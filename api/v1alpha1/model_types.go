@@ -53,6 +53,7 @@ type HFWeightsSpec struct {
 }
 
 // WeightsSpec defines where the model weights are sourced from.
+// +kubebuilder:validation:XValidation:rule="self.type != 'hf' || has(self.hf)",message="spec.weights.hf is required when type is hf"
 type WeightsSpec struct {
 	// Type of the weights source.
 	Type WeightsType `json:"type"`
