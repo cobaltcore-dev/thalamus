@@ -1,2 +1,9 @@
+processor:
+  ignoreFields:
+    - "TypeMeta$"
+
+render:
+  kubernetesVersion: 1.35
+
 excludeTypes:
   - ModelList

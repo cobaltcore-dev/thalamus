@@ -70,8 +70,8 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `image` _string_ | Image is the container image for the inference engine. |  |  |
 | `args` _string array_ | Args are passed directly to the inference engine as CLI arguments. |  | Optional: \{\} <br /> |
-| `env` _[EnvVar](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#envvar-v1-core) array_ | Env defines environment variables for the inference engine container. |  | Optional: \{\} <br /> |
-| `resources` _[ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#resourcerequirements-v1-core)_ | Resources defines the compute resources required by the inference engine. |  | Optional: \{\} <br /> |
+| `env` _[EnvVar](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#envvar-v1-core) array_ | Env defines environment variables for the inference engine container. |  | Optional: \{\} <br /> |
+| `resources` _[ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#resourcerequirements-v1-core)_ | Resources defines the compute resources required by the inference engine. |  | Optional: \{\} <br /> |
 
 
 #### EngineType
@@ -106,7 +106,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `repoId` _string_ | RepoID is the Hugging Face repository ID, e.g. "openai/gpt-oss-120b". |  |  |
-| `tokenSecret` _[SecretKeySelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#secretkeyselector-v1-core)_ | TokenSecret references the key within a Kubernetes secret containing the Hugging Face token. |  |  |
+| `tokenSecret` _[SecretKeySelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#secretkeyselector-v1-core)_ | TokenSecret references the key within a Kubernetes secret containing the Hugging Face token. |  |  |
 
 
 #### Model
@@ -124,9 +124,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `apiVersion` _string_ | `thalamus.cloud/v1alpha1` | | |
 | `kind` _string_ | `Model` | | |
-| `kind` _string_ | Kind is a string value representing the REST resource this object represents.<br />Servers may infer this from the endpoint the client submits requests to.<br />Cannot be updated.<br />In CamelCase.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds |  | Optional: \{\} <br /> |
-| `apiVersion` _string_ | APIVersion defines the versioned schema of this representation of an object.<br />Servers should convert recognized schemas to the latest internal value, and<br />may reject unrecognized values.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources |  | Optional: \{\} <br /> |
-| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  | Optional: \{\} <br /> |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  | Optional: \{\} <br /> |
 | `spec` _[ModelSpec](#modelspec)_ | spec defines the desired state of the Model. |  | Required: \{\} <br /> |
 | `status` _[ModelStatus](#modelstatus)_ | status defines the observed state of the Model. |  | Optional: \{\} <br /> |
 
@@ -145,9 +143,7 @@ ModelList contains a list of Model.
 | --- | --- | --- | --- |
 | `apiVersion` _string_ | `thalamus.cloud/v1alpha1` | | |
 | `kind` _string_ | `ModelList` | | |
-| `kind` _string_ | Kind is a string value representing the REST resource this object represents.<br />Servers may infer this from the endpoint the client submits requests to.<br />Cannot be updated.<br />In CamelCase.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds |  | Optional: \{\} <br /> |
-| `apiVersion` _string_ | APIVersion defines the versioned schema of this representation of an object.<br />Servers should convert recognized schemas to the latest internal value, and<br />may reject unrecognized values.<br />More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources |  | Optional: \{\} <br /> |
-| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
 | `items` _[Model](#model) array_ |  |  |  |
 
 
@@ -204,7 +200,7 @@ _Appears in:_
 | `engineType` _[EngineType](#enginetype)_ | EngineType is the detected inference engine type, derived from the engine image. |  | Enum: [vllm unknown] <br />Optional: \{\} <br /> |
 | `eppType` _[EPPType](#epptype)_ | EPPType is the detected EPP type, derived from the EPP image. |  | Enum: [llm-d unknown] <br />Optional: \{\} <br /> |
 | `phase` _[ModelPhase](#modelphase)_ | Phase summarizes the current lifecycle state of the model. |  | Optional: \{\} <br /> |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v/#condition-v1-meta) array_ | Conditions represent the latest observations of the model's state. |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | Conditions represent the latest observations of the model's state. |  | Optional: \{\} <br /> |
 
 
 #### ServingSpec
