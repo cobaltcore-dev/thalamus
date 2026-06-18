@@ -1,6 +1,3 @@
-seed:
-  password: topSecret!
-
 models:
   - slug: test-model
     model: org/test-model

@@ -4,25 +4,6 @@ owner_info:
   support_group: workload-management
   service: thalamus
 
-# The seed is a convenience feature to provision certain resources in the cloud provider.
-# It will only be configured if the openstack.stable.sap.cc/v1 CRD and openstack seeder is available in the target cluster.
-seed:
-  # Service user
-  user: thalamus
-  # Password set via secrets. Leave empty here to fail prior to deployment if unset.
-  password:
-
-  # Roles to be assigned to the user
-  roles:
-    - member
-    - reader
-    - cloud_compute_admin
-    - cloud_dns_webmaster
-    - cloud_network_admin
-    - cloud_objectstore_admin
-    - cloud_registry_admin
-    - cloud_volume_admin
-
 gateway:
   name: inference-gateway
   listeners:
