@@ -48,8 +48,8 @@ Create one secret per user or client:
 ```bash
 kubectl create secret generic apikey-<name> \
   --namespace thalamus \
-  --from-literal=api-key=$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=') \
-  -l thalamus-apikey=true
+  --from-literal=api-key=$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')
+kubectl label secret apikey-<name> --namespace thalamus thalamus-apikey=true
 ```
 
 Open WebUI connects to the inference API internally and also requires a token. Set the following in your cluster values to point Open WebUI at the secret:
