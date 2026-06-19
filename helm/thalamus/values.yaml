@@ -21,7 +21,7 @@ gateway:
         # type: LoadBalancer
         # loadBalancerIP: ""
 
-  # Set to true to enable API key authentication on the vLLM routes.
+  # Set to true to enable API key authentication.
   # Secrets must be labelled `thalamus-apikey: "true"`.
   apiKeyAuth: false
 
