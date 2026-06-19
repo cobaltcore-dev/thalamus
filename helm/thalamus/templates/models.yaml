@@ -151,4 +151,24 @@ spec:
         - headers:
             - name: X-Gateway-Base-Model-Name
               value: {{ $m.model }}
+{{- if $.Values.gateway.apiKeyAuth }}
+---
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: apikey-auth-vllm-{{ $m.slug }}
+  namespace: {{ $.Values.namespace }}
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: vllm-{{ $m.slug }}
+  traffic:
+    phase: PreRouting
+    apiKeyAuthentication:
+      mode: Strict
+      secretSelector:
+        matchLabels:
+          thalamus-apikey: "true"
+{{- end }}
 {{- end }}

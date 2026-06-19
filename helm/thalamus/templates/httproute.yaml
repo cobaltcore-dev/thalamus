@@ -19,6 +19,26 @@ spec:
         - path:
             type: Exact
             value: /v1/models
+{{- if .Values.gateway.apiKeyAuth }}
+---
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: apikey-auth-aggregated-models
+  namespace: {{ .Values.namespace }}
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: aggregated-models
+  traffic:
+    phase: PreRouting
+    apiKeyAuthentication:
+      mode: Strict
+      secretSelector:
+        matchLabels:
+          thalamus-apikey: "true"
+{{- end }}
 ---
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy

@@ -37,7 +37,31 @@ kubectl create secret generic hf-token \
   --namespace thalamus
 ```
 
-## Step 2 — Add Helm repositories
+## Step 2 — Create API key secrets (optional)
+
+When `gateway.apiKeyAuth` is enabled, every request to the inference API must
+carry a valid `Authorization: Bearer <token>` header. Tokens are stored as
+Kubernetes Secrets labelled `thalamus-apikey: "true"`.
+
+Create one secret per user or client:
+
+```bash
+kubectl create secret generic apikey-<name> \
+  --namespace thalamus \
+  --from-literal=api-key=$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=') \
+  -l thalamus-apikey=true
+```
+
+Open WebUI connects to the inference API internally and also requires a token. Set the following in your cluster values to point Open WebUI at the secret:
+
+```yaml
+open-webui:
+  openaiApiKeyExistingSecret: apikey-openwebui
+  openaiApiKeyExistingSecretKey: api-key
+```
+
+## Step 3 — Add Helm repositories
+
 
 The charts depend on repositories that must be added before building dependencies:
 
@@ -46,7 +70,7 @@ helm repo add nvidia https://helm.ngc.nvidia.com/nvidia
 helm repo add open-webui https://helm.openwebui.com/
 ```
 
-## Step 3 — Build chart dependencies
+## Step 4 — Build chart dependencies
 
 Run from the repo root:
 
@@ -55,7 +79,7 @@ helm dependency build helm/thalamus-infra
 helm dependency build helm/thalamus
 ```
 
-## Step 4 — Install `thalamus-infra`
+## Step 5 — Install `thalamus-infra`
 
 `thalamus-infra` bundles the infrastructure dependencies: GPU operator,
 node feature discovery, monitoring, and the Gateway API inference extension.
@@ -65,7 +89,7 @@ helm install thalamus-infra ./helm/thalamus-infra \
   --namespace thalamus
 ```
 
-## Step 5 — Install `thalamus`
+## Step 6 — Install `thalamus`
 
 The `thalamus` chart installs the operator and registers the `Model` CRD.
 Models are declared under the `models:` key in your values file.
@@ -97,7 +121,7 @@ optimize the model.
 only, starting with a letter. Dots and underscores are not allowed (e.g. use
 `qwen3-0-6b`, not `qwen3-0.6b`).
 
-## Step 6 — Access the stack
+## Step 7 — Access the stack
 
 Once the pods are running, the stack is reachable in two ways.
 
