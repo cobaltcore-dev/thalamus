@@ -32,7 +32,6 @@ spec:
       kind: HTTPRoute
       name: aggregated-models
   traffic:
-    phase: PreRouting
     apiKeyAuthentication:
       mode: Strict
       secretSelector:
