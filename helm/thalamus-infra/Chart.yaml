@@ -30,6 +30,6 @@ dependencies:
 
   - name: agentgateway
     repository: oci://cr.agentgateway.dev/charts
-    version: "v1.3.0"
+    version: "v2.2.1"
     condition: agentgateway.enabled
 
