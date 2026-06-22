@@ -19,7 +19,7 @@ dependencies:
   # Observability
   - name: kube-prometheus-stack
     repository: oci://ghcr.io/prometheus-community/charts
-    version: "85.4.0"
+    version: "87.0.0"
     condition: kube-prometheus-stack.enabled
 
   # Inference gateway

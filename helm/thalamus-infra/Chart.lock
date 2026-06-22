@@ -7,12 +7,12 @@ dependencies:
   version: v26.3.2
 - name: kube-prometheus-stack
   repository: oci://ghcr.io/prometheus-community/charts
-  version: 85.4.0
+  version: 87.0.0
 - name: agentgateway-crds
   repository: oci://cr.agentgateway.dev/charts
   version: v1.3.0
 - name: agentgateway
   repository: oci://cr.agentgateway.dev/charts
   version: v1.3.0
-digest: sha256:fc12f3c1fc3b9c0f546bad96980a9585b2803a4e6e99d7620a68db403dd21c30
-generated: "2026-06-22T11:28:20.83473987Z"
+digest: sha256:62dd50f66231b5a9fdd2688a5f54cd60f032c20f7da1bec50b901e0158c16319
+generated: "2026-06-22T11:37:58.462245972Z"
