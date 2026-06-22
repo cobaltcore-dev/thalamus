@@ -35,6 +35,8 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `image` _string_ | Image is the container image for the EPP. |  |  |
+| `args` _string array_ | Args are passed directly to the EPP as CLI arguments. |  | Optional: \{\} <br /> |
+| `env` _[EnvVar](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#envvar-v1-core) array_ | Env defines environment variables for the EPP container. |  | Optional: \{\} <br /> |
 
 
 #### EPPType

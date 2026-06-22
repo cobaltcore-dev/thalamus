@@ -85,6 +85,14 @@ type EngineSpec struct {
 type EPPSpec struct {
 	// Image is the container image for the EPP.
 	Image string `json:"image"`
+
+	// Args are passed directly to the EPP as CLI arguments.
+	// +kubebuilder:validation:Optional
+	Args []string `json:"args,omitempty"`
+
+	// Env defines environment variables for the EPP container.
+	// +kubebuilder:validation:Optional
+	Env []corev1.EnvVar `json:"env,omitempty"`
 }
 
 // ServingSpec defines the serving configuration for the model instance.
