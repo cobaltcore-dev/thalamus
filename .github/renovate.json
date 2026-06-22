@@ -42,6 +42,10 @@
       "allowedVersions": "1.26.x"
     },
     {
+      "matchPackageNames": ["agentgateway", "agentgateway-crds"],
+      "allowedVersions": "/^v1\\./"
+    },
+    {
       "matchPackageNames": ["/.*/"],
       "automerge": true
     }
