@@ -43,9 +43,7 @@
     },
     {
       "matchPackageNames": ["/.*/"],
-      "matchUpdateTypes": ["minor", "patch"],
-      "automerge": true,
-      "groupName": "External dependencies"
+      "automerge": true
     }
   ],
   "prHourlyLimit": 0,
