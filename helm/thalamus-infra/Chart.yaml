@@ -13,23 +13,23 @@ dependencies:
 
   - name: gpu-operator
     repository: https://helm.ngc.nvidia.com/nvidia
-    version: "v26.3.1"
+    version: "v26.3.2"
     condition: gpu-operator.enabled
 
   # Observability
   - name: kube-prometheus-stack
     repository: oci://ghcr.io/prometheus-community/charts
-    version: "85.1.3"
+    version: "85.4.0"
     condition: kube-prometheus-stack.enabled
 
   # Inference gateway
   - name: agentgateway-crds
     repository: oci://cr.agentgateway.dev/charts
-    version: "1.2.1"
+    version: "v1.3.0"
     condition: agentgateway-crds.enabled
 
   - name: agentgateway
     repository: oci://cr.agentgateway.dev/charts
-    version: "1.2.1"
+    version: "v1.3.0"
     condition: agentgateway.enabled
 

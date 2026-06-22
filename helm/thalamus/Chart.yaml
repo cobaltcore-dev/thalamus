@@ -7,5 +7,5 @@ version: 0.1.0
 dependencies:
   - name: open-webui
     repository: https://helm.openwebui.com/
-    version: "14.6.0"
+    version: "14.8.0"
     condition: open-webui.enabled
