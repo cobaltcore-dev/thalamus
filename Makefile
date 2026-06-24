@@ -5,7 +5,7 @@ GOBIN=$(shell go env GOBIN)
 endif
 
 .PHONY: all
-all: generate format docs ## Run all.
+all: generate format lint test docs ## Run all.
 
 .PHONY: generate
 generate: deepcopy crds ## Regenerate CRDs and DeepCopy after API type changes.
@@ -32,12 +32,40 @@ deepcopy: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 format: ## Run gofmt on all Go files.
 	gofmt -w .
 
+.PHONY: lint
+lint: golangci-lint ## Run golangci-lint linter.
+	"$(GOLANGCI_LINT)" run
+
+.PHONY: lint-fix
+lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes.
+	"$(GOLANGCI_LINT)" run --fix
+
+.PHONY: test
+test: ## Run all tests.
+	go test ./...
+
+.PHONY: testsum
+testsum: gotestsum ## Run all tests (clean output for passing, verbose for failing). Options: WATCH=1, RUN=<pattern>, PACKAGE=<pkg>, FORMAT=<fmt>
+	$(GOTESTSUM) \
+		$(if $(WATCH),--watch) \
+		--format $(if $(FORMAT),$(FORMAT),testname) \
+		--hide-summary=all \
+		-- \
+		$(if $(VERBOSE),-v) \
+		$(if $(RUN),-run $(RUN)) \
+		$(if $(PACKAGE),$(PACKAGE),./...)
+
 LOCALBIN ?= $(shell pwd)/bin
 $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 
 CONTROLLER_GEN            ?= $(LOCALBIN)/controller-gen
+GOLANGCI_LINT             ?= $(LOCALBIN)/golangci-lint
+GOTESTSUM                 ?= $(LOCALBIN)/gotestsum
+
 CONTROLLER_TOOLS_VERSION  ?= v0.21.0
+GOLANGCI_LINT_VERSION     ?= v2.12.2
+GOTESTSUM_VERSION         ?= v1.13.0
 
 CRD_REF_DOCS              ?= $(shell command -v crd-ref-docs 2>/dev/null || echo $(LOCALBIN)/crd-ref-docs)
 CRD_REF_DOCS_VERSION      ?= v0.3.0
@@ -46,6 +74,22 @@ CRD_REF_DOCS_VERSION      ?= v0.3.0
 controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
 $(CONTROLLER_GEN): $(LOCALBIN)
 	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen,$(CONTROLLER_TOOLS_VERSION))
+
+.PHONY: golangci-lint
+golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
+$(GOLANGCI_LINT): $(LOCALBIN)
+	@[ -f "$(GOLANGCI_LINT)-$(GOLANGCI_LINT_VERSION)" ] || { \
+		set -e; \
+		echo "Downloading golangci-lint $(GOLANGCI_LINT_VERSION)"; \
+		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(LOCALBIN) $(GOLANGCI_LINT_VERSION); \
+		mv $(GOLANGCI_LINT) $(GOLANGCI_LINT)-$(GOLANGCI_LINT_VERSION); \
+	}
+	ln -sf $(GOLANGCI_LINT)-$(GOLANGCI_LINT_VERSION) $(GOLANGCI_LINT)
+
+.PHONY: gotestsum
+gotestsum: $(GOTESTSUM) ## Download gotestsum locally if necessary.
+$(GOTESTSUM): $(LOCALBIN)
+	$(call go-install-tool,$(GOTESTSUM),gotest.tools/gotestsum,$(GOTESTSUM_VERSION))
 
 .PHONY: crd-ref-docs
 crd-ref-docs: $(LOCALBIN) ## Ensure crd-ref-docs is available (use system install or download).

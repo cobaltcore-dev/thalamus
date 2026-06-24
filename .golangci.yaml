@@ -1,0 +1,189 @@
+# Copyright SAP SE
+# SPDX-License-Identifier: Apache-2.0
+
+version: "2"
+run:
+  modules-download-mode: readonly
+  timeout: 3m0s
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/cobaltcore-dev/thalamus
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+linters:
+  default: none
+  enable:
+    - bodyclose
+    - containedctx
+    - copyloopvar
+    - dupword
+    - durationcheck
+    - errcheck
+    - errname
+    - errorlint
+    - exptostd
+    - forbidigo
+    - gocheckcompilerdirectives
+    - goconst
+    - gocritic
+    - gomoddirectives
+    - gosec
+    - govet
+    - ineffassign
+    - intrange
+    - iotamixing
+    - modernize
+    - nilerr
+    - nolintlint
+    - nosprintfhostport
+    - perfsprint
+    - predeclared
+    - rowserrcheck
+    - sqlclosecheck
+    - staticcheck
+    - unconvert
+    - unparam
+    - unused
+    - usestdlibvars
+    - usetesting
+    - whitespace
+  settings:
+    dupword:
+      ignore: [ "TRUE", "FALSE", "NULL" ]
+    errcheck:
+      check-type-assertions: false
+      check-blank: true
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: ^ioutil\..*$
+        - pattern: ^http\.DefaultServeMux$
+        - pattern: ^http\.Handle(?:Func)?$
+        - pkg: ^gopkg\.in/square/go-jose\.v2
+          msg: gopk.in/square/go-jose is archived and has CVEs. Replace it with gopkg.in/go-jose/go-jose.v2
+        - pkg: ^github\.com/coreos/go-oidc$
+          msg: github.com/coreos/go-oidc depends on gopkg.in/square/go-jose which has CVEs. Replace it with github.com/coreos/go-oidc/v3
+        - pkg: ^github\.com/howeyc/gopass
+          msg: github.com/howeyc/gopass is archived, use golang.org/x/term instead
+        - pkg: ^github\.com/containers/image/v5
+          msg: github.com/containers/image/v5 is deprecated and was replaced with go.podman.io/image/v5
+    goconst:
+      min-occurrences: 5
+      ignore-tests: true
+      ignore-string-values:
+        - '^[a-zA-Z_-]{1,16}$'
+    gocritic:
+      enabled-checks:
+        - boolExprSimplify
+        - builtinShadow
+        - emptyStringTest
+        - evalOrder
+        - httpNoBody
+        - importShadow
+        - initClause
+        - methodExprCall
+        - paramTypeCombine
+        - preferFilepathJoin
+        - ptrToRefParam
+        - redundantSprint
+        - returnAfterHttpError
+        - stringConcatSimplify
+        - timeExprSimplify
+        - truncateCmp
+        - typeAssertChain
+        - typeUnparen
+        - unnamedResult
+        - unnecessaryBlock
+        - unnecessaryDefer
+        - weakCond
+        - yodaStyleExpr
+    gomoddirectives:
+      replace-allow-list:
+        - github.com/mdlayher/arp
+        - k8s.io/client-go
+      toolchain-forbidden: true
+      go-version-pattern: 1\.\d+(\.0)?$
+    gosec:
+      excludes:
+        - G112
+        - G117
+        - G120
+        - G306
+        - G701
+        - G702
+        - G703
+        - G704
+        - G705
+        - G706
+    govet:
+      disable:
+        - fieldalignment
+      enable-all: true
+    modernize:
+      disable:
+        # omitzero requires removing omitempty tags in kubernetes api struct types which are nested,
+        # which is interpreted by controller-gen and breaks the CRDs.
+        - omitzero
+    nolintlint:
+      require-specific: true
+    perfsprint:
+      concat-loop: false
+    staticcheck:
+      dot-import-whitelist:
+        - github.com/majewsky/gg/option
+        - github.com/onsi/ginkgo/v2
+        - github.com/onsi/gomega
+    usestdlibvars:
+      http-method: true
+      http-status-code: true
+      time-weekday: true
+      time-month: true
+      time-layout: true
+      crypto-hash: true
+      default-rpc-path: true
+      sql-isolation-level: true
+      tls-signature-scheme: true
+      constant-kind: true
+    usetesting:
+      os-temp-dir: true
+    whitespace:
+      multi-func: true
+  exclusions:
+    generated: lax
+    presets:
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - bodyclose
+        path: _test\.go
+      - path: (.+)\.go$
+        text: declaration of "err" shadows declaration at
+      - linters:
+          - goconst
+        path: (.+)_test\.go
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+
+output:
+  formats:
+    text:
+      print-issued-lines: false
