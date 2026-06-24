@@ -75,7 +75,7 @@ linters:
         - pattern: ^http\.DefaultServeMux$
         - pattern: ^http\.Handle(?:Func)?$
         - pkg: ^gopkg\.in/square/go-jose\.v2
-          msg: gopk.in/square/go-jose is archived and has CVEs. Replace it with gopkg.in/go-jose/go-jose.v2
+          msg: gopkg.in/square/go-jose is archived and has CVEs. Replace it with gopkg.in/go-jose/go-jose.v2
         - pkg: ^github\.com/coreos/go-oidc$
           msg: github.com/coreos/go-oidc depends on gopkg.in/square/go-jose which has CVEs. Replace it with github.com/coreos/go-oidc/v3
         - pkg: ^github\.com/howeyc/gopass
