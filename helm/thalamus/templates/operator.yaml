@@ -1,0 +1,97 @@
+{{- if .Values.operator.enabled }}
+{{- if gt (int .Values.operator.replicas) 1 }}
+{{- fail "operator.replicas > 1 is not supported: the operator has no leader election" }}
+{{- end }}
+{{- if .Values.operator.serviceAccount.create }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.operator.serviceAccount.name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "thalamus.operator.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Values.operator.serviceAccount.name }}
+  labels:
+    {{- include "thalamus.operator.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [thalamus.cloud]
+    resources: [models]
+    verbs: [get, list, watch]
+  - apiGroups: [thalamus.cloud]
+    resources: [models/status]
+    verbs: [get, update, patch]
+  - apiGroups: [thalamus.cloud]
+    resources: [models/finalizers]
+    verbs: [update]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Values.operator.serviceAccount.name }}
+  labels:
+    {{- include "thalamus.operator.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.operator.serviceAccount.name }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Values.operator.serviceAccount.name }}
+{{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: thalamus-operator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "thalamus.operator.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.operator.replicas }}
+  selector:
+    matchLabels:
+      {{- include "thalamus.operator.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "thalamus.operator.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ .Values.operator.serviceAccount.name }}
+      {{- with .Values.operator.podSecurityContext }}
+      securityContext: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: operator
+          image: {{ .Values.operator.image.registry }}/{{ .Values.operator.image.repository }}:{{ .Values.operator.image.tag | default .Chart.AppVersion }}
+          imagePullPolicy: {{ .Values.operator.image.pullPolicy }}
+          args:
+            - --health-probe-bind-address=:8081
+            {{- if .Values.operator.metrics.enabled }}
+            - --metrics-bind-address=:8080
+            {{- end }}
+          {{- with .Values.operator.resources }}
+          resources: {{ toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.operator.securityContext }}
+          securityContext: {{ toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: health
+              containerPort: 8081
+            {{- if .Values.operator.metrics.enabled }}
+            - name: metrics
+              containerPort: 8080
+            {{- end }}
+          {{- with .Values.operator.livenessProbe }}
+          livenessProbe: {{ toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.operator.readinessProbe }}
+          readinessProbe: {{ toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}

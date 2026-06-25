@@ -3,6 +3,7 @@ name: thalamus
 description: LLM inference workloads chart for Thalamus. Deploys vLLM model servers, the inference gateway, and routing. Requires thalamus-infra to be installed first.
 type: application
 version: 0.1.0
+appVersion: latest
 
 dependencies:
   - name: open-webui

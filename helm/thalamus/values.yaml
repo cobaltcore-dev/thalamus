@@ -1,5 +1,49 @@
 namespace: thalamus
 
+operator:
+  enabled: true
+  replicas: 1
+  image:
+    registry: ghcr.io
+    repository: cobaltcore-dev/thalamus
+    tag: ""  # defaults to chart appVersion
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    privileged: false
+    capabilities:
+      drop: [ALL]
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: health
+    initialDelaySeconds: 15
+    periodSeconds: 20
+  readinessProbe:
+    httpGet:
+      path: /readyz
+      port: health
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  metrics:
+    enabled: false
+  serviceAccount:
+    create: true
+    name: thalamus-operator
+
 owner_info:
   support_group: workload-management
   service: thalamus
