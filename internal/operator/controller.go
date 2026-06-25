@@ -32,6 +32,17 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		"namespace", model.Namespace,
 	)
 
+	engineType := parseEngineType(model.Spec.Serving.Engine.Image)
+	eppType := parseEPPType(model.Spec.Serving.EPP)
+
+	if model.Status.EngineType != engineType || model.Status.EPPType != eppType {
+		model.Status.EngineType = engineType
+		model.Status.EPPType = eppType
+		if err := r.Status().Update(ctx, model); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	return ctrl.Result{}, nil
 }
 
