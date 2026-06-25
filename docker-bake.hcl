@@ -25,6 +25,9 @@ target "image" {
     "linux/amd64",
     "linux/arm64",
   ]
+
+  cache-from = ["type=gha,scope=image"]
+  cache-to   = ["type=gha,scope=image,mode=max"]
 }
 
 target "debug" {
@@ -41,4 +44,7 @@ target "debug" {
     "linux/amd64",
     "linux/arm64",
   ]
+
+  cache-from = ["type=gha,scope=debug"]
+  cache-to   = ["type=gha,scope=debug,mode=max"]
 }
