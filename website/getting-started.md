@@ -14,6 +14,7 @@ and [Cortex](https://github.com/cobaltcore-dev/cortex).
 
 - [kubectl](https://kubernetes.io/docs/tasks/tools/) — Kubernetes CLI
 - [helm](https://helm.sh/docs/intro/install/) — Kubernetes package manager (v3.x)
+- [helmfile](https://helmfile.readthedocs.io/en/latest/#installation) — declarative wrapper around helm (v1.x)
 - A Kubernetes cluster with GPU nodes (NVIDIA), or [minikube](https://minikube.sigs.k8s.io/docs/start/) / any other local cluster for development
 
 ### Accounts
@@ -60,39 +61,13 @@ open-webui:
   openaiApiKeyExistingSecretKey: api-key
 ```
 
-## Step 3 — Add Helm repositories
+## Step 3 — Deploy the stack
 
-
-The charts depend on repositories that must be added before building dependencies:
-
-```bash
-helm repo add nvidia https://helm.ngc.nvidia.com/nvidia
-helm repo add open-webui https://helm.openwebui.com/
-```
-
-## Step 4 — Build chart dependencies
-
-Run from the repo root:
-
-```bash
-helm dependency build helm/thalamus-infra
-helm dependency build helm/thalamus
-```
-
-## Step 5 — Install `thalamus-infra`
-
-`thalamus-infra` bundles the infrastructure dependencies: GPU operator,
-node feature discovery, monitoring, and the Gateway API inference extension.
-
-```bash
-helm install thalamus-infra ./helm/thalamus-infra \
-  --namespace thalamus
-```
-
-## Step 6 — Install `thalamus`
-
-The `thalamus` chart installs the operator and registers the `Model` CRD.
-Models are declared under the `models:` key in your values file.
+The `helm/helmfile.yaml.gotmpl` manifest installs both `thalamus-infra`
+(infrastructure dependencies: GPU operator, node feature discovery, monitoring,
+Gateway API inference extension) and `thalamus` (operator, `Model` CRD,
+inference gateway) in the correct order. Helmfile registers the required helm
+repositories and builds chart dependencies automatically.
 
 > **Thalamus operator — under development**
 >
@@ -101,15 +76,38 @@ Models are declared under the `models:` key in your values file.
 > enabling fully declarative, per-resource lifecycle control. Until then, models
 > are managed through the `models:` values key described below.
 
-Write your own values file based on `example.values.yaml` or use it directly.
-
-Then install:
+Deploy with chart defaults:
 
 ```bash
-helm install thalamus ./helm/thalamus \
-  --namespace thalamus \
-  --values example.values.yaml
+helmfile --file helm/helmfile.yaml.gotmpl apply
 ```
+
+To customize values for your cluster, write a release-keyed values file and
+pass it via `--state-values-file`. The top-level keys are the release names
+(`thalamus`, `thalamus-infra`); everything underneath is forwarded to that
+release as chart values. See [`example.values.yaml`](../helm/example.values.yaml)
+for a reference shape of the `thalamus` release values.
+
+```yaml
+# my-cluster.yaml
+thalamus:
+  models:
+    - slug: qwen3-6-27b
+      model: Qwen/Qwen3.6-27B
+      accelerator: nvidia
+      resources:
+        requests: { nvidia.com/gpu: "2" }
+        limits:   { nvidia.com/gpu: "2" }
+
+thalamus-infra: {}
+```
+
+```bash
+helmfile --file helm/helmfile.yaml.gotmpl apply \
+  --state-values-file my-cluster.yaml
+```
+
+To preview changes before applying, use `helmfile diff` in place of `apply`.
 
 **Caveats for values file:**
 - Adjust `resources` for your selected model. If it fails without a visible
@@ -121,7 +119,7 @@ optimize the model.
 only, starting with a letter. Dots and underscores are not allowed (e.g. use
 `qwen3-0-6b`, not `qwen3-0.6b`).
 
-## Step 7 — Access the stack
+## Step 4 — Access the stack
 
 Once the pods are running, the stack is reachable in two ways.
 

@@ -1,0 +1,20 @@
+repositories:
+  - name: nvidia
+    url: https://helm.ngc.nvidia.com/nvidia
+  - name: open-webui
+    url: https://helm.openwebui.com/
+
+releases:
+  - name: thalamus-infra
+    chart: ./thalamus-infra
+    namespace: thalamus-system
+    values:
+      - {{ index .Values "thalamus-infra" | default dict | toYaml | nindent 10 }}
+
+  - name: thalamus
+    chart: ./thalamus
+    namespace: thalamus
+    needs:
+      - thalamus-system/thalamus-infra
+    values:
+      - {{ index .Values "thalamus" | default dict | toYaml | nindent 10 }}
