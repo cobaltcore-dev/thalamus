@@ -56,9 +56,10 @@ kubectl label secret apikey-<name> --namespace thalamus thalamus-apikey=true
 Open WebUI connects to the inference API internally and also requires a token. Set the following in your cluster values to point Open WebUI at the secret:
 
 ```yaml
-open-webui:
-  openaiApiKeyExistingSecret: apikey-openwebui
-  openaiApiKeyExistingSecretKey: api-key
+thalamus:
+  open-webui:
+    openaiApiKeyExistingSecret: apikey-openwebui
+    openaiApiKeyExistingSecretKey: api-key
 ```
 
 ## Step 3 — Deploy the stack
