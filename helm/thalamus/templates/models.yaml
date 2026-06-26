@@ -16,6 +16,8 @@ metadata:
     llm-d.ai/inference-serving: "true"
 spec:
   replicas: {{ $replicas }}
+  strategy:
+    type: {{ $m.updateStrategy | default "RollingUpdate" }}
   selector:
     matchLabels:
       app: vllm-{{ $m.slug }}
