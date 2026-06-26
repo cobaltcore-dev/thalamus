@@ -25,7 +25,7 @@ dependencies:
   # Inference gateway
   - name: agentgateway-crds
     repository: oci://cr.agentgateway.dev/charts
-    version: "v1.3.0"
+    version: "v1.3.1"
     condition: agentgateway-crds.enabled
 
   - name: agentgateway
