@@ -8,12 +8,14 @@ releases:
   - name: thalamus-infra
     chart: ./thalamus-infra
     namespace: thalamus-system
+    createNamespace: true
     values:
       - {{ index .Values "thalamus-infra" | default dict | toYaml | nindent 10 }}
 
   - name: thalamus
     chart: ./thalamus
     namespace: thalamus
+    createNamespace: true
     needs:
       - thalamus-system/thalamus-infra
     values:
