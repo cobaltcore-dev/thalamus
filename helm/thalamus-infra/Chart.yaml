@@ -13,7 +13,7 @@ dependencies:
 
   - name: gpu-operator
     repository: https://helm.ngc.nvidia.com/nvidia
-    version: "v26.3.2"
+    version: "v26.3.3"
     condition: gpu-operator.enabled
 
   # Observability

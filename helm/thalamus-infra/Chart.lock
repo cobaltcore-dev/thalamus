@@ -4,7 +4,7 @@ dependencies:
   version: 0.18.3
 - name: gpu-operator
   repository: https://helm.ngc.nvidia.com/nvidia
-  version: v26.3.2
+  version: v26.3.3
 - name: kube-prometheus-stack
   repository: oci://ghcr.io/prometheus-community/charts
   version: 87.2.1
@@ -14,5 +14,5 @@ dependencies:
 - name: agentgateway
   repository: oci://cr.agentgateway.dev/charts
   version: v1.3.0
-digest: sha256:217d9b3115d0ee3db2732221ca5889912941a534a155518eaea625f66d18c3b1
-generated: "2026-06-26T01:14:05.061960123Z"
+digest: sha256:04f2411a3101a0b0c358e6988fd082e8634a34a9442f3a00fbe4cdf85fe90485
+generated: "2026-06-26T08:05:22.272410813Z"
