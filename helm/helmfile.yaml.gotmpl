@@ -5,13 +5,12 @@ repositories:
     url: https://helm.openwebui.com/
 
 releases:
-  - name: gateway-api-crds
-    namespace: kube-system
-    chart: ./gateway-api
-
-  - name: inference-extension-crds
-    namespace: kube-system
-    chart: ./gateway-api-inference-extension
+  # TODO: re-enable once the CI image ships a kustomize binary.
+  # - name: gateway-api-crds
+  #   chart: ./gateway-api
+  #
+  # - name: gateway-api-inference-extension-crds
+  #   chart: ./gateway-api-inference-extension
 
   - name: node-feature-discovery
     namespace: thalamus-system
@@ -61,7 +60,8 @@ releases:
     version: "v1.3.1"
     installed: {{ dig "thalamus-infra" "agentgateway" "enabled" true .Values }}
     needs:
-      - kube-system/gateway-api-crds
+      # - /gateway-api-crds
+      # - /gateway-api-inference-extension-crds
       - thalamus-system/agentgateway-crds
     values:
       - inferenceExtension:
