@@ -1,0 +1,5 @@
+apiVersion: v2
+name: gateway-api-inference-extension
+description: Vendored Gateway API Inference Extension CRDs. Refresh with `make update-gateway-api-inference-extension-crds`.
+type: application
+version: 0.1.0

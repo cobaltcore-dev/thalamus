@@ -12,12 +12,15 @@ releases:
     chart: ./uninstall-me-stub
     installed: false
 
-  # TODO: re-enable once the CI image ships a kustomize binary.
-  # - name: gateway-api-crds
-  #   chart: ./gateway-api
-  #
-  # - name: gateway-api-inference-extension-crds
-  #   chart: ./gateway-api-inference-extension
+  - name: gateway-api-crds
+    namespace: default
+    chart: ./gateway-api
+    takeOwnership: true  # MIGRATION: drop after first deploy claims CRDs that were kubectl-applied during bootstrap
+
+  - name: gateway-api-inference-extension-crds
+    namespace: default
+    chart: ./gateway-api-inference-extension
+    takeOwnership: true  # MIGRATION: drop after first deploy claims CRDs that were kubectl-applied during bootstrap
 
   - name: node-feature-discovery
     namespace: node-feature-discovery
@@ -76,8 +79,8 @@ releases:
     installed: {{ dig "thalamus-infra" "agentgateway" "enabled" true .Values }}
     takeOwnership: true  # MIGRATION: drop after first deploy claims resources from old umbrella
     needs:
-      # - /gateway-api-crds
-      # - /gateway-api-inference-extension-crds
+      - default/gateway-api-crds
+      - default/gateway-api-inference-extension-crds
       - agentgateway-system/agentgateway-crds
     values:
       - inferenceExtension:
@@ -85,10 +88,10 @@ releases:
       - {{ dig "thalamus-infra" "agentgateway" dict .Values | toYaml | nindent 10 }}
 
   - name: open-webui
-    namespace: thalamus
+    namespace: open-webui
     createNamespace: true
     chart: open-webui/open-webui
-    version: "14.8.0"
+    version: "14.11.0"
     installed: {{ dig "thalamus" "open-webui" "enabled" true .Values }}
     takeOwnership: true  # MIGRATION: drop after first deploy claims resources from old umbrella
     needs:
