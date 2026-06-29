@@ -24,18 +24,6 @@ crds: controller-gen ## Generate CRD manifests from type annotations.
 	$(CONTROLLER_GEN) crd:allowDangerousTypes=true paths="./..." \
 		output:crd:artifacts:config=helm/thalamus-crds/templates
 
-# Versions of upstream CRD bundles vendored into helm/gateway-api/ and
-# helm/gateway-api-inference-extension/. Bump here, then run `make vendor-crds`.
-GATEWAY_API_VERSION                     ?= v1.5.1
-GATEWAY_API_INFERENCE_EXTENSION_VERSION ?= v1.5.0
-
-.PHONY: vendor-crds
-vendor-crds: ## Re-download vendored upstream CRDs from their pinned release tags.
-	curl -fsSL -o helm/gateway-api/templates/crds.yaml \
-		"https://github.com/kubernetes-sigs/gateway-api/releases/download/$(GATEWAY_API_VERSION)/standard-install.yaml"
-	curl -fsSL -o helm/gateway-api-inference-extension/templates/crds.yaml \
-		"https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/$(GATEWAY_API_INFERENCE_EXTENSION_VERSION)/manifests.yaml"
-
 .PHONY: deepcopy
 deepcopy: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
