@@ -5,6 +5,13 @@ repositories:
     url: https://helm.openwebui.com/
 
 releases:
+  # MIGRATION: uninstall the old umbrella release whose subcharts have been lifted.
+  # Drop this entry once every cluster has run a sync that uninstalls it.
+  - name: thalamus-infra
+    namespace: thalamus-system
+    chart: ./uninstall-me-stub
+    installed: false
+
   # TODO: re-enable once the CI image ships a kustomize binary.
   # - name: gateway-api-crds
   #   chart: ./gateway-api
