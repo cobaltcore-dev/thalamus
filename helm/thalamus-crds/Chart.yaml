@@ -1,0 +1,5 @@
+apiVersion: v2
+name: thalamus-crds
+description: CRDs owned by the Thalamus project.
+type: application
+version: 0.1.0

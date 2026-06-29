@@ -1,0 +1,2 @@
+resources:
+  - https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/v1.5.0-rc.2/manifests.yaml

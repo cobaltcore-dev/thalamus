@@ -12,6 +12,20 @@ thalamus:
         limits:
           nvidia.com/gpu: "2"
 
+  # Both blocks default to enabled. Toggle to run only one side:
+  # operator: { enabled: false }
+  # workloads: { enabled: false }
+
+# Override settings for infrastructure subcharts (each key matches a helmfile
+# release name). Setting `enabled: false` skips that release.
+#
+# thalamus-infra:
+#   kube-prometheus-stack:
+#     enabled: false
+#   gpu-operator:
+#     driver:
+#       enabled: false
+
 # Replace the above configuration with the one below if you want to run on CPU
 
 # accelerators:

@@ -1,12 +1,6 @@
 apiVersion: v2
 name: thalamus
-description: LLM inference workloads chart for Thalamus. Deploys vLLM model servers, the inference gateway, and routing. Requires thalamus-infra to be installed first.
+description: Thalamus operator and LLM inference workloads (vLLM model servers, inference gateway, routing). Requires thalamus-crds to be installed first.
 type: application
 version: 0.1.0
 appVersion: latest
-
-dependencies:
-  - name: open-webui
-    repository: https://helm.openwebui.com/
-    version: "14.11.0"
-    condition: open-webui.enabled

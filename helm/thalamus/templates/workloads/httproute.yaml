@@ -1,3 +1,4 @@
+{{- if .Values.workloads.enabled }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -70,3 +71,4 @@ spec:
         set:
           - name: Content-Type
             value: application/json
+{{- end }}

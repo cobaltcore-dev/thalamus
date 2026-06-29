@@ -64,11 +64,13 @@ thalamus:
 
 ## Step 3 — Deploy the stack
 
-The `helm/helmfile.yaml.gotmpl` manifest installs both `thalamus-infra`
-(infrastructure dependencies: GPU operator, node feature discovery, monitoring,
-Gateway API inference extension) and `thalamus` (operator, `Model` CRD,
-inference gateway) in the correct order. Helmfile registers the required helm
-repositories and builds chart dependencies automatically.
+The `helm/helmfile.yaml.gotmpl` manifest installs the full stack as a set of
+ordered helmfile releases: the Gateway API and Inference Extension CRDs, the
+Thalamus CRDs, the GPU operator and node feature discovery, the agentgateway
+with its CRDs, `kube-prometheus-stack` for observability, the `thalamus` chart
+(operator + workloads: inference gateway, models, routes), and finally
+`open-webui`. Helmfile registers the required helm repositories and applies
+the releases in dependency order.
 
 > **Thalamus operator — under development**
 >
@@ -151,7 +153,7 @@ a browser-based chat interface. It is reachable via the hostname configured in
 your `open-webui.route.hostnames` value, or via port-forward for local access:
 
 ```bash
-kubectl port-forward svc/thalamus-open-webui 8080:80 -n thalamus
+kubectl port-forward svc/open-webui 8080:80 -n thalamus
 ```
 
 Then open `http://localhost:8080` in your browser.
