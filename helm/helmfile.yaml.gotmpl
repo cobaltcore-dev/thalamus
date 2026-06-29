@@ -17,6 +17,7 @@ releases:
     chart: oci://registry.k8s.io/nfd/charts/node-feature-discovery
     version: "0.18.3"
     installed: {{ dig "thalamus-infra" "node-feature-discovery" "enabled" true .Values }}
+    takeOwnership: true  # MIGRATION: drop after first deploy claims resources from old umbrella
     values:
       - {{ dig "thalamus-infra" "node-feature-discovery" dict .Values | toYaml | nindent 10 }}
 
@@ -25,6 +26,7 @@ releases:
     chart: nvidia/gpu-operator
     version: "v26.3.3"
     installed: {{ dig "thalamus-infra" "gpu-operator" "enabled" true .Values }}
+    takeOwnership: true  # MIGRATION: drop after first deploy claims resources from old umbrella
     needs:
       - thalamus-system/node-feature-discovery
     values:
@@ -37,6 +39,7 @@ releases:
     chart: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
     version: "87.2.1"
     installed: {{ dig "thalamus-infra" "kube-prometheus-stack" "enabled" true .Values }}
+    takeOwnership: true  # MIGRATION: drop after first deploy claims resources from old umbrella
     values:
       - kubeStateMetrics:
           enabled: false
@@ -51,6 +54,7 @@ releases:
     chart: oci://cr.agentgateway.dev/charts/agentgateway-crds
     version: "v1.3.1"
     installed: {{ dig "thalamus-infra" "agentgateway-crds" "enabled" true .Values }}
+    takeOwnership: true  # MIGRATION: drop after first deploy claims resources from old umbrella
     values:
       - {{ dig "thalamus-infra" "agentgateway-crds" dict .Values | toYaml | nindent 10 }}
 
@@ -59,6 +63,7 @@ releases:
     chart: oci://cr.agentgateway.dev/charts/agentgateway
     version: "v1.3.1"
     installed: {{ dig "thalamus-infra" "agentgateway" "enabled" true .Values }}
+    takeOwnership: true  # MIGRATION: drop after first deploy claims resources from old umbrella
     needs:
       # - /gateway-api-crds
       # - /gateway-api-inference-extension-crds
@@ -74,6 +79,7 @@ releases:
     chart: open-webui/open-webui
     version: "14.8.0"
     installed: {{ dig "thalamus" "open-webui" "enabled" true .Values }}
+    takeOwnership: true  # MIGRATION: drop after first deploy claims resources from old umbrella
     needs:
       - thalamus/thalamus
     values:
@@ -102,6 +108,7 @@ releases:
     namespace: thalamus
     createNamespace: true
     chart: ./thalamus-crds
+    takeOwnership: true  # MIGRATION: drop after first deploy claims resources from old umbrella
 
   - name: thalamus
     chart: ./thalamus
