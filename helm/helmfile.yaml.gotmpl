@@ -13,7 +13,8 @@ releases:
   #   chart: ./gateway-api-inference-extension
 
   - name: node-feature-discovery
-    namespace: thalamus-system
+    namespace: node-feature-discovery
+    createNamespace: true
     chart: oci://registry.k8s.io/nfd/charts/node-feature-discovery
     version: "0.18.3"
     installed: {{ dig "thalamus-infra" "node-feature-discovery" "enabled" true .Values }}
@@ -22,20 +23,22 @@ releases:
       - {{ dig "thalamus-infra" "node-feature-discovery" dict .Values | toYaml | nindent 10 }}
 
   - name: gpu-operator
-    namespace: thalamus-system
+    namespace: gpu-operator
+    createNamespace: true
     chart: nvidia/gpu-operator
     version: "v26.3.3"
     installed: {{ dig "thalamus-infra" "gpu-operator" "enabled" true .Values }}
     takeOwnership: true  # MIGRATION: drop after first deploy claims resources from old umbrella
     needs:
-      - thalamus-system/node-feature-discovery
+      - node-feature-discovery/node-feature-discovery
     values:
       - nfd:
           enabled: false
       - {{ dig "thalamus-infra" "gpu-operator" dict .Values | toYaml | nindent 10 }}
 
   - name: kube-prometheus-stack
-    namespace: thalamus-system
+    namespace: monitoring
+    createNamespace: true
     chart: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
     version: "87.2.1"
     installed: {{ dig "thalamus-infra" "kube-prometheus-stack" "enabled" true .Values }}
@@ -50,7 +53,8 @@ releases:
       - {{ dig "thalamus-infra" "kube-prometheus-stack" dict .Values | toYaml | nindent 10 }}
 
   - name: agentgateway-crds
-    namespace: thalamus-system
+    namespace: agentgateway-system
+    createNamespace: true
     chart: oci://cr.agentgateway.dev/charts/agentgateway-crds
     version: "v1.3.1"
     installed: {{ dig "thalamus-infra" "agentgateway-crds" "enabled" true .Values }}
@@ -59,7 +63,7 @@ releases:
       - {{ dig "thalamus-infra" "agentgateway-crds" dict .Values | toYaml | nindent 10 }}
 
   - name: agentgateway
-    namespace: thalamus-system
+    namespace: agentgateway-system
     chart: oci://cr.agentgateway.dev/charts/agentgateway
     version: "v1.3.1"
     installed: {{ dig "thalamus-infra" "agentgateway" "enabled" true .Values }}
@@ -67,7 +71,7 @@ releases:
     needs:
       # - /gateway-api-crds
       # - /gateway-api-inference-extension-crds
-      - thalamus-system/agentgateway-crds
+      - agentgateway-system/agentgateway-crds
     values:
       - inferenceExtension:
           enabled: true
@@ -116,6 +120,6 @@ releases:
     createNamespace: true
     needs:
       - thalamus/thalamus-crds
-      - thalamus-system/agentgateway
+      - agentgateway-system/agentgateway
     values:
       - {{ index .Values "thalamus" | default dict | toYaml | nindent 10 }}
