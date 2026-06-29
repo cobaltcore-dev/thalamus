@@ -1,15 +1,16 @@
-models:
-  - slug: qwen3-6-27b
-    model: Qwen/Qwen3.6-27B
-    accelerator: nvidia
-    extraArgs:
-      - "--tensor-parallel-size=2"
-      - "--reasoning-parser=qwen3"
-    resources:
-      requests:
-        nvidia.com/gpu: "2"
-      limits:
-        nvidia.com/gpu: "2"
+thalamus:
+  models:
+    - slug: qwen3-6-27b
+      model: Qwen/Qwen3.6-27B
+      accelerator: nvidia
+      extraArgs:
+        - "--tensor-parallel-size=2"
+        - "--reasoning-parser=qwen3"
+      resources:
+        requests:
+          nvidia.com/gpu: "2"
+        limits:
+          nvidia.com/gpu: "2"
 
 # Replace the above configuration with the one below if you want to run on CPU
 
