@@ -7,15 +7,17 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ .Values.operator.serviceAccount.name }}
+  name: {{ include "thalamus.operator.serviceAccountName" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "thalamus.operator.labels" . | nindent 4 }}
+{{- end }}
+{{- if .Values.operator.rbac.create }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ .Values.operator.serviceAccount.name }}
+  name: {{ include "thalamus.operator.name" . }}
   labels:
     {{- include "thalamus.operator.labels" . | nindent 4 }}
 rules:
@@ -32,23 +34,23 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ .Values.operator.serviceAccount.name }}
+  name: {{ include "thalamus.operator.name" . }}
   labels:
     {{- include "thalamus.operator.labels" . | nindent 4 }}
 subjects:
   - kind: ServiceAccount
-    name: {{ .Values.operator.serviceAccount.name }}
+    name: {{ include "thalamus.operator.serviceAccountName" . }}
     namespace: {{ .Release.Namespace }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ .Values.operator.serviceAccount.name }}
+  name: {{ include "thalamus.operator.name" . }}
 {{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: thalamus-operator
+  name: {{ include "thalamus.operator.name" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "thalamus.operator.labels" . | nindent 4 }}
@@ -62,7 +64,7 @@ spec:
       labels:
         {{- include "thalamus.operator.selectorLabels" . | nindent 8 }}
     spec:
-      serviceAccountName: {{ .Values.operator.serviceAccount.name }}
+      serviceAccountName: {{ include "thalamus.operator.serviceAccountName" . }}
       {{- with .Values.operator.podSecurityContext }}
       securityContext: {{ toYaml . | nindent 8 }}
       {{- end }}

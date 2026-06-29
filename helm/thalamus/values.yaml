@@ -42,7 +42,9 @@ operator:
     enabled: false
   serviceAccount:
     create: true
-    name: thalamus-operator
+    name: ""
+  rbac:
+    create: true
 
 owner_info:
   support_group: workload-management
