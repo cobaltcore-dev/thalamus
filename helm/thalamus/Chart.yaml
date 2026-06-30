@@ -8,5 +8,5 @@ appVersion: latest
 dependencies:
   - name: open-webui
     repository: https://helm.openwebui.com/
-    version: "14.8.0"
+    version: "14.11.0"
     condition: open-webui.enabled
