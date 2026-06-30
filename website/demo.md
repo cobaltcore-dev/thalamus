@@ -9,8 +9,9 @@ A walkthrough of the current Proof of Concept running on a Gardener-managed clus
 ## Stack Deployment
 
 The full Thalamus stack is deployed on a [Gardener](https://gardener.cloud)-managed
-Kubernetes cluster via two Helm charts: `thalamus-infra` (GPU operator, monitoring,
-gateway infrastructure) and `thalamus` (inference workloads, endpoint pickers, frontend).
+Kubernetes cluster via a helmfile that installs the platform infrastructure
+(GPU operator, monitoring, gateway infrastructure) alongside the Thalamus
+inference workloads, endpoint pickers, and frontend.
 To deploy the Thalamus stack onto your own Kubernetes cluster, head over to the [Getting Started guide](/getting-started).
 
 ![Stack deployment](/stack-deployment.gif)

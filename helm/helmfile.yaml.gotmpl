@@ -18,29 +18,29 @@ releases:
     createNamespace: true
     chart: oci://registry.k8s.io/nfd/charts/node-feature-discovery
     version: "0.18.3"
-    installed: {{ dig "thalamus-infra" "node-feature-discovery" "enabled" true .Values }}
+    installed: {{ dig "node-feature-discovery" "enabled" true .Values }}
     values:
-      - {{ dig "thalamus-infra" "node-feature-discovery" dict .Values | toYaml | nindent 10 }}
+      - {{ dig "node-feature-discovery" dict .Values | toYaml | nindent 10 }}
 
   - name: gpu-operator
     namespace: gpu-operator
     createNamespace: true
     chart: nvidia/gpu-operator
     version: "v26.3.3"
-    installed: {{ dig "thalamus-infra" "gpu-operator" "enabled" true .Values }}
+    installed: {{ dig "gpu-operator" "enabled" true .Values }}
     needs:
       - node-feature-discovery/node-feature-discovery
     values:
       - nfd:
           enabled: false
-      - {{ dig "thalamus-infra" "gpu-operator" dict .Values | toYaml | nindent 10 }}
+      - {{ dig "gpu-operator" dict .Values | toYaml | nindent 10 }}
 
   - name: kube-prometheus-stack
     namespace: monitoring
     createNamespace: true
     chart: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
     version: "87.2.1"
-    installed: {{ dig "thalamus-infra" "kube-prometheus-stack" "enabled" true .Values }}
+    installed: {{ dig "kube-prometheus-stack" "enabled" true .Values }}
     values:
       - kubeStateMetrics:
           enabled: false
@@ -48,22 +48,22 @@ releases:
           enabled: false
         grafana:
           enabled: false
-      - {{ dig "thalamus-infra" "kube-prometheus-stack" dict .Values | toYaml | nindent 10 }}
+      - {{ dig "kube-prometheus-stack" dict .Values | toYaml | nindent 10 }}
 
   - name: agentgateway-crds
     namespace: agentgateway-system
     createNamespace: true
     chart: oci://cr.agentgateway.dev/charts/agentgateway-crds
     version: "v1.3.1"
-    installed: {{ dig "thalamus-infra" "agentgateway-crds" "enabled" true .Values }}
+    installed: {{ dig "agentgateway-crds" "enabled" true .Values }}
     values:
-      - {{ dig "thalamus-infra" "agentgateway-crds" dict .Values | toYaml | nindent 10 }}
+      - {{ dig "agentgateway-crds" dict .Values | toYaml | nindent 10 }}
 
   - name: agentgateway
     namespace: agentgateway-system
     chart: oci://cr.agentgateway.dev/charts/agentgateway
     version: "v1.3.1"
-    installed: {{ dig "thalamus-infra" "agentgateway" "enabled" true .Values }}
+    installed: {{ dig "agentgateway" "enabled" true .Values }}
     needs:
       - default/gateway-api-crds
       - default/gateway-api-inference-extension-crds
@@ -71,14 +71,14 @@ releases:
     values:
       - inferenceExtension:
           enabled: true
-      - {{ dig "thalamus-infra" "agentgateway" dict .Values | toYaml | nindent 10 }}
+      - {{ dig "agentgateway" dict .Values | toYaml | nindent 10 }}
 
   - name: open-webui
     namespace: open-webui
     createNamespace: true
     chart: open-webui/open-webui
     version: "14.11.0"
-    installed: {{ dig "thalamus" "open-webui" "enabled" true .Values }}
+    installed: {{ dig "open-webui" "enabled" true .Values }}
     needs:
       - thalamus/thalamus
     values:
@@ -101,7 +101,7 @@ releases:
           parentRefs:
             - name: inference-gateway
               namespace: thalamus
-      - {{ dig "thalamus" "open-webui" dict .Values | toYaml | nindent 10 }}
+      - {{ dig "open-webui" dict .Values | toYaml | nindent 10 }}
 
   - name: thalamus-crds
     namespace: thalamus
@@ -116,4 +116,4 @@ releases:
       - thalamus/thalamus-crds
       - agentgateway-system/agentgateway
     values:
-      - {{ index .Values "thalamus" | default dict | toYaml | nindent 10 }}
+      - {{ dig "thalamus" dict .Values | toYaml | nindent 10 }}

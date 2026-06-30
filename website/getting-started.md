@@ -56,10 +56,9 @@ kubectl label secret apikey-<name> --namespace thalamus thalamus-apikey=true
 Open WebUI connects to the inference API internally and also requires a token. Set the following in your cluster values to point Open WebUI at the secret:
 
 ```yaml
-thalamus:
-  open-webui:
-    openaiApiKeyExistingSecret: apikey-openwebui
-    openaiApiKeyExistingSecretKey: api-key
+open-webui:
+  openaiApiKeyExistingSecret: apikey-openwebui
+  openaiApiKeyExistingSecretKey: api-key
 ```
 
 ## Step 3 — Deploy the stack
@@ -86,10 +85,11 @@ helmfile --file helm/helmfile.yaml.gotmpl apply
 ```
 
 To customize values for your cluster, write a release-keyed values file and
-pass it via `--state-values-file`. The top-level keys are the release names
-(`thalamus`, `thalamus-infra`); everything underneath is forwarded to that
-release as chart values. See [`example.values.yaml`](../helm/example.values.yaml)
-for a reference shape of the `thalamus` release values.
+pass it via `--state-values-file`. The top-level keys are helmfile release
+names (e.g. `thalamus`, `open-webui`, `gpu-operator`, `kube-prometheus-stack`,
+`agentgateway`); everything underneath is forwarded to that release as chart
+values. See [`example.values.yaml`](../helm/example.values.yaml) for a
+reference shape of the `thalamus` release values.
 
 ```yaml
 # my-cluster.yaml
@@ -101,8 +101,6 @@ thalamus:
       resources:
         requests: { nvidia.com/gpu: "2" }
         limits:   { nvidia.com/gpu: "2" }
-
-thalamus-infra: {}
 ```
 
 ```bash
