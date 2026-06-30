@@ -5,21 +5,13 @@ repositories:
     url: https://helm.openwebui.com/
 
 releases:
-  # MIGRATION: remove after upgrading all clusters
-  - name: thalamus-infra
-    namespace: thalamus-system
-    chart: ./uninstall-me-stub
-    installed: false
-
   - name: gateway-api-crds
     namespace: default
     chart: ./gateway-api
-    takeOwnership: true  # MIGRATION: remove after upgrading all clusters
 
   - name: gateway-api-inference-extension-crds
     namespace: default
     chart: ./gateway-api-inference-extension
-    takeOwnership: true  # MIGRATION: remove after upgrading all clusters
 
   - name: node-feature-discovery
     namespace: node-feature-discovery
@@ -27,7 +19,6 @@ releases:
     chart: oci://registry.k8s.io/nfd/charts/node-feature-discovery
     version: "0.18.3"
     installed: {{ dig "thalamus-infra" "node-feature-discovery" "enabled" true .Values }}
-    takeOwnership: true  # MIGRATION: remove after upgrading all clusters
     values:
       - {{ dig "thalamus-infra" "node-feature-discovery" dict .Values | toYaml | nindent 10 }}
 
@@ -37,7 +28,6 @@ releases:
     chart: nvidia/gpu-operator
     version: "v26.3.3"
     installed: {{ dig "thalamus-infra" "gpu-operator" "enabled" true .Values }}
-    takeOwnership: true  # MIGRATION: remove after upgrading all clusters
     needs:
       - node-feature-discovery/node-feature-discovery
     values:
@@ -51,7 +41,6 @@ releases:
     chart: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
     version: "87.2.1"
     installed: {{ dig "thalamus-infra" "kube-prometheus-stack" "enabled" true .Values }}
-    takeOwnership: true  # MIGRATION: remove after upgrading all clusters
     values:
       - kubeStateMetrics:
           enabled: false
@@ -67,7 +56,6 @@ releases:
     chart: oci://cr.agentgateway.dev/charts/agentgateway-crds
     version: "v1.3.1"
     installed: {{ dig "thalamus-infra" "agentgateway-crds" "enabled" true .Values }}
-    takeOwnership: true  # MIGRATION: remove after upgrading all clusters
     values:
       - {{ dig "thalamus-infra" "agentgateway-crds" dict .Values | toYaml | nindent 10 }}
 
@@ -76,7 +64,6 @@ releases:
     chart: oci://cr.agentgateway.dev/charts/agentgateway
     version: "v1.3.1"
     installed: {{ dig "thalamus-infra" "agentgateway" "enabled" true .Values }}
-    takeOwnership: true  # MIGRATION: remove after upgrading all clusters
     needs:
       - default/gateway-api-crds
       - default/gateway-api-inference-extension-crds
@@ -92,7 +79,6 @@ releases:
     chart: open-webui/open-webui
     version: "14.11.0"
     installed: {{ dig "thalamus" "open-webui" "enabled" true .Values }}
-    takeOwnership: true  # MIGRATION: remove after upgrading all clusters
     needs:
       - thalamus/thalamus
     values:
@@ -121,7 +107,6 @@ releases:
     namespace: thalamus
     createNamespace: true
     chart: ./thalamus-crds
-    takeOwnership: true  # MIGRATION: remove after upgrading all clusters
 
   - name: thalamus
     chart: ./thalamus

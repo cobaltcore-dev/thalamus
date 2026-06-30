@@ -134,9 +134,6 @@ epp:
     limits:
       memory: 2Gi
 
-# Frontend
-# open-webui is deployed as its own helmfile release; values live under `thalamus.open-webui`.
-
 extraDeploy: []
   # - apiVersion: v1
   #   kind: ConfigMap
