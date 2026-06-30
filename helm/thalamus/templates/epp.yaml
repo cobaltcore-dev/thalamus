@@ -5,7 +5,6 @@
 # static Helm chart. These templates are adapted from:
 # https://github.com/kubernetes-sigs/gateway-api-inference-extension/tree/main/config/charts/epplib
 # When upgrading the EPP image version, diff _deployment.yaml and _config.yaml against this file.
-{{- if .Values.workloads.enabled }}
 {{- $accelMap := .Values.accelerators }}
 {{- range .Values.models }}
 {{- $m := . }}
@@ -169,5 +168,4 @@ spec:
       protocol: TCP
       port: 9090
   type: ClusterIP
-{{- end }}
 {{- end }}

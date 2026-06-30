@@ -1,4 +1,3 @@
-{{- if .Values.workloads.enabled }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
@@ -39,6 +38,5 @@ spec:
       name: {{ $.Values.gateway.name }}
     {{- end }}
   {{- toYaml (omit $policy "enabled" "targetRefs") | nindent 2 }}
-{{- end }}
 {{- end }}
 {{- end }}

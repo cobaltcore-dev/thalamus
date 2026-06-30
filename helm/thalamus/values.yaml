@@ -50,9 +50,6 @@ owner_info:
   support_group: workload-management
   service: thalamus
 
-workloads:
-  enabled: true
-
 gateway:
   name: inference-gateway
   listeners:

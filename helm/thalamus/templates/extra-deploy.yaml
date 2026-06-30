@@ -1,10 +1,8 @@
-{{- if .Values.workloads.enabled }}
 {{- range .Values.extraDeploy }}
 ---
 {{- if typeIs "string" . }}
   {{- tpl . $ }}
 {{- else }}
   {{- tpl (toYaml .) $ }}
-{{- end }}
 {{- end }}
 {{- end }}

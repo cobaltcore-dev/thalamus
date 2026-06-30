@@ -1,4 +1,3 @@
-{{- if .Values.workloads.enabled }}
 {{- $accelMap := .Values.accelerators }}
 {{- range .Values.models }}
 {{- $m     := . }}
@@ -172,6 +171,5 @@ spec:
       secretSelector:
         matchLabels:
           thalamus-apikey: "true"
-{{- end }}
 {{- end }}
 {{- end }}
