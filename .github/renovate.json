@@ -25,7 +25,7 @@
       "customType": "regex",
       "fileMatch": ["^Makefile$"],
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>\S+) depName=(?<depName>\S+)(?:\r?\n)+(?<varName>[A-Z0-9_]+)\s*\?=\s*(?<currentValue>v?\S+)"
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?:\\r?\\n)+(?<varName>[A-Z0-9_]+)\\s*\\?=\\s*(?<currentValue>v?\\S+)"
       ]
     }
   ],
