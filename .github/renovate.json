@@ -24,16 +24,9 @@
     {
       "customType": "regex",
       "fileMatch": ["^Makefile$"],
-      "matchStrings": ["CONTROLLER_TOOLS_VERSION\\s+\\?=\\s+(?<currentValue>v[\\d.]+)"],
-      "depNameTemplate": "sigs.k8s.io/controller-tools",
-      "datasourceTemplate": "go"
-    },
-    {
-      "customType": "regex",
-      "fileMatch": ["^Makefile$"],
-      "matchStrings": ["CRD_REF_DOCS_VERSION\\s+\\?=\\s+(?<currentValue>v[\\d.]+)"],
-      "depNameTemplate": "github.com/elastic/crd-ref-docs",
-      "datasourceTemplate": "go"
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\S+) depName=(?<depName>\S+)(?:\r?\n)+(?<varName>[A-Z0-9_]+)\s*\?=\s*(?<currentValue>v?\S+)"
+      ]
     }
   ],
   "packageRules": [
