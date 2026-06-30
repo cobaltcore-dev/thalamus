@@ -153,7 +153,7 @@ a browser-based chat interface. It is reachable via the hostname configured in
 your `open-webui.route.hostnames` value, or via port-forward for local access:
 
 ```bash
-kubectl port-forward svc/open-webui 8080:80 -n thalamus
+kubectl port-forward svc/open-webui 8080:80 -n open-webui
 ```
 
 Then open `http://localhost:8080` in your browser.
