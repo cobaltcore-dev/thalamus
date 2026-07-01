@@ -130,9 +130,6 @@ epp:
       memory: 2Gi
   flowControl:
     enabled: false
-    maxBytes: "10Gi"
-    maxRequests: "1k"
-    defaultRequestTTL: "60s"
     # saturationDetector:
     #   pluginRef: concurrency-detector  # defaults to utilization-detector
     # saturationDetectorPlugin:
