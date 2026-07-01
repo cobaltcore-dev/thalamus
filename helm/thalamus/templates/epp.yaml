@@ -71,11 +71,7 @@ data:
         insecureSkipVerify: true
     {{- if $.Values.epp.flowControl.enabled }}
     {{- with $.Values.epp.flowControl.saturationDetectorPlugin }}
-    - type: {{ .type }}
-      {{- if .parameters }}
-      parameters:
-{{ .parameters | toYaml | indent 8 }}
-      {{- end }}
+    - {{ toYaml . | nindent 6 | trim }}
     {{- end }}
     {{- end }}
     schedulingProfiles:

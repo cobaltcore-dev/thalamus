@@ -134,7 +134,6 @@ epp:
     #   pluginRef: concurrency-detector  # defaults to utilization-detector
     # saturationDetectorPlugin:
     #   type: concurrency-detector
-    #   parameters: {}
 
 extraDeploy: []
   # - apiVersion: v1
