@@ -69,12 +69,12 @@ data:
         scheme: "http"
         path: "/metrics"
         insecureSkipVerify: true
-    {{- if $.Values.epp.saturationDetector.enabled }}
-    - type: concurrency-detector
+    {{- if $.Values.epp.flowControl.saturationDetectorPlugin }}
+    - type: {{ $.Values.epp.flowControl.saturationDetectorPlugin.type }}
+      {{- if $.Values.epp.flowControl.saturationDetectorPlugin.parameters }}
       parameters:
-{{ omit $.Values.epp.saturationDetector "enabled" | toYaml | indent 8 }}
-    saturationDetector:
-      pluginRef: concurrency-detector
+{{ $.Values.epp.flowControl.saturationDetectorPlugin.parameters | toYaml | indent 8 }}
+      {{- end }}
     {{- end }}
     schedulingProfiles:
     - name: default
@@ -87,7 +87,7 @@ data:
         weight: 3
     {{- if $.Values.epp.flowControl.enabled }}
     flowControl:
-{{- omit $.Values.epp.flowControl "enabled" | toYaml | nindent 6 }}
+{{- omit $.Values.epp.flowControl "enabled" "saturationDetectorPlugin" | toYaml | nindent 6 }}
     {{- end }}
 ---
 apiVersion: apps/v1

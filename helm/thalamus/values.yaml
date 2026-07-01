@@ -133,11 +133,11 @@ epp:
     maxBytes: "10Gi"
     maxRequests: "1k"
     defaultRequestTTL: "60s"
-  saturationDetector:
-    enabled: false
-    maxConcurrency: 32
-    concurrencyMode: requests
-    headroom: "0.0"
+    # saturationDetector:
+    #   pluginRef: concurrency-detector  # defaults to utilization-detector
+    # saturationDetectorPlugin:
+    #   type: concurrency-detector
+    #   parameters: {}
 
 extraDeploy: []
   # - apiVersion: v1
