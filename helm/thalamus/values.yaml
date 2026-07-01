@@ -130,10 +130,14 @@ epp:
       memory: 2Gi
   flowControl:
     enabled: false
-    maxConcurrency: 32
     maxBytes: "10Gi"
     maxRequests: "1k"
     defaultRequestTTL: "60s"
+  saturationDetector:
+    enabled: false
+    maxConcurrency: 32
+    concurrencyMode: requests
+    headroom: "0.0"
 
 extraDeploy: []
   # - apiVersion: v1

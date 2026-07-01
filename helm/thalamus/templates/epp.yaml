@@ -69,12 +69,12 @@ data:
         scheme: "http"
         path: "/metrics"
         insecureSkipVerify: true
-    {{- if $.Values.epp.flowControl.enabled }}
+    {{- if $.Values.epp.saturationDetector.enabled }}
     - type: concurrency-detector
       parameters:
-        maxConcurrency: {{ $.Values.epp.flowControl.maxConcurrency }}
-        concurrencyMode: requests
-        headroom: 0.0
+{{ omit $.Values.epp.saturationDetector "enabled" | toYaml | indent 8 }}
+    saturationDetector:
+      pluginRef: concurrency-detector
     {{- end }}
     schedulingProfiles:
     - name: default
@@ -87,11 +87,7 @@ data:
         weight: 3
     {{- if $.Values.epp.flowControl.enabled }}
     flowControl:
-      maxBytes: {{ $.Values.epp.flowControl.maxBytes | quote }}
-      maxRequests: {{ $.Values.epp.flowControl.maxRequests | quote }}
-      defaultRequestTTL: {{ $.Values.epp.flowControl.defaultRequestTTL | quote }}
-      saturationDetector:
-        pluginRef: concurrency-detector
+{{- omit $.Values.epp.flowControl "enabled" | toYaml | nindent 6 }}
     {{- end }}
 ---
 apiVersion: apps/v1
