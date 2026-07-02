@@ -93,7 +93,7 @@ accelerators:
         add:
           - SYS_NICE
   nvidia:
-    image: vllm/vllm-openai:v0.23.0
+    image: vllm/vllm-openai:v0.24.0
     baseArgs:
       - "--gpu-memory-utilization=0.95"
     baseEnv:
