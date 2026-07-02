@@ -23,9 +23,16 @@
   "customManagers": [
     {
       "customType": "regex",
-      "fileMatch": ["^Makefile$"],
+      "fileMatch": [
+        "(^|/)Makefile$",
+        "\\.mk$",
+        "\\.(sh|bash)$",
+        "(^|/)Dockerfile$",
+        "\\.env(?:\\..*)?$",
+        "(^|/)justfile$"
+      ],
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?:\\r?\\n)+(?<varName>[A-Z0-9_]+)\\s*\\?=\\s*(?<currentValue>v?\\S+)"
+        "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)(?:\\s+versioning=(?<versioning>\\S+))?\\s*(?:\\r?\\n)+\\s*(?:(?:ARG|ENV|export)\\s+)?(?<varName>[A-Za-z_][A-Za-z0-9_]*)\\s*[:?]?=\\s*[\"']?(?<currentValue>v?[^\"'\\s]+)[\"']?"
       ]
     }
   ],
