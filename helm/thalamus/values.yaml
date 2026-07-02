@@ -83,7 +83,7 @@ gateway:
 # Accelerator profiles
 accelerators:
   cpu:
-    image: vllm/vllm-openai-cpu:v0.23.0
+    image: vllm/vllm-openai-cpu:v0.24.0
     baseArgs: []
     baseEnv: []
     securityContext:
