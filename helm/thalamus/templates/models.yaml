@@ -30,8 +30,8 @@ spec:
     spec:
       containers:
         - name: vllm
-          image: {{ $accel.image }}
-          imagePullPolicy: IfNotPresent
+          image: {{ include "thalamus.image" $accel.image }}
+          imagePullPolicy: {{ $accel.image.pullPolicy }}
           command:
             - vllm
             - serve

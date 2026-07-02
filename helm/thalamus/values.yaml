@@ -5,6 +5,7 @@ operator:
     registry: ghcr.io
     repository: cobaltcore-dev/thalamus
     tag: ""  # defaults to chart appVersion
+    digest: ""
     pullPolicy: IfNotPresent
   resources:
     requests:
@@ -83,7 +84,12 @@ gateway:
 # Accelerator profiles
 accelerators:
   cpu:
-    image: vllm/vllm-openai-cpu:v0.24.0
+    image:
+      registry: docker.io
+      repository: vllm/vllm-openai-cpu
+      tag: v0.24.0
+      digest: ""
+      pullPolicy: IfNotPresent
     baseArgs: []
     baseEnv: []
     securityContext:
@@ -93,7 +99,12 @@ accelerators:
         add:
           - SYS_NICE
   nvidia:
-    image: vllm/vllm-openai:v0.24.0
+    image:
+      registry: docker.io
+      repository: vllm/vllm-openai
+      tag: v0.24.0
+      digest: ""
+      pullPolicy: IfNotPresent
     baseArgs:
       - "--gpu-memory-utilization=0.95"
     baseEnv:
@@ -121,7 +132,12 @@ models: []
 
 # Endpoint Picker (EPP)
 epp:
-  image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.2
+  image:
+    registry: ghcr.io
+    repository: llm-d/llm-d-router-endpoint-picker
+    tag: v0.9.2
+    digest: ""
+    pullPolicy: IfNotPresent
   resources:
     requests:
       cpu: "1"

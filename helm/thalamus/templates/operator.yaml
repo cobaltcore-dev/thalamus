@@ -70,7 +70,7 @@ spec:
       {{- end }}
       containers:
         - name: operator
-          image: {{ .Values.operator.image.registry }}/{{ .Values.operator.image.repository }}:{{ .Values.operator.image.tag | default .Chart.AppVersion }}
+          image: {{ include "thalamus.image" (merge (dict "tag" (.Values.operator.image.tag | default .Chart.AppVersion)) .Values.operator.image) }}
           imagePullPolicy: {{ .Values.operator.image.pullPolicy }}
           args:
             - --health-probe-bind-address=:8081

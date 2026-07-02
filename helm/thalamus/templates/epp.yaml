@@ -117,8 +117,8 @@ spec:
       terminationGracePeriodSeconds: 130
       containers:
         - name: epp
-          image: {{ $.Values.epp.image }}
-          imagePullPolicy: IfNotPresent
+          image: {{ include "thalamus.image" $.Values.epp.image }}
+          imagePullPolicy: {{ $.Values.epp.image.pullPolicy }}
           args:
             - --pool-name
             - vllm-{{ $slug }}
