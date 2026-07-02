@@ -42,9 +42,7 @@ releases:
     version: "87.2.1"
     installed: {{ dig "kube-prometheus-stack" "enabled" true .Values }}
     values:
-      - kubeStateMetrics:
-          enabled: true
-        nodeExporter:
+      - nodeExporter:
           enabled: false
         grafana:
           enabled: false
