@@ -84,12 +84,12 @@ data:
       - pluginRef: prefix-cache-scorer
         weight: 3
     {{- if $.Values.epp.flowControl.enabled }}
+    {{- $fc := omit $.Values.epp.flowControl "enabled" "saturationDetectorPlugin" }}
+    {{- with $.Values.epp.flowControl.saturationDetectorPlugin }}
+    {{- $fc = merge $fc (dict "saturationDetector" (dict "pluginRef" .type)) }}
+    {{- end }}
     flowControl:
-{{- omit $.Values.epp.flowControl "enabled" "saturationDetectorPlugin" | toYaml | nindent 6 }}
-{{- with $.Values.epp.flowControl.saturationDetectorPlugin }}
-      saturationDetector:
-        pluginRef: {{ .type }}
-{{- end }}
+{{- $fc | toYaml | nindent 6 }}
     {{- end }}
 ---
 apiVersion: apps/v1
