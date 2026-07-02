@@ -1,4 +1,4 @@
-version: v1.5.2
+version: 1.5.2
 dependencies:
   - name: gpu-operator
     repository: https://helm.ngc.nvidia.com/nvidia
