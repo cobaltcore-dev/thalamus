@@ -8,6 +8,7 @@ reviews:
     enabled: true
     high_level_summary: true
     drafts: false
+    auto_incremental_review: false
     ignore_title_keywords:
       - "renovate"
       - "bump"
