@@ -60,7 +60,7 @@ releases:
   - name: agentgateway
     namespace: agentgateway-system
     chart: oci://cr.agentgateway.dev/charts/agentgateway
-    version: "v1.3.1"
+    version: "v2.2.1"
     installed: {{ dig "agentgateway" "enabled" true .Values }}
     needs:
       - default/gateway-api-crds
