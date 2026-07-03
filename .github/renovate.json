@@ -35,7 +35,7 @@
       "allowedVersions": "1.26.x"
     },
     {
-      "matchPackageNames": ["agentgateway", "agentgateway-crds"],
+      "matchPackageNames": ["cr.agentgateway.dev/charts/agentgateway", "cr.agentgateway.dev/charts/agentgateway-crds"],
       "allowedVersions": "/^v1\\./"
     },
     {
