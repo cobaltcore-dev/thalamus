@@ -1,0 +1,21 @@
+language: "en-US"
+
+profile: "assertive"
+tone_instructions: "Be direct and specific. Flag potential issues even if minor. Do not soften feedback unnecessarily."
+
+reviews:
+  auto_review:
+    enabled: true
+    high_level_summary: true
+    drafts: false
+    ignore_title_keywords:
+      - "renovate"
+      - "bump"
+      - "update"
+    ignore_usernames:
+      - "renovate[bot]"
+      - "dependabot[bot]"
+
+  path_filters:
+    - "!**/*.lock"
+    - "!**/Chart.lock"
