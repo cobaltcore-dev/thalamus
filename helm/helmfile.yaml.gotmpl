@@ -52,7 +52,7 @@ releases:
     namespace: agentgateway-system
     createNamespace: true
     chart: oci://cr.agentgateway.dev/charts/agentgateway-crds
-    version: "v1.3.1"
+    version: "v2.2.1"
     installed: {{ dig "agentgateway-crds" "enabled" true .Values }}
     values:
       - {{ dig "agentgateway-crds" dict .Values | toYaml | nindent 10 }}
