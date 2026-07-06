@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Copyright 2026 SAP SE or an SAP affiliate company and cobaltcore-dev contributors
+# SPDX-License-Identifier: Apache-2.0
+
 thalamus:
   models:
     - slug: qwen3-6-27b
@@ -11,26 +14,3 @@ thalamus:
           nvidia.com/gpu: "2"
         limits:
           nvidia.com/gpu: "2"
-
-# Replace the above configuration with the one below if you want to run on CPU
-
-# accelerators:
-#   cpu:
-#     image: vllm/vllm-openai-cpu:v0.21.0
-#     baseArgs:
-#       - "--gpu-memory-utilization=0.45"
-
-# models:
-#   - slug: smollm-135m-instruct
-#     model: HuggingFaceTB/SmolLM2-135M-Instruct
-#     accelerator: cpu
-#     replicas: 1
-#     extraArgs: []
-#     extraEnv: []
-#     resources:
-#       requests:
-#         cpu: 4
-#         memory: 24Gi
-#       limits:
-#         cpu: 9
-#         memory: 36Gi

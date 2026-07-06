@@ -156,11 +156,16 @@ kubectl port-forward svc/open-webui 8080:80 -n open-webui
 
 Then open `http://localhost:8080` in your browser.
 
-## Local development (CPU, no GPU)
+## Local development (CPU-only)
 
-The default model and config provided are for the GPU setup. If you want the
-most lightweight LLM deploy fast out of box on your laptop, replace the
-configuration with the commented one and choose CPU-based lightweight models.
+For a lightweight local setup without a GPU, use
+[`helm/example.values.cpu.yaml`](../helm/example.values.cpu.yaml) as your
+values file. The modest resource requests make it suitable for local clusters like minikube or kind.
+
+```bash
+helmfile --file helm/helmfile.yaml.gotmpl apply \
+  --state-values-file helm/example.values.cpu.yaml
+```
 
 > **Note:** The CPU image has no Apple Silicon / Metal acceleration. Inference
 > will be significantly slower than on a GPU or native macOS runtimes like
@@ -169,9 +174,6 @@ configuration with the commented one and choose CPU-based lightweight models.
 > fully virtualize memory — vLLM sees the entire host RAM and will attempt to
 > allocate a large fraction of it, exceeding your container limits and causing
 > an OOM kill. Set `--gpu-memory-utilization` explicitly to avoid this.
-
-Observed peak usage for small CPU models is ~8 cores and ~24–25 GiB RAM,
-driven primarily by KV cache pre-allocation rather than model size.
 
 ## Next Steps
 

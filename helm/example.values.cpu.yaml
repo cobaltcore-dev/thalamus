@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: Copyright 2026 SAP SE or an SAP affiliate company and cobaltcore-dev contributors
+# SPDX-License-Identifier: Apache-2.0
+
+node-feature-discovery:
+  enabled: false
+gpu-operator:
+  enabled: false
+
+thalamus:
+  models:
+    - slug: tiny-llm
+      model: arnir0/Tiny-LLM
+      accelerator: cpu
+      replicas: 1
+      extraArgs:
+        - "--max-model-len=512"
+        - "--dtype=float32"
+        - "--gpu-memory-utilization=0.50"
+      resources:
+        requests:
+          cpu: "2"
+          memory: "2Gi"
+        limits:
+          cpu: "4"
+          memory: "6Gi"
+
+  epp:
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+      limits:
+        cpu: "200m"
+        memory: "512Mi"

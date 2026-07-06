@@ -53,6 +53,7 @@ jobs:
         run: |
           helmfile --file helmfile.yaml.gotmpl apply \
             --skip-diff-on-install \
+            --state-values-file ${{ github.workspace }}/helm/example.values.cpu.yaml \
             --state-values-file ${{ github.workspace }}/test/e2e/values.yaml
 
       - name: Wait for gateway
