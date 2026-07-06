@@ -19,4 +19,9 @@ reviews:
 
   path_filters:
     - "!**/*.lock"
-    - "!**/Chart.lock"
+    - "!**/package-lock.json"
+    - "!go.sum"
+    - "!**/*.png"
+    - "!**/*.gif"
+    - "!**/*.mov"
+    - "!website/.vitepress/dist/**"
