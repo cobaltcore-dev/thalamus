@@ -1,0 +1,105 @@
+# SPDX-FileCopyrightText: Copyright 2026 SAP SE or an SAP affiliate company and cobaltcore-dev contributors
+# SPDX-License-Identifier: Apache-2.0
+
+name: E2E
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  e2e:
+    name: End-to-End Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7.0.0
+
+      - name: Create Kind cluster
+        uses: helm/kind-action@v1.14.0
+        with:
+          cluster_name: thalamus-e2e
+          node_image: kindest/node:v1.31.12
+
+      - name: Install helmfile
+        uses: helmfile/helmfile-action@v2.4.6
+        with:
+          helmfile-version: v1.6.0
+          helm-version: v3.17.3
+          helm-plugins: >
+            https://github.com/databus23/helm-diff@v3.9.14
+
+      - name: Create namespace
+        run: |
+          kubectl create namespace thalamus
+          kubectl create secret generic hf-token \
+            --namespace thalamus \
+            --from-literal=HF_TOKEN=${{ secrets.HF_TOKEN }}
+
+      - name: Deploy Thalamus
+        working-directory: helm
+        run: |
+          helmfile --file helmfile.yaml.gotmpl apply \
+            --skip-diff-on-install \
+            --state-values-file ${{ github.workspace }}/test/e2e/values.yaml
+
+      - name: Wait for gateway
+        run: |
+          kubectl wait gateway/inference-gateway \
+            --namespace thalamus \
+            --for=condition=Programmed=True \
+            --timeout=120s
+
+      - name: Wait for model pod
+        run: |
+          kubectl rollout status deployment/vllm-tiny-llm \
+            --namespace thalamus \
+            --timeout=600s
+
+      - name: Wait for EPP
+        run: |
+          kubectl rollout status deployment/vllm-tiny-llm-epp \
+            --namespace thalamus \
+            --timeout=120s
+
+      - name: Port-forward gateway
+        run: |
+          kubectl port-forward svc/inference-gateway \
+            8080:80 --namespace thalamus &
+          sleep 3
+
+      - name: Run e2e validation
+        env:
+          MODEL: arnir0/Tiny-LLM
+          MAX_RETRIES: "6"
+          RETRY_INTERVAL: "5"
+        run: bash test/e2e/validate.sh
+
+      - name: Debug on failure
+        if: failure()
+        run: |
+          echo "=== Pods ==="
+          kubectl get pods -n thalamus -o wide
+          kubectl get pods -n agentgateway-system -o wide
+          echo "=== Model logs ==="
+          kubectl logs -n thalamus -l app=vllm-tiny-llm || true
+          kubectl logs -n thalamus -l app=vllm-tiny-llm --previous || true
+          echo "=== EPP logs ==="
+          kubectl logs -n thalamus -l inferencepool=vllm-tiny-llm-epp || true
+          echo "=== agentgateway logs ==="
+          kubectl logs -n agentgateway-system \
+            -l app.kubernetes.io/name=agentgateway || true
+          echo "=== Gateway / HTTPRoutes / InferencePools ==="
+          kubectl get gateway,httproutes,inferencepools -n thalamus -o yaml
