@@ -29,7 +29,10 @@ wait_for_gateway() {
 test_models_endpoint() {
   echo "Testing GET /v1/models..."
   local response
-  response=$(curl -sf "${BASE_URL}/v1/models")
+  if ! response=$(curl -sf "${BASE_URL}/v1/models"); then
+    echo "FAIL: request to /v1/models failed" >&2
+    return 1
+  fi
   if echo "$response" | grep -q "\"${MODEL}\""; then
     echo "PASS: GET /v1/models"
   else
@@ -42,9 +45,12 @@ test_models_endpoint() {
 test_completions() {
   echo "Testing POST /v1/completions..."
   local response
-  response=$(curl -sf -X POST "${BASE_URL}/v1/completions" \
+  if ! response=$(curl -sf -X POST "${BASE_URL}/v1/completions" \
     -H "Content-Type: application/json" \
-    -d "{\"model\":\"${MODEL}\",\"prompt\":\"Hello\",\"max_tokens\":5}")
+    -d "{\"model\":\"${MODEL}\",\"prompt\":\"Hello\",\"max_tokens\":5}"); then
+    echo "FAIL: request to /v1/completions failed" >&2
+    return 1
+  fi
   if echo "$response" | grep -q '"choices"'; then
     echo "PASS: POST /v1/completions"
   else
