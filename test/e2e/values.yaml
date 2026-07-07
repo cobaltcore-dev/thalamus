@@ -1,11 +1,6 @@
 # SPDX-FileCopyrightText: Copyright 2026 SAP SE or an SAP affiliate company and cobaltcore-dev contributors
 # SPDX-License-Identifier: Apache-2.0
 
-# Helmfile state-values for CI e2e tests.
-node-feature-discovery:
-  enabled: false
-gpu-operator:
-  enabled: false
 kube-prometheus-stack:
   enabled: false
 open-webui:
@@ -14,30 +9,3 @@ open-webui:
 thalamus:
   operator:
     enabled: false
-
-  models:
-    - slug: tiny-llm
-      model: arnir0/Tiny-LLM
-      accelerator: cpu
-      replicas: 1
-      extraArgs:
-        - "--max-model-len=512"
-        - "--dtype=float32"
-        - "--gpu-memory-utilization=0.50"
-      resources:
-        requests:
-          cpu: "2"
-          memory: "2Gi"
-        limits:
-          memory: "6Gi"
-
-  epp:
-    resources:
-      requests:
-        cpu: "100m"
-        memory: "256Mi"
-      limits:
-        cpu: "200m"
-        memory: "512Mi"
-    flowControl:
-      enabled: false
