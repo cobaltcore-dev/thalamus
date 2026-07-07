@@ -3,10 +3,10 @@
 
 thalamus:
   models:
-    - slug: qwen3-6-27b
-      model: Qwen/Qwen3.6-27B
-      accelerator: nvidia
-      extraArgs:
+    - name: Qwen/Qwen3.6-27B
+      config: nvidia
+      replicas: 1
+      args:
         - "--tensor-parallel-size=2"
         - "--reasoning-parser=qwen3"
       resources:

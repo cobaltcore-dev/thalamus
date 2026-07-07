@@ -8,11 +8,10 @@ gpu-operator:
 
 thalamus:
   models:
-    - slug: tiny-llm
-      model: arnir0/Tiny-LLM
-      accelerator: cpu
+    - name: arnir0/Tiny-LLM
+      config: cpu
       replicas: 1
-      extraArgs:
+      args:
         - "--max-model-len=512"
         - "--dtype=float32"
         - "--gpu-memory-utilization=0.50"

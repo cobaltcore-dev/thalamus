@@ -71,6 +71,58 @@ releases:
           enabled: true
       - {{ dig "agentgateway" dict .Values | toYaml | nindent 10 }}
 
+  - name: cert-manager
+    namespace: cert-manager
+    createNamespace: true
+    chart: oci://quay.io/jetstack/charts/cert-manager
+    version: "v1.20.3"
+    installed: {{ dig "cert-manager" "enabled" true .Values }}
+    values:
+      - crds:
+          enabled: true
+
+  - name: kserve-llmisvc-crd
+    namespace: kserve
+    createNamespace: true
+    chart: oci://ghcr.io/kserve/charts/kserve-llmisvc-crd
+    version: "v0.19.0"
+    installed: {{ dig "kserve-llmisvc-crd" "enabled" true .Values }}
+
+  - name: kserve-llmisvc-resources
+    namespace: kserve
+    chart: oci://ghcr.io/kserve/charts/kserve-llmisvc-resources
+    version: "v0.19.0"
+    installed: {{ dig "kserve-llmisvc-resources" "enabled" true .Values }}
+    needs:
+      - agentgateway-system/agentgateway
+      - cert-manager/cert-manager
+      - kserve/kserve-llmisvc-crd
+      - thalamus/thalamus  # install controller after thalamus, to avoid webhook timeouts
+    values:
+      - kserve:
+          llmisvc:
+            createGIECRDs: false  # https://github.com/kserve/kserve/issues/5543#issuecomment-4875485608
+          storage:
+            resources:
+              requests:
+                cpu: "1"
+                memory: 1Gi
+              limits:
+                cpu: "4"
+                memory: 16Gi
+
+  - name: kserve-runtime-configs
+    namespace: kserve
+    chart: oci://ghcr.io/kserve/charts/kserve-runtime-configs
+    version: "v0.19.0"
+    installed: {{ dig "kserve-runtime-configs" "enabled" true .Values }}
+    needs:
+      - kserve/kserve-llmisvc-crd
+    values:
+      - kserve:
+          llmisvcConfigs:
+            enabled: true
+
   - name: open-webui
     namespace: open-webui
     createNamespace: true
@@ -113,5 +165,6 @@ releases:
     needs:
       - thalamus/thalamus-crds
       - agentgateway-system/agentgateway
+      - kserve/kserve-llmisvc-crd
     values:
       - {{ dig "thalamus" dict .Values | toYaml | nindent 10 }}

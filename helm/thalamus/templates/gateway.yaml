@@ -37,6 +37,6 @@ spec:
       kind: Gateway
       name: {{ $.Values.gateway.name }}
     {{- end }}
-  {{- toYaml (omit $policy "enabled" "targetRefs") | nindent 2 }}
+  {{- tpl (toYaml (omit $policy "enabled" "targetRefs")) $ | nindent 2 }}
 {{- end }}
 {{- end }}

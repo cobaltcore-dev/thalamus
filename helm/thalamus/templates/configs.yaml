@@ -1,0 +1,9 @@
+{{- range $key, $config := .Values.configs }}
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: thalamus-{{ $key }}
+  namespace: {{ $.Release.Namespace }}
+spec: {{ toYaml $config.spec | nindent 2 }}
+{{- end }}

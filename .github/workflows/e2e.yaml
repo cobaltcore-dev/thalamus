@@ -56,24 +56,12 @@ jobs:
             --state-values-file ${{ github.workspace }}/helm/example.values.cpu.yaml \
             --state-values-file ${{ github.workspace }}/test/e2e/values.yaml
 
-      - name: Wait for gateway
+      - name: Wait for LLMInferenceService
         run: |
-          kubectl wait gateway/inference-gateway \
+          kubectl wait LLMInferenceService/vllm-arnir0-tiny-llm \
             --namespace thalamus \
-            --for=condition=Programmed=True \
-            --timeout=120s
-
-      - name: Wait for model pod
-        run: |
-          kubectl rollout status deployment/vllm-tiny-llm \
-            --namespace thalamus \
+            --for=condition=Ready \
             --timeout=600s
-
-      - name: Wait for EPP
-        run: |
-          kubectl rollout status deployment/vllm-tiny-llm-epp \
-            --namespace thalamus \
-            --timeout=120s
 
       - name: Port-forward gateway
         run: |
@@ -104,3 +92,4 @@ jobs:
             -l app.kubernetes.io/name=agentgateway || true
           echo "=== Gateway / HTTPRoutes / InferencePools ==="
           kubectl get gateway,httproutes,inferencepools -n thalamus -o yaml
+          kubectl get llminferenceservices -n thalamus -o yaml

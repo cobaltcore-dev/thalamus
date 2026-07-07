@@ -1,0 +1,41 @@
+{{- range .Values.models }}
+{{- $m := . }}
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: vllm-{{ regexReplaceAll "[^a-z0-9-]+" (lower $m.name) "-" }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  baseRefs:
+    - name: kserve-config-llm-template
+    - name: kserve-config-llm-scheduler
+    - name: kserve-config-llm-router-route
+    {{- if hasKey $.Values.configs "image-overrides" }}
+    - name: thalamus-image-overrides
+    {{- end }}
+    {{- if hasKey $.Values.configs "non-root" }}
+    - name: thalamus-non-root
+    {{- end }}
+    - name: thalamus-{{ required "model.config is required" $m.config }}
+  model:
+    uri: hf://{{ $m.name }}
+    name: {{ $m.name | quote }}
+  {{- if ne $m.replicas nil }}
+  replicas: {{ $m.replicas }}
+  {{- end }}
+  router:
+    gateway:
+      refs:
+        - name: {{ $.Values.gateway.name }}
+          namespace: {{ $.Release.Namespace }}
+  template:
+    containers:
+      - name: main
+        {{- with $m.args }}
+        args: {{ toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with $m.resources }}
+        resources: {{ toYaml . | nindent 10 }}
+        {{- end }}
+{{- end }}
