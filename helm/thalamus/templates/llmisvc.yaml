@@ -4,7 +4,7 @@
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceService
 metadata:
-  name: vllm-{{ regexReplaceAll "[^a-z0-9-]+" (lower $m.name) "-" }}
+  name: {{ trimSuffix "-" (trunc 63 (regexReplaceAll "[^a-z0-9-]+" (lower $m.name) "-")) }}
   namespace: {{ $.Release.Namespace }}
 spec:
   baseRefs:

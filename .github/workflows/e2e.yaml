@@ -58,7 +58,7 @@ jobs:
 
       - name: Wait for LLMInferenceService
         run: |
-          kubectl wait LLMInferenceService/vllm-arnir0-tiny-llm \
+          kubectl wait LLMInferenceService/arnir0-tiny-llm \
             --namespace thalamus \
             --for=condition=Ready \
             --timeout=600s
