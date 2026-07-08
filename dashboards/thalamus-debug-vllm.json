@@ -1,0 +1,862 @@
+{
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "thalamus_debug_vllm",
+    "project": "workload-management"
+  },
+  "spec": {
+    "display": {
+      "name": "Thalamus Debug — vLLM"
+    },
+    "variables": [
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "display": {
+            "name": "Rate Interval",
+            "hidden": false
+          },
+          "value": "15m",
+          "name": "rate_interval"
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "display": {
+            "name": "Rate Multiplier (per-second → per-hour = 3600)",
+            "hidden": false
+          },
+          "value": "1",
+          "name": "rate_multiplier"
+        }
+      }
+    ],
+    "panels": {
+      "readme": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "README"
+          },
+          "plugin": {
+            "kind": "Markdown",
+            "spec": {
+              "text": "# Thalamus Debug — vLLM\n\n## Description\n\nDiagnostic metrics from the vLLM model server. When the SLO dashboard shows a breach, this dashboard explains **why**. Everything here is from vLLM's internal perspective (per `model_name`) — the router-side view lives in Debug/llm_d (separate dashboard).\n\nA single vLLM request has three phases: **queue** (waiting in the scheduler) → **prefill** (processing the prompt) → **decode** (generating tokens one by one). Each phase has its own panels here.\n\nHistograms of latencies are split into **p50** and **p99** (per-panel, per-model). Histograms of token counts are wrapped in `round()` because token counts are integer.\n\n## Variables\n\n- `$rate_interval` (default `15m`) — histogram/counter smoothing window.\n- `$rate_multiplier` (default `1`) — 1 = per-second, 3600 = per-hour.\n\n## Sections\n\n### Scheduling\n\n#### Queue Time p50 / p99\nTime a request spent in the vLLM scheduler **before prefill started**.\n\nQuery: `histogram_quantile(0.50|0.99, sum by (model_name, le) (rate(vllm:request_queue_time_seconds_bucket[$rate_interval])))`\n\n**Debug scenario:** SLO `E2E` p99 is 6s. SLO `TTFT` p99 is 1s, SLO `TPOT` p99 is fine. Queue Time p99 here shows 5s — the missing 4s is requests sitting in the scheduler waiting for a slot. Root cause: concurrency exceeds `max_num_seqs`. Scale replicas or reduce load.\n\n#### Prefill Time p50 / p99\nTime spent processing the prompt (the compute-heavy phase before the first token).\n\nQuery: `histogram_quantile(..., sum by (model_name, le) (rate(vllm:request_prefill_time_seconds_bucket[$rate_interval])))`\n\n**Debug scenario:** TTFT p99 = 8s. Prefill Time p99 here = 7.8s → almost all TTFT is prefill. Someone is sending huge prompts; confirm with Usage `Input Tokens` p99. Nothing broken, just big prompts — either accept the latency or chunk on the client side.\n\n#### Decode Time p50 / p99\nTime spent generating output tokens (after prefill, until end of response).\n\nQuery: `histogram_quantile(..., sum by (model_name, le) (rate(vllm:request_decode_time_seconds_bucket[$rate_interval])))`\n\n**Debug scenario:** Decode Time p99 doubled without a change in Usage `Output Tokens` p99. The model is generating the same number of tokens but each token now takes longer. Cross-check GPU `HBM Activity` — likely memory-bound decode under higher concurrency. Reduce batch or scale out.\n\n#### Waiting by Reason\nCurrent count of waiting requests broken down by **why** they're waiting.\n\nQuery: `sum by (reason) (vllm:num_requests_waiting_by_reason)`\n\nReasons include `chunked_prefill` (prompt too large, being processed in chunks — blocks the queue), `swapped` (KV cache preempted), and others.\n\n**Debug scenario:** SLO `Queue Depth` is climbing. Open this panel: if `chunked_prefill` dominates, one very long prompt is being chunked across iterations and blocking everyone else — trace the offending request (client-side logs, request ID). If `swapped` dominates, KV cache pressure is preempting running requests; cross-check `KV Cache Usage` and `Preemptions`.\n\n### KV Cache\n\nThe **KV cache** stores attention key/value tensors for tokens already processed, so the model doesn't recompute them each decode step. Its size bounds how many concurrent requests vLLM can serve.\n\n#### KV Cache Usage\nAverage % of KV cache blocks occupied per model. Gauge.\n\nQuery: `avg by (model_name) (vllm:kv_cache_usage_perc) * 100`\n\n**Debug scenario:** KV Cache Usage climbs past 95%. `Preemptions` will start firing next — running requests are about to be evicted mid-decode to free blocks for new arrivals. That means recomputed prefills, wasted GPU work, and tail latency spikes in the SLO dashboard.\n\n#### Preemptions\nRate of requests kicked out of decode to free KV cache blocks — wasted GPU work.\n\nQuery: `sum by (model_name) (rate(vllm:num_preemptions_total[$rate_interval])) * $rate_multiplier`\n\n**Debug scenario:** Preemptions rate is non-zero. Every preempted request will re-run prefill from scratch when it resumes — you're paying GPU time twice. Correlates directly with SLO tail latency. Fix by either reducing concurrency (fewer in-flight requests) or scaling out (more KV cache total). Cross-check `KV Cache Usage` — usually at 95%+ when preemptions fire.\n\n#### Prefix Cache Hit Ratio\nFraction of prefill work skipped because the prompt prefix was already cached. `hits / queries`.\n\nQuery: `sum by (model_name) (rate(vllm:prefix_cache_hits_total[$rate_interval])) / sum by (model_name) (rate(vllm:prefix_cache_queries_total[$rate_interval]))`\n\n**Debug scenario:** Ratio is 0.05 despite the fact that clients send an identical system prompt on every request. Prefix cache is not doing its job — likely the shared prefix is shorter than one KV block, or block size is misconfigured. Confirm with Usage `Prompt Tokens by Source`: the `cache_hit` share should be high once fixed.\n\n#### MM Cache Hit Ratio\nMultimodal (image/audio) cache hit ratio. Same shape as prefix cache ratio but for multimodal token embeddings.\n\nQuery: `sum by (model_name) (rate(vllm:mm_cache_hits_total[...])) / sum by (model_name) (rate(vllm:mm_cache_queries_total[...]))`\n\nOnly meaningful for multimodal models — will be `NaN` for text-only.\n\n**Debug scenario:** Vision model, users are sending the same handful of reference images repeatedly, but ratio is near zero. MM cache is cold or disabled. When healthy, image embeddings are reused and TTFT drops noticeably.\n\n#### Prefill KV Computed Tokens p50 / p99\nDistribution of tokens **actually computed** (not cache-hit) during prefill.\n\nQuery: `round(histogram_quantile(0.50|0.99, sum by (model_name, le) (rate(vllm:request_prefill_kv_computed_tokens_bucket[$rate_interval]))))`\n\n**Debug scenario:** Usage `Input Tokens` p99 shows 4k, but this panel's p99 shows only 400. Prefix cache is doing real work — 90% of tokens are skipped. If instead this panel matches Usage `Input Tokens` closely while `Prompt Tokens Cached` is also high, there's an internal accounting inconsistency worth reporting upstream.\n\n#### Prompt Tokens Cached\nRate of prompt tokens served from KV cache (per second, times multiplier).\n\nQuery: `sum by (model_name) (rate(vllm:prompt_tokens_cached_total[$rate_interval])) * $rate_multiplier`\n\n**Debug scenario:** After enabling shared system prompts, this rate should rise proportionally to Usage `Prompt Tokens/sec`. If it stays at zero, prefix caching is not engaged — same root cause list as `Prefix Cache Hit Ratio`.\n\n### Batch & Tokens\n\n#### Iteration Tokens\nTokens processed per scheduler iteration — effectively batch size over time.\n\nQuery: `sum by (model_name) (rate(vllm:iteration_tokens_total[$rate_interval])) * $rate_multiplier`\n\n**Debug scenario:** GPU `Compute Occupancy` is low, but Usage `Running Requests` shows load. This panel's p50 is 12 tokens/iteration — vLLM is running tiny batches, wasting GPU throughput. `max_num_seqs` is probably set too low; raise it or investigate why the scheduler isn't packing requests.\n\n#### Max Generation Tokens p50 / p99\nDistribution of the **cap vLLM actually applies** per request (may differ from client's `max_tokens`).\n\nQuery: `round(histogram_quantile(..., sum by (model_name, le) (rate(vllm:request_max_num_generation_tokens_bucket[$rate_interval]))))`\n\n**Debug scenario:** Users complain their `max_tokens=8192` requests get cut off at 2048. Compare Usage `Requested max_tokens` (what clients ask for) with this panel (what vLLM enforces). A gap = vLLM is clamping — check `--max-model-len` and per-request logic.\n\n#### Prompt Token Distribution p50 / p99\nDistribution of prompt tokens per request, **vLLM-side**.\n\nQuery: `round(histogram_quantile(..., sum by (model_name, le) (rate(vllm:request_prompt_tokens_bucket[$rate_interval]))))`\n\n**Debug scenario:** This p99 is stuck at exactly 1800 across every model. That's suspicious — it's the value of vLLM's top histogram bucket. Real p99 is higher; the metric is clamping. Use Usage `Input Tokens` (llm_d-side) for the accurate reading.\n\n#### Generation Token Distribution p50 / p99\nDistribution of generation tokens per request, vLLM-side.\n\nQuery: `round(histogram_quantile(..., sum by (model_name, le) (rate(vllm:request_generation_tokens_bucket[$rate_interval]))))`\n\n**Debug scenario:** Same top-bucket clamping risk as prompt tokens. Cross-check with Usage `Output Tokens` — if the two disagree at p99, trust the Usage panel (llm_d has finer top-bucket resolution).\n\n### Cross-check vs SLO\n\nSame latency signals as SLO, but from vLLM's perspective instead of the endpoint picker's. The **delta** between these and SLO is routing overhead (EPP scheduling + network hop).\n\n#### TTFT p50 / p99 (vLLM)\nQuery: `histogram_quantile(..., sum by (model_name, le) (rate(vllm:time_to_first_token_seconds_bucket[$rate_interval])))`\n\n**Debug scenario:** SLO `TTFT` p99 = 3s, this panel's p99 = 0.4s. The delta (2.6s) is not the model — it's the router. Check the endpoint picker's scheduler duration and plugin latency (llm_d dashboard, when built). If they match instead (both 3s), the model itself is slow — go check `Queue Time` and `Prefill Time`.\n\n#### E2E Latency p50 / p99 (vLLM)\nQuery: `histogram_quantile(..., sum by (model_name, le) (rate(vllm:e2e_request_latency_seconds_bucket[$rate_interval])))`\n\n**Debug scenario:** Same delta logic as TTFT. If SLO `E2E` = vLLM `E2E`, routing is fast and the whole latency budget lives inside vLLM. If SLO `E2E` >> vLLM `E2E`, the router is spending real time somewhere — scheduling, prefix-affinity computation, or network.\n"
+            }
+          }
+        }
+      },
+      "queue_time_p50": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Queue Time p50" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "mode": "list", "position": "bottom" },
+              "visual": { "areaOpacity": 0.1, "connectNulls": false, "display": "line", "lineStyle": "solid", "lineWidth": 1.5, "pointRadius": 2 },
+              "yAxis": { "format": { "unit": "seconds" }, "min": 0, "show": true }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "histogram_quantile(0.50, sum by (model_name, le) (rate(vllm:request_queue_time_seconds_bucket[$rate_interval])))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "queue_time_p99": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Queue Time p99" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "mode": "list", "position": "bottom" },
+              "visual": { "areaOpacity": 0.1, "connectNulls": false, "display": "line", "lineStyle": "solid", "lineWidth": 1.5, "pointRadius": 2 },
+              "yAxis": { "format": { "unit": "seconds" }, "min": 0, "show": true }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "histogram_quantile(0.99, sum by (model_name, le) (rate(vllm:request_queue_time_seconds_bucket[$rate_interval])))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "prefill_time_p50": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Prefill Time p50" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "mode": "list", "position": "bottom" },
+              "visual": { "areaOpacity": 0.1, "connectNulls": false, "display": "line", "lineStyle": "solid", "lineWidth": 1.5, "pointRadius": 2 },
+              "yAxis": { "format": { "unit": "seconds" }, "min": 0, "show": true }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "histogram_quantile(0.50, sum by (model_name, le) (rate(vllm:request_prefill_time_seconds_bucket[$rate_interval])))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "prefill_time_p99": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Prefill Time p99" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "mode": "list", "position": "bottom" },
+              "visual": { "areaOpacity": 0.1, "connectNulls": false, "display": "line", "lineStyle": "solid", "lineWidth": 1.5, "pointRadius": 2 },
+              "yAxis": { "format": { "unit": "seconds" }, "min": 0, "show": true }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "histogram_quantile(0.99, sum by (model_name, le) (rate(vllm:request_prefill_time_seconds_bucket[$rate_interval])))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "decode_time_p50": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Decode Time p50" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "mode": "list", "position": "bottom" },
+              "visual": { "areaOpacity": 0.1, "connectNulls": false, "display": "line", "lineStyle": "solid", "lineWidth": 1.5, "pointRadius": 2 },
+              "yAxis": { "format": { "unit": "seconds" }, "min": 0, "show": true }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "histogram_quantile(0.50, sum by (model_name, le) (rate(vllm:request_decode_time_seconds_bucket[$rate_interval])))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "decode_time_p99": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Decode Time p99" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "mode": "list", "position": "bottom" },
+              "visual": { "areaOpacity": 0.1, "connectNulls": false, "display": "line", "lineStyle": "solid", "lineWidth": 1.5, "pointRadius": 2 },
+              "yAxis": { "format": { "unit": "seconds" }, "min": 0, "show": true }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "histogram_quantile(0.99, sum by (model_name, le) (rate(vllm:request_decode_time_seconds_bucket[$rate_interval])))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "waiting_by_reason": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Waiting by Reason" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "mode": "list", "position": "bottom" },
+              "visual": { "areaOpacity": 0.3, "connectNulls": false, "display": "line", "lineStyle": "solid", "lineWidth": 1.5, "pointRadius": 2 },
+              "yAxis": { "format": { "unit": "decimal" }, "label": "count", "min": 0, "show": true }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "sum by (reason) (vllm:num_requests_waiting_by_reason)",
+                    "seriesNameFormat": "{{reason}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "kv_cache": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "KV Cache Usage" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "mode": "list", "position": "bottom" },
+              "visual": { "areaOpacity": 0.3, "connectNulls": false, "display": "line", "lineStyle": "solid", "lineWidth": 1.5, "pointRadius": 2 },
+              "yAxis": { "format": { "unit": "percent" }, "min": 0, "show": true }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "avg by (model_name) (vllm:kv_cache_usage_perc) * 100",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "preemptions": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Preemptions" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "mode": "list", "position": "bottom" },
+              "visual": { "areaOpacity": 0.2, "connectNulls": false, "display": "line", "lineStyle": "solid", "lineWidth": 1.5, "pointRadius": 2 },
+              "yAxis": { "format": { "unit": "decimal" }, "label": "req/s", "min": 0, "show": true }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "sum by (model_name) (rate(vllm:num_preemptions_total[$rate_interval])) * $rate_multiplier",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "prefix_cache_hit_ratio": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Prefix Cache Hit Ratio" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "mode": "list", "position": "bottom" },
+              "visual": { "areaOpacity": 0.2, "connectNulls": false, "display": "line", "lineStyle": "solid", "lineWidth": 1.5, "pointRadius": 2 },
+              "yAxis": { "format": { "unit": "percent-decimal" }, "min": 0, "show": true }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "sum by (model_name) (rate(vllm:prefix_cache_hits_total[$rate_interval])) / sum by (model_name) (rate(vllm:prefix_cache_queries_total[$rate_interval]))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "mm_cache_hit_ratio": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "MM Cache Hit Ratio" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "mode": "list", "position": "bottom" },
+              "visual": { "areaOpacity": 0.2, "connectNulls": false, "display": "line", "lineStyle": "solid", "lineWidth": 1.5, "pointRadius": 2 },
+              "yAxis": { "format": { "unit": "percent-decimal" }, "min": 0, "show": true }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "sum by (model_name) (rate(vllm:mm_cache_hits_total[$rate_interval])) / sum by (model_name) (rate(vllm:mm_cache_queries_total[$rate_interval]))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "prefill_kv_computed_p50": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Prefill KV Computed Tokens p50" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "mode": "list", "position": "bottom" },
+              "visual": { "areaOpacity": 0.1, "connectNulls": false, "display": "line", "lineStyle": "solid", "lineWidth": 1.5, "pointRadius": 2 },
+              "yAxis": { "format": { "unit": "decimal", "shortValues": true }, "label": "tokens", "min": 0, "show": true }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "round(histogram_quantile(0.50, sum by (model_name, le) (rate(vllm:request_prefill_kv_computed_tokens_bucket[$rate_interval]))))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "prefill_kv_computed_p99": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Prefill KV Computed Tokens p99" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "mode": "list", "position": "bottom" },
+              "visual": { "areaOpacity": 0.1, "connectNulls": false, "display": "line", "lineStyle": "solid", "lineWidth": 1.5, "pointRadius": 2 },
+              "yAxis": { "format": { "unit": "decimal", "shortValues": true }, "label": "tokens", "min": 0, "show": true }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "round(histogram_quantile(0.99, sum by (model_name, le) (rate(vllm:request_prefill_kv_computed_tokens_bucket[$rate_interval]))))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "prompt_tokens_cached": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Prompt Tokens Cached" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "mode": "list", "position": "bottom" },
+              "visual": { "areaOpacity": 0.2, "connectNulls": false, "display": "line", "lineStyle": "solid", "lineWidth": 1.5, "pointRadius": 2 },
+              "yAxis": { "format": { "unit": "decimal", "shortValues": true }, "label": "tok/s", "min": 0, "show": true }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "sum by (model_name) (rate(vllm:prompt_tokens_cached_total[$rate_interval])) * $rate_multiplier",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "iteration_tokens": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Iteration Tokens" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "mode": "list", "position": "bottom" },
+              "visual": { "areaOpacity": 0.2, "connectNulls": false, "display": "line", "lineStyle": "solid", "lineWidth": 1.5, "pointRadius": 2 },
+              "yAxis": { "format": { "unit": "decimal", "shortValues": true }, "label": "tok/s", "min": 0, "show": true }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "sum by (model_name) (rate(vllm:iteration_tokens_total[$rate_interval])) * $rate_multiplier",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "max_gen_tokens_p50": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Max Generation Tokens p50" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "mode": "list", "position": "bottom" },
+              "visual": { "areaOpacity": 0.1, "connectNulls": false, "display": "line", "lineStyle": "solid", "lineWidth": 1.5, "pointRadius": 2 },
+              "yAxis": { "format": { "unit": "decimal", "shortValues": true }, "label": "tokens", "min": 0, "show": true }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "round(histogram_quantile(0.50, sum by (model_name, le) (rate(vllm:request_max_num_generation_tokens_bucket[$rate_interval]))))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "max_gen_tokens_p99": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Max Generation Tokens p99" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "mode": "list", "position": "bottom" },
+              "visual": { "areaOpacity": 0.1, "connectNulls": false, "display": "line", "lineStyle": "solid", "lineWidth": 1.5, "pointRadius": 2 },
+              "yAxis": { "format": { "unit": "decimal", "shortValues": true }, "label": "tokens", "min": 0, "show": true }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "round(histogram_quantile(0.99, sum by (model_name, le) (rate(vllm:request_max_num_generation_tokens_bucket[$rate_interval]))))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "prompt_tokens_dist_p50": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Prompt Token Distribution p50" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "mode": "list", "position": "bottom" },
+              "visual": { "areaOpacity": 0.1, "connectNulls": false, "display": "line", "lineStyle": "solid", "lineWidth": 1.5, "pointRadius": 2 },
+              "yAxis": { "format": { "unit": "decimal", "shortValues": true }, "label": "tokens", "min": 0, "show": true }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "round(histogram_quantile(0.50, sum by (model_name, le) (rate(vllm:request_prompt_tokens_bucket[$rate_interval]))))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "prompt_tokens_dist_p99": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Prompt Token Distribution p99" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "mode": "list", "position": "bottom" },
+              "visual": { "areaOpacity": 0.1, "connectNulls": false, "display": "line", "lineStyle": "solid", "lineWidth": 1.5, "pointRadius": 2 },
+              "yAxis": { "format": { "unit": "decimal", "shortValues": true }, "label": "tokens", "min": 0, "show": true }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "round(histogram_quantile(0.99, sum by (model_name, le) (rate(vllm:request_prompt_tokens_bucket[$rate_interval]))))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "gen_tokens_dist_p50": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Generation Token Distribution p50" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "mode": "list", "position": "bottom" },
+              "visual": { "areaOpacity": 0.1, "connectNulls": false, "display": "line", "lineStyle": "solid", "lineWidth": 1.5, "pointRadius": 2 },
+              "yAxis": { "format": { "unit": "decimal", "shortValues": true }, "label": "tokens", "min": 0, "show": true }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "round(histogram_quantile(0.50, sum by (model_name, le) (rate(vllm:request_generation_tokens_bucket[$rate_interval]))))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "gen_tokens_dist_p99": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Generation Token Distribution p99" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "mode": "list", "position": "bottom" },
+              "visual": { "areaOpacity": 0.1, "connectNulls": false, "display": "line", "lineStyle": "solid", "lineWidth": 1.5, "pointRadius": 2 },
+              "yAxis": { "format": { "unit": "decimal", "shortValues": true }, "label": "tokens", "min": 0, "show": true }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "round(histogram_quantile(0.99, sum by (model_name, le) (rate(vllm:request_generation_tokens_bucket[$rate_interval]))))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "vllm_ttft_p50": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "TTFT p50 (vLLM)" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "mode": "list", "position": "bottom" },
+              "visual": { "areaOpacity": 0.1, "connectNulls": false, "display": "line", "lineStyle": "solid", "lineWidth": 1.5, "pointRadius": 2 },
+              "yAxis": { "format": { "unit": "seconds" }, "min": 0, "show": true }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "histogram_quantile(0.50, sum by (model_name, le) (rate(vllm:time_to_first_token_seconds_bucket[$rate_interval])))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "vllm_ttft_p99": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "TTFT p99 (vLLM)" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "mode": "list", "position": "bottom" },
+              "visual": { "areaOpacity": 0.1, "connectNulls": false, "display": "line", "lineStyle": "solid", "lineWidth": 1.5, "pointRadius": 2 },
+              "yAxis": { "format": { "unit": "seconds" }, "min": 0, "show": true }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "histogram_quantile(0.99, sum by (model_name, le) (rate(vllm:time_to_first_token_seconds_bucket[$rate_interval])))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "vllm_e2e_p50": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "E2E Latency p50 (vLLM)" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "mode": "list", "position": "bottom" },
+              "visual": { "areaOpacity": 0.1, "connectNulls": false, "display": "line", "lineStyle": "solid", "lineWidth": 1.5, "pointRadius": 2 },
+              "yAxis": { "format": { "unit": "seconds" }, "min": 0, "show": true }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "histogram_quantile(0.50, sum by (model_name, le) (rate(vllm:e2e_request_latency_seconds_bucket[$rate_interval])))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "vllm_e2e_p99": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "E2E Latency p99 (vLLM)" },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": { "mode": "list", "position": "bottom" },
+              "visual": { "areaOpacity": 0.1, "connectNulls": false, "display": "line", "lineStyle": "solid", "lineWidth": 1.5, "pointRadius": 2 },
+              "yAxis": { "format": { "unit": "seconds" }, "min": 0, "show": true }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "histogram_quantile(0.99, sum by (model_name, le) (rate(vllm:e2e_request_latency_seconds_bucket[$rate_interval])))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "layouts": [
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "README",
+            "collapse": { "open": false }
+          },
+          "items": [
+            { "x": 0, "y": 0, "width": 24, "height": 18, "content": { "$ref": "#/spec/panels/readme" } }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Scheduling",
+            "collapse": { "open": true }
+          },
+          "items": [
+            { "x": 0,  "y": 0,  "width": 6,  "height": 10, "content": { "$ref": "#/spec/panels/queue_time_p50" } },
+            { "x": 6,  "y": 0,  "width": 6,  "height": 10, "content": { "$ref": "#/spec/panels/queue_time_p99" } },
+            { "x": 12, "y": 0,  "width": 6,  "height": 10, "content": { "$ref": "#/spec/panels/prefill_time_p50" } },
+            { "x": 18, "y": 0,  "width": 6,  "height": 10, "content": { "$ref": "#/spec/panels/prefill_time_p99" } },
+            { "x": 0,  "y": 10, "width": 6,  "height": 10, "content": { "$ref": "#/spec/panels/decode_time_p50" } },
+            { "x": 6,  "y": 10, "width": 6,  "height": 10, "content": { "$ref": "#/spec/panels/decode_time_p99" } },
+            { "x": 12, "y": 10, "width": 12, "height": 10, "content": { "$ref": "#/spec/panels/waiting_by_reason" } }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "KV Cache",
+            "collapse": { "open": true }
+          },
+          "items": [
+            { "x": 0,  "y": 0,  "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/kv_cache" } },
+            { "x": 6,  "y": 0,  "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/preemptions" } },
+            { "x": 12, "y": 0,  "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/prefix_cache_hit_ratio" } },
+            { "x": 18, "y": 0,  "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/mm_cache_hit_ratio" } },
+            { "x": 0,  "y": 10, "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/prefill_kv_computed_p50" } },
+            { "x": 6,  "y": 10, "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/prefill_kv_computed_p99" } },
+            { "x": 12, "y": 10, "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/prompt_tokens_cached" } }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Batch & Tokens",
+            "collapse": { "open": true }
+          },
+          "items": [
+            { "x": 0,  "y": 0, "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/iteration_tokens" } },
+            { "x": 6,  "y": 0, "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/max_gen_tokens_p50" } },
+            { "x": 12, "y": 0, "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/max_gen_tokens_p99" } },
+            { "x": 18, "y": 0, "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/prompt_tokens_dist_p50" } },
+            { "x": 0,  "y": 10, "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/prompt_tokens_dist_p99" } },
+            { "x": 6,  "y": 10, "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/gen_tokens_dist_p50" } },
+            { "x": 12, "y": 10, "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/gen_tokens_dist_p99" } }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Cross-check vs SLO",
+            "collapse": { "open": true }
+          },
+          "items": [
+            { "x": 0,  "y": 0, "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/vllm_ttft_p50" } },
+            { "x": 6,  "y": 0, "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/vllm_ttft_p99" } },
+            { "x": 12, "y": 0, "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/vllm_e2e_p50" } },
+            { "x": 18, "y": 0, "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/vllm_e2e_p99" } }
+          ]
+        }
+      }
+    ],
+    "duration": "1h",
+    "refreshInterval": "30s"
+  }
+}

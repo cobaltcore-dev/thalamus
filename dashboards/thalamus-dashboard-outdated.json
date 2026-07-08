@@ -1,0 +1,1033 @@
+{
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "thalamus_dev",
+    "createdAt": "2026-06-23T13:55:57.259088046Z",
+    "updatedAt": "2026-06-29T13:55:57.259088046Z",
+    "version": 0,
+    "project": "workload-management"
+  },
+  "spec": {
+    "display": {
+      "name": "Thalamus Dev"
+    },
+    "panels": {
+      "success_rate": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Success Rate (per model)"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": [
+                  "last"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.2,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "decimal"
+                },
+                "label": "req/h",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum by (model_name) (rate(vllm:request_success_total{finished_reason=~\"stop|length\"}[$rate_interval])) * 3600",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "error_rate": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Error Rate (per model)"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": [
+                  "last"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.2,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "decimal"
+                },
+                "label": "req/h",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum by (model_name) (rate(vllm:request_success_total{finished_reason=~\"abort|error\"}[$rate_interval])) * 3600",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "running_requests": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Running Requests (per model)"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": [
+                  "last"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.3,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "decimal"
+                },
+                "label": "count",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum by (model_name) (vllm:num_requests_running)",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "waiting_requests": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Waiting Requests (per model)"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": [
+                  "last"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.3,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "decimal"
+                },
+                "label": "count",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum by (model_name) (vllm:num_requests_waiting)",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "prompt_tokens": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Prompt Tokens/sec (per model)"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": [
+                  "last"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.2,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": {
+                  "shortValues": true,
+                  "unit": "decimal"
+                },
+                "label": "tok/s",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum by (model_name) (rate(vllm:prompt_tokens_total[$rate_interval]))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "replicas_timeseries": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Replica Count (per deployment)"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": [
+                  "last"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.2,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "decimal"
+                },
+                "label": "count",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum by (deployment) (kube_deployment_status_replicas_available{namespace=\"thalamus\", deployment=~\"vllm-.*\"})",
+                    "seriesNameFormat": "{{deployment}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "gen_tokens": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Generation Tokens/sec (per model)"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": [
+                  "last"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.2,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": {
+                  "shortValues": true,
+                  "unit": "decimal"
+                },
+                "label": "tok/s",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "sum by (model_name) (rate(vllm:generation_tokens_total[$rate_interval]))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "ttft_p50": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "TTFT p50 (per model)"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": [
+                  "last"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "seconds"
+                },
+                "label": "",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "histogram_quantile(0.50, sum by (model_name, le) (rate(vllm:time_to_first_token_seconds_bucket[$latency_interval])))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "ttft_p99": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "TTFT p99 (per model)"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": [
+                  "last"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "seconds"
+                },
+                "label": "",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "histogram_quantile(0.99, sum by (model_name, le) (rate(vllm:time_to_first_token_seconds_bucket[$latency_interval])))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "tpot_p50": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "TPOT p50 (per model)"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": [
+                  "last"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "seconds"
+                },
+                "label": "",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "histogram_quantile(0.50, sum by (model_name, le) (rate(vllm:inter_token_latency_seconds_bucket[$latency_interval])))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "tpot_p99": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "TPOT p99 (per model)"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": [
+                  "last"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "seconds"
+                },
+                "label": "",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "histogram_quantile(0.99, sum by (model_name, le) (rate(vllm:inter_token_latency_seconds_bucket[$latency_interval])))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "gpu_util_timeseries": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "GPU Utilization (per pod)"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": [
+                  "last"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.3,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "percent"
+                },
+                "label": "",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "avg by (exported_pod) (DCGM_FI_DEV_GPU_UTIL{exported_pod=~\"vllm-.*\"})",
+                    "seriesNameFormat": "{{exported_pod}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "gpu_util_stat": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "GPU Util"
+          },
+          "plugin": {
+            "kind": "StatChart",
+            "spec": {
+              "calculation": "last-number",
+              "colorMode": "background_solid",
+              "format": {
+                "unit": "percent"
+              },
+              "legendMode": "on",
+              "thresholds": {
+                "defaultColor": "#59CC8D",
+                "steps": [
+                  {
+                    "value": 0
+                  },
+                  {
+                    "color": "#FFB020",
+                    "value": 80
+                  },
+                  {
+                    "color": "#EE6C6C",
+                    "value": 95
+                  }
+                ]
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "avg(DCGM_FI_DEV_GPU_UTIL)",
+                    "seriesNameFormat": "GPU %"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "kv_cache": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "KV Cache Usage (per model)"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": [
+                  "last"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.3,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "percent"
+                },
+                "label": "",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "avg by (model_name) (vllm:kv_cache_usage_perc) * 100",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "time_to_ready": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Time to Ready (vLLM Startup) per pod"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": [
+                  "last"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.4,
+                "connectNulls": false,
+                "display": "bar",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 0
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "seconds"
+                },
+                "label": "seconds to ready",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "query": "(kube_pod_status_ready_time{namespace=\"thalamus\", pod=~\"vllm-.*\"} - on(pod) group_left kube_pod_created{namespace=\"thalamus\", pod=~\"vllm-.*\"})",
+                    "seriesNameFormat": "{{pod}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "readme": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "README"
+          },
+          "plugin": {
+            "kind": "Markdown",
+            "spec": {
+              "text": "# Thalamus Dev Dashboard\n\nObservability for vLLM deployments in the `thalamus` namespace.\n\n## Sections\n\n1. **Requests** — Success rate, error rate, running and waiting requests. All grouped by `model_name`.\n2. **Throughput** — Prompt and generation tokens/sec (row 1, per `model_name`); replica count per deployment and KV cache usage per model (row 2).\n3. **Latency** — TTFT and TPOT, p50 and p99 in separate panels (to keep series count manageable when grouped by model).\n4. **GPU & Startup** — GPU utilization timeseries (per-pod via DCGM), aggregate GPU stat, and pod startup time, side by side.\n5. **README** — this section.\n\n## Variables\n\n- `$rate_interval` — smoothing window for request counters and token throughput rates. Increase under low/sparse traffic.\n- `$latency_interval` — smoothing window for TTFT/TPOT histograms. Tuned independently from rate-interval since latency and traffic shape have different noise characteristics.\n\nDefaults: `1h`. Drop to `5m` or `1m` once steady traffic exists.\n\n## Metric notes\n\n- **Error rate** uses `vllm:request_success_total{finished_reason=~\"abort|error\"}` rather than `vllm:request_failure_total` — the latter doesn't exist on the vLLM version we run.\n- **TPOT** uses `vllm:inter_token_latency_seconds_bucket`. The older `vllm:time_per_output_token_seconds_bucket` metric is from an earlier vLLM version.\n- **GPU utilization** is a device-level DCGM metric. The `exported_pod` label maps GPU → pod, and since one pod hosts one model, this is effectively per-model. Stat aggregates across all GPUs.\n- **Time to ready** uses `kube_pod_status_ready_time - kube_pod_created`. Both metrics may not be emitted by the current `kube-state-metrics` version — chart will be empty until they appear.\n- **KV cache** sits in the Throughput section since it correlates directly with concurrent request load.\n\n## Open questions\n\n- Verify `model_name` label exists on all vLLM metrics under the current chart version. If a metric uses a different label name (e.g., `model`), its panel will collapse to a single unlabeled series — that's the signal to fix.\n- Once `kube_pod_status_ready_time` becomes available, validate the startup query end-to-end.\n"
+            }
+          }
+        }
+      }
+    },
+    "layouts": [
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Requests",
+            "collapse": {
+              "open": true
+            }
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 12,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/success_rate"
+              }
+            },
+            {
+              "x": 12,
+              "y": 0,
+              "width": 12,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/error_rate"
+              }
+            },
+            {
+              "x": 0,
+              "y": 8,
+              "width": 12,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/running_requests"
+              }
+            },
+            {
+              "x": 12,
+              "y": 8,
+              "width": 12,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/waiting_requests"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Throughput",
+            "collapse": {
+              "open": true
+            }
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 12,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/prompt_tokens"
+              }
+            },
+            {
+              "x": 12,
+              "y": 0,
+              "width": 12,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/gen_tokens"
+              }
+            },
+            {
+              "x": 0,
+              "y": 8,
+              "width": 12,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/replicas_timeseries"
+              }
+            },
+            {
+              "x": 12,
+              "y": 8,
+              "width": 12,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/kv_cache"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Latency",
+            "collapse": {
+              "open": true
+            }
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 12,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/ttft_p50"
+              }
+            },
+            {
+              "x": 12,
+              "y": 0,
+              "width": 12,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/ttft_p99"
+              }
+            },
+            {
+              "x": 0,
+              "y": 8,
+              "width": 12,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/tpot_p50"
+              }
+            },
+            {
+              "x": 12,
+              "y": 8,
+              "width": 12,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/tpot_p99"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "GPU & Startup",
+            "collapse": {
+              "open": true
+            }
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 12,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/gpu_util_timeseries"
+              }
+            },
+            {
+              "x": 12,
+              "y": 0,
+              "width": 4,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/gpu_util_stat"
+              }
+            },
+            {
+              "x": 16,
+              "y": 0,
+              "width": 8,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/time_to_ready"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "README",
+            "collapse": {
+              "open": false
+            }
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 24,
+              "height": 18,
+              "content": {
+                "$ref": "#/spec/panels/readme"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "variables": [
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "display": {
+            "name": "Rate Interval",
+            "hidden": false
+          },
+          "value": "1h",
+          "name": "rate_interval"
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "display": {
+            "name": "Latency Interval",
+            "hidden": false
+          },
+          "value": "5m",
+          "name": "latency_interval"
+        }
+      }
+    ],
+    "duration": "1h",
+    "refreshInterval": "30s"
+  }
+}

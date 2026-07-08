@@ -1,0 +1,417 @@
+{
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "thalamus_gpu",
+    "project": "workload-management"
+  },
+  "spec": {
+    "display": {
+      "name": "Thalamus GPU"
+    },
+    "variables": [
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "display": {
+            "name": "Rate Interval",
+            "hidden": false
+          },
+          "value": "15m",
+          "name": "rate_interval"
+        }
+      }
+    ],
+    "panels": {
+      "readme": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "README"
+          },
+          "plugin": {
+            "kind": "Markdown",
+            "spec": {
+              "text": "# Thalamus GPU\n\n## Description\n\nHardware view of the GPUs backing vLLM in `thalamus`. Answers two kinds of questions: **is the GPU busy (and busy doing what)?** and **is the GPU healthy?** Metrics come from DCGM (NVIDIA's exporter). DCGM has no `model_name` label, so panels group by `exported_pod` — because one pod hosts one model in this cluster, per-pod is effectively per-model.\n\nAll utilization panels show ratios (0–1). A value of `0.85` means the counter was active during 85% of the sampling window.\n\n## Panels\n\n### VRAM Utilization\nFraction of GPU memory occupied. Derived from raw byte counters: `used / (used + free)`.\n\nQuery: `avg by (exported_pod) (DCGM_FI_DEV_FB_USED / (DCGM_FI_DEV_FB_USED + DCGM_FI_DEV_FB_FREE))`\n\n**Debug scenario:** VRAM climbs from a steady 0.87 toward 0.98 over an hour. The next KV cache allocation is about to OOM. Correlate with Debug/vLLM `KV Cache Usage` — if that's also climbing, concurrent requests are eating memory. Reduce `max_num_seqs`, cut concurrency, or scale out. Sudden step jump (not gradual) = a new model was loaded onto that pod.\n\n### HBM Activity\nFraction of cycles the GPU's high-bandwidth memory (HBM) was active. `DCGM_FI_PROF_DRAM_ACTIVE` is a hardware perf counter.\n\nQuery: `avg by (exported_pod) (DCGM_FI_PROF_DRAM_ACTIVE)`\n\n**Debug scenario:** HBM Activity ≈ 0.9, `Compute Occupancy` ≈ 0.2. Classic memory-bound signature — the GPU is spending most of its time reading weights and KV cache, not doing math. Fix: raise batch size so each memory read is amortized over more tokens. Read together with `Compute Occupancy`; neither panel is meaningful alone.\n\n### Compute Occupancy\nFraction of cycles the compute engine was doing work. Actual occupancy, not \"was anything happening.\"\n\nQuery: `avg by (exported_pod) (DCGM_FI_PROF_GR_ENGINE_ACTIVE)`\n\n**Debug scenario:** Compute Occupancy sits at 0.15 during a busy hour. The GPU is stalling. Check `HBM Activity` — if high, memory-bound (see above). If low too, the model is running with tiny batches; open Debug/vLLM `Iteration Tokens` — if p50 is single digits, `max_num_seqs` is likely set too low.\n\n### Tensor Core Utilization\nFraction of cycles tensor cores did work (the specialized units that make FP16/BF16 inference fast).\n\nQuery: `avg by (exported_pod) (DCGM_FI_PROF_PIPE_TENSOR_ACTIVE)`\n\n**Debug scenario:** Compute Occupancy is 0.6 but Tensor Core Utilization is near zero. The model is running but not hitting tensor cores — likely FP32 or a non-tensor-core code path. Check vLLM `dtype` config (should be `bfloat16` or `float16` for tensor-core acceleration).\n\n### PCIe Bandwidth\nTotal PCIe traffic host↔device: `rate(RX_BYTES) + rate(TX_BYTES)` per pod.\n\nQuery: `sum by (exported_pod) (rate(DCGM_FI_PROF_PCIE_RX_BYTES[$rate_interval]) + rate(DCGM_FI_PROF_PCIE_TX_BYTES[$rate_interval]))`\n\n**Debug scenario:** Baseline is near-zero, but on one pod PCIe traffic is sustained at hundreds of MB/s during inference. Weights are being paged host↔device — someone left CPU offloading enabled, or the model doesn't fit in VRAM. Latency on that pod will be an order of magnitude worse than the others. Startup spikes are normal (weights loading) and should decay within a minute.\n\n### GPU Temperature\nDie temperature in °C. `avg by (exported_pod) (DCGM_FI_DEV_GPU_TEMP)`.\n\n**Debug scenario:** One pod's GPU is running at 88°C while others are at 72°C. Thermal throttling is likely active on that pod — latency variance will be worse there. Not a software problem: check rack airflow, fan health, or whether that node is in a hot corner of the DC. Above ~90°C means active throttling on most modern GPUs.\n\n### Hardware Health (table)\nOne row per pod, three columns of failure indicators. All should be **zero**.\n\n- **PCIe Replays** (`DCGM_FI_DEV_PCIE_REPLAY_COUNTER`) — PCIe link error count.\n- **ECC Rows** (`DCGM_FI_DEV_UNCORRECTABLE_REMAPPED_ROWS`) — DRAM rows remapped after uncorrectable errors.\n- **Remap Failure** (`DCGM_FI_DEV_ROW_REMAP_FAILURE`) — flag: `1` means GPU has exhausted its memory repair capacity.\n\nQuery: three `sum by (exported_pod) (...)` queries merged into one table via `MergeSeries` transform.\n\n**Debug scenario — PCIe Replays non-zero and growing:** hardware-level PCIe errors. Cable, slot, or driver fault. Symptoms: intermittent hangs, occasional request timeouts. Drain the node, replace/reseat.\n\n**Debug scenario — ECC Rows non-zero:** uncorrectable memory error occurred; the row was retired, but the data that was in it is silently corrupted. Any non-zero value means at least one wrong computation happened. Quarantine the GPU.\n\n**Debug scenario — Remap Failure = 1:** the GPU has run out of spare rows to replace failed ones. Further memory errors will silently produce wrong results. Replace the GPU.\n"
+            }
+          }
+        }
+      },
+      "vram_utilization": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "VRAM Utilization"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": ["last"]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": { "unit": "percent-decimal" },
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "avg by (exported_pod) (DCGM_FI_DEV_FB_USED / (DCGM_FI_DEV_FB_USED + DCGM_FI_DEV_FB_FREE))",
+                    "seriesNameFormat": "{{exported_pod}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "dram_active": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "HBM Activity"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": ["last"]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": { "unit": "percent-decimal" },
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "avg by (exported_pod) (DCGM_FI_PROF_DRAM_ACTIVE)",
+                    "seriesNameFormat": "{{exported_pod}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "gr_engine_active": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Compute Occupancy"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": ["last"]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": { "unit": "percent-decimal" },
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "avg by (exported_pod) (DCGM_FI_PROF_GR_ENGINE_ACTIVE)",
+                    "seriesNameFormat": "{{exported_pod}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "tensor_active": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Tensor Core Utilization"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": ["last"]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": { "unit": "percent-decimal" },
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "avg by (exported_pod) (DCGM_FI_PROF_PIPE_TENSOR_ACTIVE)",
+                    "seriesNameFormat": "{{exported_pod}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "gpu_temp": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "GPU Temperature"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": ["last"]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": { "unit": "celsius" },
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "avg by (exported_pod) (DCGM_FI_DEV_GPU_TEMP)",
+                    "seriesNameFormat": "{{exported_pod}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "pcie_bandwidth": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "PCIe Bandwidth"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": ["last"]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": { "unit": "bytes/sec", "shortValues": true },
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "sum by (exported_pod) (rate(DCGM_FI_PROF_PCIE_RX_BYTES[$rate_interval]) + rate(DCGM_FI_PROF_PCIE_TX_BYTES[$rate_interval]))",
+                    "seriesNameFormat": "{{exported_pod}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "hardware_health": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Hardware Health"
+          },
+          "plugin": {
+            "kind": "Table",
+            "spec": {
+              "density": "compact",
+              "defaultColumnHidden": true,
+              "columnSettings": [
+                { "name": "exported_pod", "header": "Pod", "hide": false },
+                { "name": "value #1", "header": "PCIe Replays", "hide": false, "align": "right", "format": { "unit": "decimal" }, "width": 40 },
+                { "name": "value #2", "header": "ECC Rows", "hide": false, "align": "right", "format": { "unit": "decimal" }, "width": 40 },
+                { "name": "value #3", "header": "Remap Failure", "hide": false, "align": "right", "format": { "unit": "decimal" }, "width": 40 },
+                { "name": "timestamp", "hide": true }
+              ],
+              "transforms": [{ "kind": "MergeSeries", "spec": {} }]
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "sum by (exported_pod) (DCGM_FI_DEV_PCIE_REPLAY_COUNTER)",
+                    "seriesNameFormat": "replays - {{exported_pod}}"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "sum by (exported_pod) (DCGM_FI_DEV_UNCORRECTABLE_REMAPPED_ROWS)",
+                    "seriesNameFormat": "ecc_rows - {{exported_pod}}"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "sum by (exported_pod) (DCGM_FI_DEV_ROW_REMAP_FAILURE)",
+                    "seriesNameFormat": "remap_failure - {{exported_pod}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "layouts": [
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "README",
+            "collapse": { "open": false }
+          },
+          "items": [
+            { "x": 0, "y": 0, "width": 24, "height": 18, "content": { "$ref": "#/spec/panels/readme" } }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "items": [
+            { "x": 0,  "y": 0,  "width": 12, "height": 8, "content": { "$ref": "#/spec/panels/vram_utilization" } },
+            { "x": 12, "y": 0,  "width": 12, "height": 8, "content": { "$ref": "#/spec/panels/dram_active" } },
+            { "x": 0,  "y": 10, "width": 12, "height": 8, "content": { "$ref": "#/spec/panels/gr_engine_active" } },
+            { "x": 12, "y": 10, "width": 12, "height": 8, "content": { "$ref": "#/spec/panels/tensor_active" } },
+            { "x": 0,  "y": 20, "width": 8,  "height": 8, "content": { "$ref": "#/spec/panels/pcie_bandwidth" } },
+            { "x": 8,  "y": 20, "width": 8,  "height": 8, "content": { "$ref": "#/spec/panels/gpu_temp" } },
+            { "x": 16, "y": 20, "width": 8,  "height": 8, "content": { "$ref": "#/spec/panels/hardware_health" } }
+          ]
+        }
+      }
+    ],
+    "duration": "1h",
+    "refreshInterval": "30s"
+  }
+}

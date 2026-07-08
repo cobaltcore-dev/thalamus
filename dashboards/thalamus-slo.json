@@ -1,0 +1,565 @@
+{
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "thalamus_slo",
+    "project": "workload-management"
+  },
+  "spec": {
+    "display": {
+      "name": "Thalamus SLO"
+    },
+    "variables": [
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "display": {
+            "name": "Rate Interval",
+            "hidden": false
+          },
+          "value": "15m",
+          "name": "rate_interval"
+        }
+      }
+    ],
+    "panels": {
+      "readme": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "README"
+          },
+          "plugin": {
+            "kind": "Markdown",
+            "spec": {
+              "text": "# Thalamus SLO\n\n## Description\n\nUser-facing signals for vLLM serving in `thalamus`. This is what to watch during an incident: are users getting fast tokens, is the fleet healthy, is anything queued?\n\nAll latency panels are split into **p50** (median request) and **p99** (worst 1%) — one panel each, per-model. No aggregate/total series: SLOs are per-model.\n\n`$rate_interval` controls the smoothing window for histogram rates (default `15m`).\n\n## Panels\n\n### TTFT p50 / p99\n**Time To First Token** — from request arrival to the first output token reaching the user. Streaming requests only (`streaming=\"true\"`). Primary UX signal: a fast TTFT means the user sees output immediately, even if the full response takes seconds.\n\nQuery: `histogram_quantile(0.50|0.99, sum by (target_model_name, le) (rate(llm_d_epp_request_ttft_seconds_bucket{streaming=\"true\"}[$rate_interval])))`\n\n`histogram_quantile` reads a Prometheus histogram (buckets counting how many requests fell into each latency range) and returns the value at a given percentile. p99=1.2s means 99% of requests were faster than 1.2s.\n\nSource is `llm_d_epp_*` (the endpoint picker in front of vLLM) — includes routing overhead. Cross-check against `TTFT (vLLM)` in Debug/vLLM to isolate router vs model latency.\n\n**Debug scenario:** p99 jumps to 4s, p50 stays flat. A subset of requests is suffering — long prompts, cache misses, or one endpoint hoarding traffic. Look at `Queue Depth` first; if flat, jump to Debug/vLLM `Prefill Time` and Usage `Input Tokens` — big prompts are the usual culprit. If `Queue Depth` is also rising, it's capacity, not payload.\n\n### TPOT p50 / p99\n**Time Per Output Token** — average gap between consecutive tokens during decode. Determines perceived streaming speed after the first token arrives.\n\nQuery: `histogram_quantile(..., sum by (model_name, le) (rate(vllm:inter_token_latency_seconds_bucket[$rate_interval])))`\n\nMeasured on the vLLM side (`vllm:inter_token_latency_seconds`) because the llm_d equivalent (`llm_d_epp_request_streaming_tpot_seconds`) is not yet emitted in this cluster.\n\n**Debug scenario:** TTFT normal, TPOT p99 climbs to 200ms. Users see the response start fast but stream slowly. Open GPU dashboard: if `HBM Activity` is near 1.0 and `Compute Occupancy` is low, decode is memory-bound — reduce concurrency or batch size. If both are high, the model is genuinely saturated on this hardware.\n\n### E2E p50 / p99\n**End-to-End latency** — total wall time from request arrival to last token. Matters for SLO accounting and non-streaming clients (who see nothing until this completes).\n\nQuery: `histogram_quantile(..., sum by (target_model_name, le) (rate(llm_d_epp_request_duration_seconds_bucket[$rate_interval])))`\n\n**Debug scenario:** E2E p99 = 6s, but TTFT p99 = 0.4s and TPOT p99 = 80ms. The user-visible parts look fine, yet total time is huge → the time is hiding somewhere else. Check Debug/vLLM `Queue Time` (waiting in scheduler before prefill) — that's usually where. If queue is also flat, the delta is downstream: network, client-side buffering, or a hop we don't measure.\n\n### ITL p50 / p99\n**Inter-Token Latency** — raw gap between consecutive streamed chunks (llm_d side). TPOT is an average; ITL exposes the jitter that users actually feel.\n\nQuery: `histogram_quantile(..., sum by (target_model_name, le) (rate(llm_d_epp_request_streaming_itl_seconds_bucket[$rate_interval])))`\n\n**Debug scenario:** TPOT p99 is stable at 90ms but ITL p99 is 500ms — averages look fine, users report stuttering. Some tokens arrive back-to-back, others hang. Cause is usually GPU timeslicing under concurrent load or router/network jitter. Compare ITL to TPOT on the same model: a wide gap = jitter, close = smooth streaming.\n\n### Queue Depth\nNumber of requests waiting in the vLLM scheduler (not yet in prefill). Leading indicator of TTFT breaches.\n\nQuery: `sum by (model_name) (vllm:num_requests_waiting)`\n\n**Debug scenario:** Queue Depth climbs from 0 to a sustained 20+. TTFT will breach within minutes — capacity exceeded. Open Debug/vLLM `Waiting by Reason` to find out **why** requests are stuck: `chunked_prefill` = one huge prompt blocking everyone, `swapped` = KV cache pressure (check `KV Cache Usage` and `Preemptions`). Fix: scale replicas or shed load.\n\n### Ready Endpoints\nNumber of vLLM pods the endpoint picker (EPP) considers schedulable, per pool.\n\nQuery: `sum by (name) (llm_d_epp_ready_endpoints)`\n\n**Debug scenario:** Endpoint count drops from 3 to 1, but k8s says all pods are `Ready`. EPP has lost contact with 2 pods (readiness probe passing, but EPP-specific health check failing). All traffic funnels to the surviving pod — latency spikes even though the k8s view looks fine. Check EPP logs and pod-level connectivity; k8s replica count alone will not surface this.\n\n### Time to Ready\nSeconds from pod created to Ready condition — per vLLM pod (EPP pods excluded via `pod!~\".*-epp-.*\"`).\n\nQuery: `kube_pod_status_ready_time{...} - kube_pod_created{...}`\n\nNote: `kube_pod_status_ready_time` is only emitted when kube-state-metrics observes the Ready transition — pods already ready at ksm startup will be missing from the table.\n\n**Debug scenario:** Startup time creeps from 90s to 240s across successive rollouts. When a traffic spike hits, the autoscaler brings pods up but they can't take load fast enough — SLO breaches for the duration of the scale-up. Root causes worth checking: model weights on cold storage, image pull latency, init container work, readiness probe delay tuned too conservatively.\n"
+            }
+          }
+        }
+      },
+      "ttft_p50": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "TTFT p50"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "list",
+                "position": "bottom"
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": { "unit": "seconds" },
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "histogram_quantile(0.50, sum by (target_model_name, le) (rate(llm_d_epp_request_ttft_seconds_bucket{streaming=\"true\"}[$rate_interval])))",
+                    "seriesNameFormat": "{{target_model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "ttft_p99": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "TTFT p99"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "list",
+                "position": "bottom"
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": { "unit": "seconds" },
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "histogram_quantile(0.99, sum by (target_model_name, le) (rate(llm_d_epp_request_ttft_seconds_bucket{streaming=\"true\"}[$rate_interval])))",
+                    "seriesNameFormat": "{{target_model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "tpot_p50": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "TPOT p50"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "list",
+                "position": "bottom"
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": { "unit": "seconds" },
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "histogram_quantile(0.50, sum by (model_name, le) (rate(vllm:inter_token_latency_seconds_bucket[$rate_interval])))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "tpot_p99": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "TPOT p99"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "list",
+                "position": "bottom"
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": { "unit": "seconds" },
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "histogram_quantile(0.99, sum by (model_name, le) (rate(vllm:inter_token_latency_seconds_bucket[$rate_interval])))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "e2e_p50": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "E2E p50"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "list",
+                "position": "bottom"
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": { "unit": "seconds" },
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "histogram_quantile(0.50, sum by (target_model_name, le) (rate(llm_d_epp_request_duration_seconds_bucket[$rate_interval])))",
+                    "seriesNameFormat": "{{target_model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "e2e_p99": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "E2E p99"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "list",
+                "position": "bottom"
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": { "unit": "seconds" },
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "histogram_quantile(0.99, sum by (target_model_name, le) (rate(llm_d_epp_request_duration_seconds_bucket[$rate_interval])))",
+                    "seriesNameFormat": "{{target_model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "itl_p50": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "ITL p50"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "list",
+                "position": "bottom"
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": { "unit": "seconds" },
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "histogram_quantile(0.50, sum by (target_model_name, le) (rate(llm_d_epp_request_streaming_itl_seconds_bucket[$rate_interval])))",
+                    "seriesNameFormat": "{{target_model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "itl_p99": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "ITL p99"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "list",
+                "position": "bottom"
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": { "unit": "seconds" },
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "histogram_quantile(0.99, sum by (target_model_name, le) (rate(llm_d_epp_request_streaming_itl_seconds_bucket[$rate_interval])))",
+                    "seriesNameFormat": "{{target_model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "queue_depth": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Queue Depth"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "list",
+                "position": "bottom"
+              },
+              "visual": {
+                "areaOpacity": 0.2,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": { "unit": "decimal" },
+                "label": "count",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "sum by (model_name) (vllm:num_requests_waiting)",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "ready_endpoints": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Ready Endpoints"
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "list",
+                "position": "bottom"
+              },
+              "visual": {
+                "areaOpacity": 0.2,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": { "unit": "decimal" },
+                "label": "endpoints",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "sum by (name) (llm_d_epp_ready_endpoints)",
+                    "seriesNameFormat": "{{name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "time_to_ready": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Time to Ready"
+          },
+          "plugin": {
+            "kind": "Table",
+            "spec": {
+              "density": "compact",
+              "defaultColumnHidden": true,
+              "columnSettings": [
+                { "name": "pod", "header": "Pod", "hide": false },
+                { "name": "value", "header": "Startup (s)", "hide": false, "align": "right", "format": { "unit": "seconds" } },
+                { "name": "timestamp", "hide": true }
+              ],
+              "transforms": [{ "kind": "MergeSeries", "spec": {} }]
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": { "kind": "PrometheusDatasource", "name": "kube-monitoring-prometheus" },
+                    "query": "kube_pod_status_ready_time{namespace=\"thalamus\", pod=~\"vllm-.*\", pod!~\".*-epp-.*\"} - kube_pod_created{namespace=\"thalamus\", pod=~\"vllm-.*\", pod!~\".*-epp-.*\"}",
+                    "seriesNameFormat": "{{pod}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "layouts": [
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "README",
+            "collapse": {
+              "open": false
+            }
+          },
+          "items": [
+            { "x": 0, "y": 0, "width": 24, "height": 18, "content": { "$ref": "#/spec/panels/readme" } }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "items": [
+            { "x": 0,  "y": 0,  "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/ttft_p50" } },
+            { "x": 6,  "y": 0,  "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/ttft_p99" } },
+            { "x": 12, "y": 0,  "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/tpot_p50" } },
+            { "x": 18, "y": 0,  "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/tpot_p99" } },
+            { "x": 0,  "y": 13, "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/e2e_p50" } },
+            { "x": 6,  "y": 13, "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/e2e_p99" } },
+            { "x": 12, "y": 13, "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/itl_p50" } },
+            { "x": 18, "y": 13, "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/itl_p99" } },
+            { "x": 0,  "y": 26, "width": 6, "height": 7, "content": { "$ref": "#/spec/panels/queue_depth" } },
+            { "x": 6,  "y": 26, "width": 6, "height": 7, "content": { "$ref": "#/spec/panels/ready_endpoints" } },
+            { "x": 12, "y": 26, "width": 6, "height": 7, "content": { "$ref": "#/spec/panels/time_to_ready" } }
+          ]
+        }
+      }
+    ],
+    "duration": "1h",
+    "refreshInterval": "30s"
+  }
+}
