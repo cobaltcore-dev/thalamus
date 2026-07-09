@@ -91,11 +91,16 @@ jobs:
       - name: Debug on failure
         if: failure()
         run: |
+          echo "=== Node resources ==="
+          kubectl describe node thalamus-e2e-control-plane | grep -A20 "Allocated resources"
           echo "=== Pods ==="
           kubectl get pods -n thalamus -o wide
           kubectl get pods -n agentgateway-system -o wide
-          echo "=== Model logs ==="
+          echo "=== vllm pod describe ==="
+          kubectl describe pod -n thalamus -l app=vllm-tiny-llm || true
+          echo "=== Model logs (current) ==="
           kubectl logs -n thalamus -l app=vllm-tiny-llm || true
+          echo "=== Model logs (previous) ==="
           kubectl logs -n thalamus -l app=vllm-tiny-llm --previous || true
           echo "=== EPP logs ==="
           kubectl logs -n thalamus -l inferencepool=vllm-tiny-llm-epp || true
