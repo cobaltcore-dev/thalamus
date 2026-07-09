@@ -98,20 +98,20 @@ metadata:
   name: {{ $epp }}
   namespace: {{ $.Release.Namespace }}
   labels:
-    inferencepool: {{ $epp }}
-    inference.networking.k8s.io/igw-mode: inferencepool
+    {{- include "thalamus.epp.selectorLabels" $m | nindent 4 }}
+    {{- include "thalamus.labels" $ | nindent 4 }}
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      inferencepool: {{ $epp }}
+      {{- include "thalamus.epp.selectorLabels" $m | nindent 6 }}
   template:
     metadata:
       labels:
-        inferencepool: {{ $epp }}
-        inference.networking.k8s.io/igw-mode: inferencepool
+        {{- include "thalamus.epp.selectorLabels" $m | nindent 8 }}
+        {{- include "thalamus.labels" $ | nindent 8 }}
     spec:
       serviceAccountName: {{ $epp }}
       terminationGracePeriodSeconds: 130
@@ -173,10 +173,11 @@ metadata:
   name: {{ $epp }}
   namespace: {{ $.Release.Namespace }}
   labels:
-    inferencepool: {{ $epp }}
+    {{- include "thalamus.epp.selectorLabels" $m | nindent 4 }}
+    {{- include "thalamus.labels" $ | nindent 4 }}
 spec:
   selector:
-    inferencepool: {{ $epp }}
+    {{- include "thalamus.epp.selectorLabels" $m | nindent 4 }}
   ports:
     - name: grpc-ext-proc
       protocol: TCP

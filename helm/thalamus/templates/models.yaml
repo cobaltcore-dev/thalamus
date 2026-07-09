@@ -12,21 +12,20 @@ metadata:
   name: vllm-{{ $m.slug }}
   namespace: {{ $.Release.Namespace }}
   labels:
-    app: vllm-{{ $m.slug }}
-    llm-d.ai/inference-serving: "true"
+    {{- include "thalamus.model.selectorLabels" $m | nindent 4 }}
+    {{- include "thalamus.labels" $ | nindent 4 }}
 spec:
   replicas: {{ $replicas }}
   strategy:
     type: {{ $m.updateStrategy | default "RollingUpdate" }}
   selector:
     matchLabels:
-      app: vllm-{{ $m.slug }}
-      llm-d.ai/inference-serving: "true"
+      {{- include "thalamus.model.selectorLabels" $m | nindent 6 }}
   template:
     metadata:
       labels:
-        app: vllm-{{ $m.slug }}
-        llm-d.ai/inference-serving: "true"
+        {{- include "thalamus.model.selectorLabels" $m | nindent 8 }}
+        {{- include "thalamus.labels" $ | nindent 8 }}
     spec:
       containers:
         - name: vllm
@@ -103,10 +102,11 @@ metadata:
   name: vllm-{{ $m.slug }}
   namespace: {{ $.Release.Namespace }}
   labels:
-    app: vllm-{{ $m.slug }}
+    {{- include "thalamus.model.selectorLabels" $m | nindent 4 }}
+    {{- include "thalamus.labels" $ | nindent 4 }}
 spec:
   selector:
-    app: vllm-{{ $m.slug }}
+    {{- include "thalamus.model.selectorLabels" $m | nindent 4 }}
   ports:
     - port: 8000
       targetPort: vllm
@@ -122,7 +122,7 @@ spec:
     - number: 8000
   selector:
     matchLabels:
-      app: vllm-{{ $m.slug }}
+      {{- include "thalamus.model.selectorLabels" $m | nindent 6 }}
   endpointPickerRef:
     name: vllm-{{ $m.slug }}-epp
     port:

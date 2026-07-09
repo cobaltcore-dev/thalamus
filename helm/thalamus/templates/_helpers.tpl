@@ -6,15 +6,26 @@
 {{- default (include "thalamus.operator.name" .) .Values.operator.serviceAccount.name }}
 {{- end }}
 
-{{- define "thalamus.operator.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "thalamus.operator.name" . }}
+{{- define "thalamus.labels" -}}
+app.kubernetes.io/part-of: thalamus
 app.kubernetes.io/instance: {{ .Release.Name }}
-{{- end }}
-
-{{- define "thalamus.operator.labels" -}}
-{{ include "thalamus.operator.selectorLabels" . }}
 app.kubernetes.io/version: {{ .Chart.AppVersion }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end }}
+
+{{- define "thalamus.operator.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "thalamus.operator.name" . }}
+app.kubernetes.io/component: operator
+{{- end }}
+
+{{- define "thalamus.model.selectorLabels" -}}
+app.kubernetes.io/name: vllm-{{ .slug }}
+app.kubernetes.io/component: model
+{{- end }}
+
+{{- define "thalamus.epp.selectorLabels" -}}
+app.kubernetes.io/name: vllm-{{ .slug }}-epp
+app.kubernetes.io/component: epp
 {{- end }}
 
 {{/* Render an image ref from {registry, repository, tag, digest} (bitnami-style: digest wins over tag). */}}

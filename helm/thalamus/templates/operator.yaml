@@ -10,7 +10,8 @@ metadata:
   name: {{ include "thalamus.operator.serviceAccountName" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "thalamus.operator.labels" . | nindent 4 }}
+    {{- include "thalamus.operator.selectorLabels" . | nindent 4 }}
+    {{- include "thalamus.labels" . | nindent 4 }}
 {{- end }}
 {{- if .Values.operator.rbac.create }}
 ---
@@ -19,7 +20,8 @@ kind: ClusterRole
 metadata:
   name: {{ include "thalamus.operator.name" . }}
   labels:
-    {{- include "thalamus.operator.labels" . | nindent 4 }}
+    {{- include "thalamus.operator.selectorLabels" . | nindent 4 }}
+    {{- include "thalamus.labels" . | nindent 4 }}
 rules:
   - apiGroups: [thalamus.cloud]
     resources: [models]
@@ -36,7 +38,8 @@ kind: ClusterRoleBinding
 metadata:
   name: {{ include "thalamus.operator.name" . }}
   labels:
-    {{- include "thalamus.operator.labels" . | nindent 4 }}
+    {{- include "thalamus.operator.selectorLabels" . | nindent 4 }}
+    {{- include "thalamus.labels" . | nindent 4 }}
 subjects:
   - kind: ServiceAccount
     name: {{ include "thalamus.operator.serviceAccountName" . }}
@@ -53,7 +56,8 @@ metadata:
   name: {{ include "thalamus.operator.name" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "thalamus.operator.labels" . | nindent 4 }}
+    {{- include "thalamus.operator.selectorLabels" . | nindent 4 }}
+    {{- include "thalamus.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.operator.replicas }}
   selector:
@@ -63,6 +67,7 @@ spec:
     metadata:
       labels:
         {{- include "thalamus.operator.selectorLabels" . | nindent 8 }}
+        {{- include "thalamus.labels" . | nindent 8 }}
     spec:
       serviceAccountName: {{ include "thalamus.operator.serviceAccountName" . }}
       {{- with .Values.operator.podSecurityContext }}
