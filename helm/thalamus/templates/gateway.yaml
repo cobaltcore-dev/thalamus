@@ -29,14 +29,17 @@ metadata:
   name: {{ $name }}
   namespace: {{ $.Release.Namespace }}
 spec:
-  targetRefs:
-    {{- with $policy.targetRefs }}
-    {{- toYaml . | nindent 4 }}
-    {{- else }}
-    - group: gateway.networking.k8s.io
-      kind: Gateway
-      name: {{ $.Values.gateway.name }}
-    {{- end }}
-  {{- toYaml (omit $policy "enabled" "targetRefs") | nindent 2 }}
+  {{- $field := ternary "targetSelectors" "targetRefs" (hasKey $policy "targetSelectors") }}
+  {{- $default := dict "group" "gateway.networking.k8s.io" "kind" "Gateway" }}
+  {{- if eq $field "targetRefs" }}
+  {{- $default = merge $default (dict "name" $.Values.gateway.name) }}
+  {{- end }}
+  {{- $targets := list }}
+  {{- range (default (list dict) (index $policy $field)) }}
+  {{- $targets = append $targets (merge (deepCopy .) $default) }}
+  {{- end }}
+  {{ $field }}:
+    {{- toYaml $targets | nindent 4 }}
+  {{- toYaml (omit $policy "enabled" "targetRefs" "targetSelectors") | nindent 2 }}
 {{- end }}
 {{- end }}

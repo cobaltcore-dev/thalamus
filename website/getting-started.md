@@ -40,9 +40,24 @@ kubectl create secret generic hf-token \
 
 ## Step 2 — Create API key secrets (optional)
 
-When `gateway.apiKeyAuth` is enabled, every request to the inference API must
-carry a valid `Authorization: Bearer <token>` header. Tokens are stored as
+When the `apikey-auth` policy is enabled (`gateway.policies.apikey-auth.enabled`),
+every request to the targeted routes or listeners must carry a valid
+`Authorization: Bearer <token>` header. Tokens are stored as
 Kubernetes Secrets labelled `thalamus-apikey: "true"`.
+
+Set `targetRefs` on the policy to scope where auth is enforced. `targetRefs`
+default to the Gateway, so an entry only needs the fields it overrides — here,
+the listener section to protect:
+
+```yaml
+thalamus:
+  gateway:
+    policies:
+      apikey-auth:
+        enabled: true
+        targetRefs:
+          - sectionName: https-api
+```
 
 Create one secret per user or client:
 
@@ -59,6 +74,29 @@ Open WebUI connects to the inference API internally and also requires a token. S
 open-webui:
   openaiApiKeyExistingSecret: apikey-openwebui
   openaiApiKeyExistingSecretKey: api-key
+```
+
+### Custom gateway policies
+
+`apikey-auth` and `bbr` are just entries in `gateway.policies`. Any key you add
+renders an `AgentgatewayPolicy` of the same name, with the entry used as its
+spec. `targetRefs` default to the Gateway and are merged per-entry, so you only
+specify overrides. Attach elsewhere with a full `targetRefs` entry or by label
+via `targetSelectors`:
+
+```yaml
+thalamus:
+  gateway:
+    policies:
+      rate-limit:
+        targetRefs:
+          - kind: HTTPRoute
+            name: aggregated-models
+        traffic:
+          localRateLimit:
+            - maxTokens: 100
+              tokensPerFill: 100
+              fillInterval: 60s
 ```
 
 ## Step 3 — Deploy the stack
