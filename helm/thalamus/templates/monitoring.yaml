@@ -1,0 +1,46 @@
+{{- if .Values.monitoring.podMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: vllm
+  namespace: {{ .Release.Namespace }}
+  {{- with .Values.monitoring.extraLabels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: model
+      {{- include "thalamus.labels" $ | nindent 6 }}
+  podMetricsEndpoints:
+    - port: vllm
+      path: /metrics
+      interval: 15s
+{{- end }}
+{{- if .Values.monitoring.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: epp
+  namespace: {{ .Release.Namespace }}
+  {{- with .Values.monitoring.extraLabels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: epp
+      {{- include "thalamus.labels" $ | nindent 6 }}
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+{{- end }}

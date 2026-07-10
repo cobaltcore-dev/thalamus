@@ -163,6 +163,13 @@ epp:
     # saturationDetectorPlugin:
     #   type: concurrency-detector
 
+monitoring:
+  podMonitor:
+    enabled: false
+  serviceMonitor:
+    enabled: false
+  extraLabels: {}
+
 extraDeploy: []
   # - apiVersion: v1
   #   kind: ConfigMap
