@@ -34,7 +34,7 @@ jobs:
           node_image: kindest/node:v1.31.12
 
       - name: Install helmfile
-        uses: helmfile/helmfile-action@v2.4.6
+        uses: helmfile/helmfile-action@v2.4.7
         with:
           helmfile-version: v1.6.0
           helm-version: v3.17.3
