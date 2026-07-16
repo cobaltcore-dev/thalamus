@@ -94,18 +94,24 @@ jobs:
           echo "=== Node resources ==="
           kubectl describe node thalamus-e2e-control-plane | grep -A20 "Allocated resources"
           echo "=== Pods ==="
-          kubectl get pods -n thalamus -o wide
-          kubectl get pods -n agentgateway-system -o wide
-          echo "=== vllm pod describe ==="
-          kubectl describe pod -n thalamus -l app=vllm-tiny-llm || true
-          echo "=== Model logs (current) ==="
-          kubectl logs -n thalamus -l app=vllm-tiny-llm || true
-          echo "=== Model logs (previous) ==="
-          kubectl logs -n thalamus -l app=vllm-tiny-llm --previous || true
-          echo "=== EPP logs ==="
-          kubectl logs -n thalamus -l inferencepool=vllm-tiny-llm-epp || true
-          echo "=== agentgateway logs ==="
-          kubectl logs -n agentgateway-system \
-            -l app.kubernetes.io/name=agentgateway || true
+          kubectl get pods -A -o json \
+            | jq -r '
+              .items[]
+              | select(
+                  any(.status.containerStatuses[]?;
+                      .ready == false
+                  )
+              )
+              | "\(.metadata.namespace) \(.metadata.name)"
+            ' \
+            | while read ns pod; do
+                echo "===== $ns/$pod (current) ====="
+                kubectl logs -n "$ns" "$pod" --all-containers=true --prefix=true || true
+
+                echo "===== $ns/$pod (previous) ====="
+                kubectl logs -n "$ns" "$pod" --all-containers=true --previous --prefix=true || true
+
+                echo
+              done
           echo "=== Gateway / HTTPRoutes / InferencePools ==="
           kubectl get gateway,httproutes,inferencepools -n thalamus -o yaml
