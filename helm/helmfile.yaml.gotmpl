@@ -17,7 +17,7 @@ releases:
     namespace: node-feature-discovery
     createNamespace: true
     chart: oci://registry.k8s.io/nfd/charts/node-feature-discovery
-    version: "0.18.3"
+    version: "0.19.0"
     installed: {{ dig "node-feature-discovery" "enabled" true .Values }}
     values:
       - {{ dig "node-feature-discovery" dict .Values | toYaml | nindent 10 }}
