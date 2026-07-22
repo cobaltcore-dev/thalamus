@@ -117,6 +117,16 @@ releases:
               namespace: thalamus
       - {{ dig "open-webui" dict .Values | toYaml | nindent 10 }}
 
+  - name: model-server
+    namespace: model-server
+    createNamespace: true
+    chart: ./model-server
+    installed: {{ dig "model-server" "enabled" true .Values }}
+    needs:
+      - default/gateway-api-crds
+    values:
+      - {{ dig "model-server" dict .Values | toYaml | nindent 10 }}
+
   - name: thalamus-crds
     namespace: thalamus
     createNamespace: true
@@ -129,5 +139,6 @@ releases:
     needs:
       - thalamus/thalamus-crds
       - agentgateway-system/agentgateway
+      - model-server/model-server
     values:
       - {{ dig "thalamus" dict .Values | toYaml | nindent 10 }}

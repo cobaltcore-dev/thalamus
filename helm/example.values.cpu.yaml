@@ -6,6 +6,14 @@ node-feature-discovery:
 gpu-operator:
   enabled: false
 
+model-server:
+  enabled: true
+  ocm:
+    repositories:
+      - name: sample
+        type: OCIRegistry
+        url: ghcr.io/jakobmoellerdev/model-server/models
+
 thalamus:
   models:
     - slug: tiny-llm
@@ -28,7 +36,7 @@ thalamus:
 
     - slug: tiny-model-ocm
       model: example-org/tiny-model
-      hfEndpoint: "http://model-server:8080"
+      hfEndpoint: "http://model-server.model-server.svc.cluster.local:8080"
       accelerator: cpu
       replicas: 1
       extraArgs:

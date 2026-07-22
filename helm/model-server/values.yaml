@@ -1,0 +1,31 @@
+image:
+  registry: ghcr.io
+  repository: jakobmoellerdev/model-server
+  tag: "v0.2.0"
+  pullPolicy: IfNotPresent
+  digest: ""
+
+replicaCount: 1
+
+ocm:
+  repositories:
+    - name: primary
+      type: OCIRegistry
+      url: ""
+  signatures:
+    required: false
+  refreshInterval: 5m
+  indexTTL: 60s
+
+apis:
+  hfhub: true
+  ollama: false
+  openai: false
+  mlflow: false
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 512Mi

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: model-server
+description: OCM model-server for HF-compatible model distribution
+type: application
+version: 0.1.0
+appVersion: "0.2.0"
