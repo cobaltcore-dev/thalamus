@@ -26,6 +26,25 @@ thalamus:
           cpu: "4"
           memory: "6Gi"
 
+    - slug: tiny-model-ocm
+      model: example-org/tiny-model
+      hfEndpoint: "http://model-server:8080"
+      accelerator: cpu
+      replicas: 1
+      extraArgs:
+        - "--max-model-len=512"
+        - "--dtype=float32"
+      extraEnv:
+        - name: VLLM_CPU_KVCACHE_SPACE
+          value: "4"
+      resources:
+        requests:
+          cpu: "2"
+          memory: "6Gi"
+        limits:
+          cpu: "4"
+          memory: "6Gi"
+
   epp:
     resources:
       requests:

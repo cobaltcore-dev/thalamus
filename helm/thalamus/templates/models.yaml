@@ -45,6 +45,10 @@ spec:
             - {{ . | quote }}
             {{- end }}
           env:
+            {{- if $m.hfEndpoint }}
+            - name: HF_ENDPOINT
+              value: {{ $m.hfEndpoint | quote }}
+            {{- end }}
             - name: HF_TOKEN
               valueFrom:
                 secretKeyRef:

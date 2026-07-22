@@ -131,6 +131,7 @@ accelerators:
 # models:
 #   - slug: my-model
 #     model: org/my-model
+#     hfEndpoint: "http://model-server:8080"  # optional: override HF endpoint (e.g. OCM model-server)
 #     accelerator: nvidia
 #     replicas: 1
 #     extraArgs: []
