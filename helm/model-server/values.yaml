@@ -1,11 +1,15 @@
 image:
-  registry: ghcr.io
-  repository: jakobmoellerdev/model-server
-  tag: "v0.2.0"
+  registry: ""
+  repository: model-server
+  tag: "latest"
   pullPolicy: IfNotPresent
   digest: ""
 
 replicaCount: 1
+
+extraArgs:
+  - "-config"
+  - "/etc/model-server/model-server.yaml"
 
 ocm:
   repositories:

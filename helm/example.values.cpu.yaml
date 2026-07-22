@@ -12,7 +12,7 @@ model-server:
     repositories:
       - name: sample
         type: OCIRegistry
-        url: ghcr.io/jakobmoellerdev/model-server/models
+        url: ghcr.io/violog/model-server/models
 
 thalamus:
   models:

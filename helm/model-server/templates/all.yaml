@@ -58,6 +58,10 @@ spec:
         - name: model-server
           image: {{ include "model-server.image" .Values.image }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.extraArgs }}
+          args:
+            {{- toYaml .Values.extraArgs | nindent 12 }}
+          {{- end }}
           ports:
             - containerPort: 8080
               name: http
