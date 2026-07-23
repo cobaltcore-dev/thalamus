@@ -11,6 +11,8 @@ extraArgs:
   - "-config"
   - "/etc/model-server/model-server.yaml"
 
+extraEnvFrom: []
+
 ocm:
   repositories:
     - name: primary

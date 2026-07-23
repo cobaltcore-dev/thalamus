@@ -15,6 +15,11 @@ data:
     auth: # set up for CI workflows
       mode: none
 
+    credentials:
+      ghcr-creds:
+        username: violog
+        password: ${GHCR_TOKEN}
+
     ocm:
       repositories:
         {{- range .Values.ocm.repositories }}
@@ -61,6 +66,10 @@ spec:
           {{- if .Values.extraArgs }}
           args:
             {{- toYaml .Values.extraArgs | nindent 12 }}
+          {{- end }}
+          {{- if .Values.extraEnvFrom }}
+          envFrom:
+            {{- toYaml .Values.extraEnvFrom | nindent 12 }}
           {{- end }}
           ports:
             - containerPort: 8080

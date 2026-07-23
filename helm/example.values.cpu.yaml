@@ -8,6 +8,9 @@ gpu-operator:
 
 model-server:
   enabled: true
+  extraEnvFrom:
+    - secretRef:
+        name: model-server-ghcr-token
   ocm:
     repositories:
       - name: sample
