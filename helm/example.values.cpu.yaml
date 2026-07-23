@@ -35,7 +35,7 @@ thalamus:
           memory: "6Gi"
 
     - slug: tiny-model-ocm
-      model: example.org/tiny-model
+      model: arnir0.violog.git/tiny-llm
       hfEndpoint: "http://model-server.model-server.svc.cluster.local:8080"
       accelerator: cpu
       replicas: 1
