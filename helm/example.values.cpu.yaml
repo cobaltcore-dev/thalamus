@@ -23,6 +23,8 @@ thalamus:
       extraArgs:
         - "--max-model-len=512"
         - "--dtype=float32"
+        - "--enable-auto-tool-choice"
+        - "--tool-call-parser=openai"
       extraEnv:
         - name: VLLM_CPU_KVCACHE_SPACE
           value: "4"
@@ -42,9 +44,17 @@ thalamus:
       extraArgs:
         - "--max-model-len=512"
         - "--dtype=float32"
+        - "--enable-auto-tool-choice"
+        - "--tool-call-parser=openai"
       extraEnv:
+        - name: VLLM_USE_V1
+          value: "0"
         - name: VLLM_CPU_KVCACHE_SPACE
           value: "4"
+        - name: HF_HUB_ETAG_TIMEOUT
+          value: "60"
+        - name: HF_HUB_DOWNLOAD_TIMEOUT
+          value: "120"
       resources:
         requests:
           cpu: "2"
