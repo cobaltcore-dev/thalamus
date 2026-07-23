@@ -27,6 +27,10 @@ data:
           type: {{ .type }}
           url: {{ .url | quote }}
         {{- end }}
+      blobCache:
+        path: "/tmp/model-server-ghcr-cache"
+        maxSizeBytes: 10737418240
+        ttl: 168h
       signatures:
         required: {{ .Values.ocm.signatures.required }}
       refreshInterval: {{ .Values.ocm.refreshInterval }}
