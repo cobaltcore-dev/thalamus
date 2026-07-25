@@ -99,7 +99,7 @@ accelerators:
     image:
       registry: docker.io
       repository: vllm/vllm-openai-cpu
-      tag: v0.25.0
+      tag: v0.26.0
       digest: ""
       pullPolicy: IfNotPresent
     baseArgs: []
