@@ -52,9 +52,33 @@ owner_info:
 gateway:
   name: inference-gateway
   listeners:
-    - port: 80
+    http:
+      port: 80
       protocol: HTTP
-      name: default
+      allowedRoutes:
+        namespaces:
+          from: All
+    https-api:
+      enabled: false
+      port: 443
+      protocol: HTTPS
+      # hostname: api.example.com
+      # tls:
+      #   mode: Terminate
+      #   certificateRefs:
+      #     - name: gateway-tls
+      allowedRoutes:
+        namespaces:
+          from: All
+    https-frontend:
+      enabled: false
+      port: 443
+      protocol: HTTPS
+      # hostname: example.com
+      # tls:
+      #   mode: Terminate
+      #   certificateRefs:
+      #     - name: gateway-tls
       allowedRoutes:
         namespaces:
           from: All

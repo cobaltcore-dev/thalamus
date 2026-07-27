@@ -11,7 +11,12 @@ spec:
       kind: AgentgatewayParameters
       name: {{ .Values.gateway.name }}
   listeners:
-    {{- toYaml .Values.gateway.listeners | nindent 4 }}
+    {{- range $name, $listener := .Values.gateway.listeners }}
+    {{- if ne $listener.enabled false }}
+    - name: {{ $name }}
+      {{- toYaml (omit $listener "enabled") | nindent 6 }}
+    {{- end }}
+    {{- end }}
 ---
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayParameters
@@ -42,4 +47,27 @@ spec:
     {{- toYaml $targets | nindent 4 }}
   {{- toYaml (omit $policy "enabled" "targetRefs" "targetSelectors") | nindent 2 }}
 {{- end }}
+{{- end }}
+{{- $hasHTTPS := false }}
+{{- range .Values.gateway.listeners }}
+{{- if and (eq (.protocol | default "") "HTTPS") (ne .enabled false) }}{{ $hasHTTPS = true }}{{ end }}
+{{- end }}
+{{- $http := .Values.gateway.listeners.http }}
+{{- if and $http (ne $http.enabled false) $hasHTTPS }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: http-to-https-redirect
+  namespace: {{ .Release.Namespace }}
+spec:
+  parentRefs:
+    - name: {{ .Values.gateway.name }}
+      sectionName: http
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301
 {{- end }}
