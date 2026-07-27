@@ -15,7 +15,7 @@ model-server:
     repositories:
       - name: sample
         type: OCIRegistry
-        url: ghcr.io/violog/model-server/models
+        url: ghcr.io/jakobmoellerdev/model-server/models
 
 thalamus:
   models:
@@ -26,8 +26,6 @@ thalamus:
       extraArgs:
         - "--max-model-len=512"
         - "--dtype=float32"
-        - "--enable-auto-tool-choice"
-        - "--tool-call-parser=openai"
       extraEnv:
         - name: VLLM_CPU_KVCACHE_SPACE
           value: "4"
@@ -40,15 +38,14 @@ thalamus:
           memory: "6Gi"
 
     - slug: tiny-model-ocm
-      model: arnir0.violog.git/tiny-llm
+      model: example.org/tinyllm
       hfEndpoint: "http://model-server.model-server.svc.cluster.local:8080"
       accelerator: cpu
       replicas: 1
       extraArgs:
         - "--max-model-len=512"
         - "--dtype=float32"
-        - "--enable-auto-tool-choice"
-        - "--tool-call-parser=openai"
+        - "--revision=1.1.0"
       extraEnv:
         - name: VLLM_USE_V1
           value: "0"

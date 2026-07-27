@@ -26,6 +26,7 @@ data:
         - name: {{ .name }}
           type: {{ .type }}
           url: {{ .url | quote }}
+          credentialsRef: ghcr-creds
         {{- end }}
       blobCache:
         path: "/tmp/model-server-ghcr-cache"

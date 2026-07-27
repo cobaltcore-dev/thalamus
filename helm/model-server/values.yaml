@@ -1,7 +1,7 @@
 image:
   registry: ""
   repository: model-server
-  tag: "0.2.2"
+  tag: "w4"
   pullPolicy: IfNotPresent
   digest: ""
 
