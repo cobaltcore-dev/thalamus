@@ -26,6 +26,8 @@ thalamus:
       extraArgs:
         - "--max-model-len=512"
         - "--dtype=float32"
+        - "--chat-template"
+        - "{% for message in messages %}{{'<|im_start|>' + message['role'] + '\\n' + message['content'] + '<|im_end|>' + '\\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\\n' }}{% endif %}"
       extraEnv:
         - name: VLLM_CPU_KVCACHE_SPACE
           value: "4"
@@ -46,6 +48,8 @@ thalamus:
         - "--max-model-len=512"
         - "--dtype=float32"
         - "--revision=1.1.0"
+        - "--chat-template"
+        - "{% for message in messages %}{{'<|im_start|>' + message['role'] + '\\n' + message['content'] + '<|im_end|>' + '\\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\\n' }}{% endif %}"
       extraEnv:
         - name: VLLM_USE_V1
           value: "0"
