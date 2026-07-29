@@ -4,6 +4,8 @@
 package v1alpha1
 
 import (
+	"strings"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -25,6 +27,15 @@ const (
 const (
 	// The model is ready to serve traffic.
 	ModelConditionReady = "Ready"
+)
+
+// +kubebuilder:validation:Enum=native;kserve;kaito
+type BackendType string
+
+const (
+	BackendTypeNative BackendType = "native"
+	BackendTypeKServe BackendType = "kserve"
+	BackendTypeKAITO  BackendType = "kaito"
 )
 
 // +kubebuilder:validation:Enum=vllm;unknown
@@ -93,6 +104,10 @@ type EPPSpec struct {
 	// Env defines environment variables for the EPP container.
 	// +kubebuilder:validation:Optional
 	Env []corev1.EnvVar `json:"env,omitempty"`
+
+	// Resources defines the compute resources required by the EPP.
+	// +kubebuilder:validation:Optional
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // ServingSpec defines the serving configuration for the model instance.
@@ -113,7 +128,14 @@ type SchedulingSpec struct {
 }
 
 // ModelSpec defines the configuration for the model instance.
+// +kubebuilder:validation:XValidation:rule="self.backend != 'native' || has(self.serving.epp)",message="spec.serving.epp is required when backend is native"
 type ModelSpec struct {
+	// Backend selects which inference backend manages this model's resources.
+	// Defaults to "native".
+	// +kubebuilder:default=native
+	// +kubebuilder:validation:Optional
+	Backend BackendType `json:"backend,omitempty"`
+
 	// Serving defines how the model is served.
 	Serving ServingSpec `json:"serving"`
 
@@ -147,6 +169,7 @@ type ModelStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,shortName=mdl,categories=thalamus
+// +kubebuilder:printcolumn:name="Backend",type="string",JSONPath=".spec.backend"
 // +kubebuilder:printcolumn:name="Engine",type="string",JSONPath=".status.engineType"
 // +kubebuilder:printcolumn:name="EPP",type="string",JSONPath=".status.eppType"
 // +kubebuilder:printcolumn:name="Weights",type="string",JSONPath=".spec.weights.type"
@@ -168,6 +191,33 @@ type Model struct {
 	// status defines the observed state of the Model.
 	// +optional
 	Status ModelStatus `json:"status,omitempty,omitzero"`
+}
+
+// +kubebuilder:object:root=true
+
+// EngineName returns the Kubernetes resource name for the model's inference engine.
+func (m *Model) EngineName() string { return m.Name + "-engine" }
+
+// EPPName returns the Kubernetes resource name for the model's Endpoint Picker Proxy.
+func (m *Model) EPPName() string { return m.Name + "-epp" }
+
+// DetectedEngineType derives the engine type from the engine container image.
+func (m *Model) DetectedEngineType() EngineType {
+	if strings.Contains(m.Spec.Serving.Engine.Image, "vllm") {
+		return EngineTypeVLLM
+	}
+	return EngineTypeUnknown
+}
+
+// DetectedEPPType derives the EPP type from the EPP container image.
+func (m *Model) DetectedEPPType() EPPType {
+	if m.Spec.Serving.EPP == nil {
+		return EPPTypeUnknown
+	}
+	if strings.Contains(m.Spec.Serving.EPP.Image, "llm-d") {
+		return EPPTypeLLMD
+	}
+	return EPPTypeUnknown
 }
 
 // +kubebuilder:object:root=true

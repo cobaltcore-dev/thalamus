@@ -1,0 +1,143 @@
+// Copyright SAP SE
+// SPDX-License-Identifier: Apache-2.0
+
+package native
+
+import (
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
+
+	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
+)
+
+// BuildEngineDeployment returns the desired Deployment for the vLLM inference engine.
+func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
+	engine := model.Spec.Serving.Engine
+
+	cmd := []string{"vllm", "serve"}
+	env := engine.Env
+
+	if model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && model.Spec.Weights.HF != nil {
+		hf := model.Spec.Weights.HF
+		cmd = append(cmd, hf.RepoID, "--served-model-name="+hf.RepoID)
+		env = append([]corev1.EnvVar{{
+			Name:      "HF_TOKEN",
+			ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &hf.TokenSecret},
+		}}, env...)
+	}
+
+	cmd = append(cmd, "--port=8000", "--disable-uvicorn-access-log")
+	cmd = append(cmd, engine.Args...)
+
+	container := corev1.Container{
+		Name:    "engine",
+		Image:   engine.Image,
+		Command: cmd,
+		Env:     env,
+		Ports: []corev1.ContainerPort{
+			{Name: "http", ContainerPort: 8000, Protocol: corev1.ProtocolTCP},
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{Name: "vllm-cache", MountPath: "/root/.cache/huggingface"},
+			{Name: "dshm", MountPath: "/dev/shm"},
+		},
+		StartupProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: "/v1/models",
+					Port: intstr.FromInt32(8000),
+				},
+			},
+			FailureThreshold: 60,
+			PeriodSeconds:    5,
+		},
+		LivenessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: "/health",
+					Port: intstr.FromInt32(8000),
+				},
+			},
+			PeriodSeconds: 15,
+		},
+		ReadinessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: "/v1/models",
+					Port: intstr.FromInt32(8000),
+				},
+			},
+			PeriodSeconds: 10,
+		},
+	}
+
+	if engine.Resources != nil {
+		container.Resources = *engine.Resources
+	}
+
+	podSpec := corev1.PodSpec{
+		Containers: []corev1.Container{container},
+		Volumes: []corev1.Volume{
+			{
+				Name:         "vllm-cache",
+				VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+			},
+			{
+				Name: "dshm",
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{Medium: corev1.StorageMediumMemory},
+				},
+			},
+		},
+	}
+
+	if model.Spec.Scheduling != nil {
+		podSpec.NodeSelector = model.Spec.Scheduling.NodeSelector
+	}
+
+	labels := map[string]string{
+		"app":                        model.EngineName(),
+		"llm-d.ai/inference-serving": "true",
+	}
+
+	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      model.EngineName(),
+			Namespace: model.Namespace,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: ptr.To[int32](1),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": model.EngineName()},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{Labels: labels},
+				Spec:       podSpec,
+			},
+		},
+	}
+}
+
+// BuildEngineService returns the Service for the vLLM engine.
+func BuildEngineService(model *v1alpha1.Model) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      model.EngineName(),
+			Namespace: model.Namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{"app": model.EngineName()},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "vllm",
+					Port:       8000,
+					TargetPort: intstr.FromInt32(8000),
+					Protocol:   corev1.ProtocolTCP,
+				},
+			},
+		},
+	}
+}

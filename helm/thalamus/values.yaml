@@ -44,6 +44,8 @@ operator:
     name: ""
   rbac:
     create: true
+  # When true, the operator manages per-model resources via Model CRs.
+  managesModels: false
 
 owner_info:
   support_group: workload-management

@@ -6,6 +6,7 @@
 # https://github.com/kubernetes-sigs/gateway-api-inference-extension/tree/main/config/charts/epplib
 # When upgrading the EPP image version, diff _deployment.yaml and _config.yaml against this file.
 {{- $accelMap := .Values.accelerators }}
+{{- if not .Values.operator.managesModels }}
 {{- range .Values.models }}
 {{- $m := . }}
 {{- $slug := $m.slug }}
@@ -185,4 +186,5 @@ spec:
       protocol: TCP
       port: 9090
   type: ClusterIP
+{{- end }}
 {{- end }}

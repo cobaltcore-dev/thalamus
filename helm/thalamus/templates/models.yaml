@@ -1,4 +1,5 @@
 {{- $accelMap := .Values.accelerators }}
+{{- if not .Values.operator.managesModels }}
 {{- range .Values.models }}
 {{- $m     := . }}
 {{- $accel := index $accelMap $m.accelerator | default dict }}
@@ -157,4 +158,5 @@ spec:
         - headers:
             - name: X-Gateway-Base-Model-Name
               value: {{ $m.model }}
+{{- end }}
 {{- end }}

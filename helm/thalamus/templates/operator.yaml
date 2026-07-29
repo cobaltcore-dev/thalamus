@@ -15,9 +15,10 @@ metadata:
 {{- if .Values.operator.rbac.create }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: Role
 metadata:
   name: {{ include "thalamus.operator.name" . }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "thalamus.operator.labels" . | nindent 4 }}
 rules:
@@ -30,11 +31,36 @@ rules:
   - apiGroups: [thalamus.cloud]
     resources: [models/finalizers]
     verbs: [update]
+  - apiGroups: [apps]
+    resources: [deployments]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [""]
+    resources: [services, serviceaccounts, configmaps]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list, watch]
+  - apiGroups: [rbac.authorization.k8s.io]
+    resources: [roles, rolebindings]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [inference.networking.k8s.io]
+    resources: [inferencepools]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [inference.networking.x-k8s.io]
+    resources: [inferencemodelrewrites, inferenceobjectives]
+    verbs: [get, list, watch]
+  - apiGroups: [gateway.networking.k8s.io]
+    resources: [httproutes]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [agentgateway.dev]
+    resources: [agentgatewaypolicies]
+    verbs: [get, update, patch]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: RoleBinding
 metadata:
   name: {{ include "thalamus.operator.name" . }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "thalamus.operator.labels" . | nindent 4 }}
 subjects:
@@ -43,7 +69,7 @@ subjects:
     namespace: {{ .Release.Namespace }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
+  kind: Role
   name: {{ include "thalamus.operator.name" . }}
 {{- end }}
 ---
@@ -74,6 +100,7 @@ spec:
           imagePullPolicy: {{ .Values.operator.image.pullPolicy }}
           args:
             - --health-probe-bind-address=:8081
+            - --namespace={{ .Release.Namespace }}
             {{- if .Values.operator.metrics.enabled }}
             - --metrics-bind-address=:8080
             {{- end }}

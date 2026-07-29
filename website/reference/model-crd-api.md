@@ -21,6 +21,25 @@ Package v1alpha1 contains API Schema definitions for the thalamus.cloud v1alpha1
 
 
 
+#### BackendType
+
+_Underlying type:_ _string_
+
+
+
+_Validation:_
+- Enum: [native kserve kaito]
+
+_Appears in:_
+- [ModelSpec](#modelspec)
+
+| Field | Description |
+| --- | --- |
+| `native` |  |
+| `kserve` |  |
+| `kaito` |  |
+
+
 #### EPPSpec
 
 
@@ -37,6 +56,7 @@ _Appears in:_
 | `image` _string_ | Image is the container image for the EPP. |  |  |
 | `args` _string array_ | Args are passed directly to the EPP as CLI arguments. |  | Optional: \{\} <br /> |
 | `env` _[EnvVar](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#envvar-v1-core) array_ | Env defines environment variables for the EPP container. |  | Optional: \{\} <br /> |
+| `resources` _[ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#resourcerequirements-v1-core)_ | Resources defines the compute resources required by the EPP. |  | Optional: \{\} <br /> |
 
 
 #### EPPType
@@ -181,6 +201,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
+| `backend` _[BackendType](#backendtype)_ | Backend selects which inference backend manages this model's resources.<br />Defaults to "native". | native | Enum: [native kserve kaito] <br />Optional: \{\} <br /> |
 | `serving` _[ServingSpec](#servingspec)_ | Serving defines how the model is served. |  |  |
 | `weights` _[WeightsSpec](#weightsspec)_ | Weights defines where the model weights are sourced from. |  |  |
 | `scheduling` _[SchedulingSpec](#schedulingspec)_ | Scheduling defines scheduling constraints for the model's pods. |  | Optional: \{\} <br /> |
