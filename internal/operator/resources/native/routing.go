@@ -12,7 +12,7 @@ import (
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 )
 
-const gatewayName = "inference-gateway"
+const defaultGatewayName = "inference-gateway"
 
 // BuildInferencePool returns the InferencePool for the model.
 func BuildInferencePool(model *v1alpha1.Model) *inferencev1.InferencePool {
@@ -64,7 +64,7 @@ func BuildHTTPRoute(model *v1alpha1.Model) *gatewayv1.HTTPRoute {
 			CommonRouteSpec: gatewayv1.CommonRouteSpec{
 				ParentRefs: []gatewayv1.ParentReference{
 					{
-						Name:      gatewayv1.ObjectName(gatewayName),
+						Name:      gatewayv1.ObjectName(defaultGatewayName),
 						Namespace: &ns,
 					},
 				},

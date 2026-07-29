@@ -125,10 +125,24 @@ func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 
 	eppService := "inference-extension"
 	container := corev1.Container{
-		Name:  "epp",
-		Image: epp.Image,
-		Args:  args,
-		Env:   epp.Env,
+		Name:            "epp",
+		Image:           epp.Image,
+		ImagePullPolicy: corev1.PullAlways,
+		Args:            args,
+		Env: append([]corev1.EnvVar{
+			{
+				Name: "NAMESPACE",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
+				},
+			},
+			{
+				Name: "POD_NAME",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+				},
+			},
+		}, epp.Env...),
 		Ports: []corev1.ContainerPort{
 			{Name: "grpc-ext-proc", ContainerPort: 9002, Protocol: corev1.ProtocolTCP},
 			{Name: "grpc-health", ContainerPort: 9003, Protocol: corev1.ProtocolTCP},
@@ -141,13 +155,14 @@ func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 			ProbeHandler: corev1.ProbeHandler{
 				GRPC: &corev1.GRPCAction{Port: 9003, Service: &eppService},
 			},
-			PeriodSeconds: 10,
+			InitialDelaySeconds: 5,
+			PeriodSeconds:       10,
 		},
 		ReadinessProbe: &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
 				GRPC: &corev1.GRPCAction{Port: 9003, Service: &eppService},
 			},
-			PeriodSeconds: 10,
+			PeriodSeconds: 2,
 		},
 	}
 
@@ -172,8 +187,9 @@ func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 					Labels: map[string]string{"app": model.EPPName()},
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: model.EPPName(),
-					Containers:         []corev1.Container{container},
+					ServiceAccountName:            model.EPPName(),
+					TerminationGracePeriodSeconds: ptr.To[int64](130),
+					Containers:                    []corev1.Container{container},
 					Volumes: []corev1.Volume{
 						{
 							Name: "config",

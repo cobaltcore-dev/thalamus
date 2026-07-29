@@ -33,15 +33,16 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 	cmd = append(cmd, engine.Args...)
 
 	container := corev1.Container{
-		Name:    "engine",
-		Image:   engine.Image,
-		Command: cmd,
-		Env:     env,
+		Name:            "engine",
+		Image:           engine.Image,
+		ImagePullPolicy: corev1.PullAlways,
+		Command:         cmd,
+		Env:             env,
 		Ports: []corev1.ContainerPort{
 			{Name: "http", ContainerPort: 8000, Protocol: corev1.ProtocolTCP},
 		},
 		VolumeMounts: []corev1.VolumeMount{
-			{Name: "vllm-cache", MountPath: "/root/.cache/huggingface"},
+			{Name: "vllm-cache", MountPath: "/root/.cache"},
 			{Name: "dshm", MountPath: "/dev/shm"},
 		},
 		StartupProbe: &corev1.Probe{
@@ -51,8 +52,10 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 					Port: intstr.FromInt32(8000),
 				},
 			},
-			FailureThreshold: 60,
-			PeriodSeconds:    5,
+			InitialDelaySeconds: 15,
+			PeriodSeconds:       30,
+			TimeoutSeconds:      5,
+			FailureThreshold:    60,
 		},
 		LivenessProbe: &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
@@ -61,7 +64,9 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 					Port: intstr.FromInt32(8000),
 				},
 			},
-			PeriodSeconds: 15,
+			PeriodSeconds:    10,
+			TimeoutSeconds:   5,
+			FailureThreshold: 3,
 		},
 		ReadinessProbe: &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
@@ -70,7 +75,9 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 					Port: intstr.FromInt32(8000),
 				},
 			},
-			PeriodSeconds: 10,
+			PeriodSeconds:    5,
+			TimeoutSeconds:   2,
+			FailureThreshold: 3,
 		},
 	}
 
@@ -103,6 +110,14 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 		"llm-d.ai/inference-serving": "true",
 	}
 
+	// TODO: updateStrategy should be a field on the Model CRD.
+	// Ideally the operator implements a best-effort rolling strategy: check whether
+	// the cluster has enough spare capacity to bring up a new replica before terminating
+	// the old one (e.g. by inspecting node allocatable vs pending resource requests),
+	// and fall back to Recreate when it does not. For now Recreate is the safe default
+	// because LLM pods are large and a second replica will often not fit.
+	deploymentStrategy := appsv1.RecreateDeploymentStrategyType
+
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      model.EngineName(),
@@ -110,8 +125,9 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: ptr.To[int32](1),
+			Strategy: appsv1.DeploymentStrategy{Type: deploymentStrategy},
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"app": model.EngineName()},
+				MatchLabels: labels,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: labels},

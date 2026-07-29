@@ -46,7 +46,7 @@ func TestBuildHTTPRoute(t *testing.T) {
 	if route.Name != model.EngineName() {
 		t.Errorf("Name:\ngot:  %q\nwant: %q", route.Name, model.EngineName())
 	}
-	if len(route.Spec.ParentRefs) != 1 || string(route.Spec.ParentRefs[0].Name) != gatewayName {
+	if len(route.Spec.ParentRefs) != 1 || string(route.Spec.ParentRefs[0].Name) != defaultGatewayName {
 		t.Error("unexpected ParentRefs")
 	}
 	rule := route.Spec.Rules[0]
