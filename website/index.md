@@ -23,18 +23,19 @@ features:
     title: Demo
     details: >
       See the current Proof of Concept in action: stack deployment on a
-      Gardener cluster, images in Keppel, Elektra navigation, and the
+      Gardener cluster, images in Keppel, and the
       OpenAI-compatible API endpoint.
     link: /demo
     linkText: Watch the demo
 
-  - icon: 🧠
-    title: Model CRD
+  - icon: 🛠️
+    title: IPCEI-CIS Hackathon
     details: >
-      Describe any LLM as a Kubernetes resource. One YAML manifest covers
-      engine, weights, GPU allocation, autoscaling, and access policy.
-    link: /reference/model-crd-api
-    linkText: Model CRD reference
+      Highlights from our July 2026 hackathon in Potsdam: a Naira plugin for
+      Thalamus and two Open Component Model integrations for packaging the
+      stack and distributing model weights.
+    link: /workshop-ipcei-cis-2026
+    linkText: Read more
 
   - icon: 🏗️
     title: Architecture

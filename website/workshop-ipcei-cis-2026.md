@@ -1,0 +1,76 @@
+---
+title: IPCEI-CIS Hackathon @ SAP Innovation Center Potsdam
+---
+
+# IPCEI-CIS Hackathon @ SAP Innovation Center Potsdam
+
+In July 2026, the Thalamus team joined a hackathon at the SAP Innovation Center in Potsdam, collaborating with
+contributors from the [NeoNephos Foundation](https://neonephos.org) and [ApeiroRa](https://apeirora.eu) as part of
+the broader [IPCEI-CIS](https://ipcei-cis.eu) initiative to develop open-source European cloud and AI infrastructure.
+
+Over the course of the event we worked on three concrete topics. We built a [Naira](https://github.com/naira-project/naira)
+plugin that feeds Thalamus model data into Naira's catalog and enables an MCP server to answer live questions about
+running inference instances. We also tackled two
+[Open Component Model (OCM)](https://ocm.software) stories, packaging Thalamus itself as an OCM component and
+distributing model weights via the Hugging Face protocol through OCM.
+
+---
+
+## Naira Integration
+
+[Naira](https://github.com/naira-project/naira) is an open-source AI Engineering Development Hub for cloud-native
+teams. It provides a central catalog of AI assets (models, workflows, and infrastructure) populated by
+Kubernetes-native plugins that collect data from the tools in your stack.
+
+This hackathon produced a **Thalamus plugin for Naira**. The plugin continuously feeds Naira's catalog with the models
+currently running in Thalamus, including their names, engine configuration, GPU allocation, and other operational details.
+With that catalog populated, Naira's **MCP (Model Context Protocol) server** can expose those facts as tools that
+any MCP-capable LLM client can call.
+
+The demo ties it all together. Open WebUI is connected to a model served by Thalamus and has the Naira MCP server
+configured as a tool provider. Because the Thalamus plugin keeps Naira's catalog up to date, the model can answer
+precise, live questions about which models are running in the cluster and what their configuration looks like,
+without any hardcoded knowledge.
+
+### Demo
+
+The screenshot below shows an Open WebUI chat session where the model uses the Naira MCP to retrieve live details
+about Thalamus-managed inference instances.
+
+<!-- Replace the placeholder below with the actual screenshot file once placed in website/public/ -->
+<!-- e.g. ![Naira integration demo](/naira-demo.png) -->
+
+::: info Screenshot placeholder
+Place your screenshot at `website/public/naira-demo.png` and replace this block with:
+
+```md
+![Open WebUI chat via Thalamus and Naira](/naira-demo.png)
+```
+:::
+
+You can also download the raw [Open WebUI chat export](/naira-chat-export.json) from the session.
+
+<!-- Replace the placeholder above with the actual JSON file once placed in website/public/ -->
+<!-- e.g. place the file at website/public/naira-chat-export.json -->
+
+### How It Works
+
+<!-- TODO: fill in plugin architecture, configuration, and usage -->
+
+---
+
+## OCM: Packaging Thalamus as a Component
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna
+aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
+---
+
+## OCM: Model Weights as an OCM Component
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna
+aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.

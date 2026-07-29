@@ -32,6 +32,7 @@ export default withMermaid({
       { text: 'Demo', link: '/demo' },
       { text: 'Concepts', link: '/concepts/architecture' },
       { text: 'Reference', link: '/reference/model-crd-api' },
+      { text: 'Community', link: '/workshop-ipcei-cis-2026' },
     ],
 
     sidebar: [
@@ -59,6 +60,13 @@ export default withMermaid({
         collapsed: false,
         items: [
           { text: 'Model CRD API', link: '/reference/model-crd-api' },
+        ],
+      },
+      {
+        text: 'Community',
+        collapsed: false,
+        items: [
+          { text: 'IPCEI-CIS Hackathon July 2026', link: '/workshop-ipcei-cis-2026' },
         ],
       },
     ],
