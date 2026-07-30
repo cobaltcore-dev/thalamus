@@ -4,6 +4,8 @@
 package native
 
 import (
+	_ "embed"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -15,6 +17,9 @@ import (
 )
 
 const eppConfigKey = "default-plugins.yaml"
+
+//go:embed epp_config.yaml
+var eppConfig string
 
 // BuildEPPServiceAccount returns the ServiceAccount for the EPP.
 func BuildEPPServiceAccount(model *v1alpha1.Model) *corev1.ServiceAccount {
@@ -77,34 +82,13 @@ func BuildEPPRoleBinding(model *v1alpha1.Model) *rbacv1.RoleBinding {
 
 // BuildEPPConfigMap returns the ConfigMap carrying the EPP plugin configuration.
 func BuildEPPConfigMap(model *v1alpha1.Model) *corev1.ConfigMap {
-	config := `apiVersion: inference.networking.x-k8s.io/v1alpha1
-kind: EndpointPickerConfig
-plugins:
-- type: queue-scorer
-- type: kv-cache-utilization-scorer
-- type: prefix-cache-scorer
-- type: metrics-data-source
-  parameters:
-    scheme: "http"
-    path: "/metrics"
-    insecureSkipVerify: true
-schedulingProfiles:
-- name: default
-  plugins:
-  - pluginRef: queue-scorer
-    weight: 2
-  - pluginRef: kv-cache-utilization-scorer
-    weight: 2
-  - pluginRef: prefix-cache-scorer
-    weight: 3
-`
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      model.EPPName(),
 			Namespace: model.Namespace,
 		},
 		Data: map[string]string{
-			eppConfigKey: config,
+			eppConfigKey: eppConfig,
 		},
 	}
 }
