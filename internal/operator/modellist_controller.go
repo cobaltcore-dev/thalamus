@@ -67,15 +67,26 @@ func (r *ModelListReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 
-	if err := unstructured.SetNestedField(policy.Object, body, "spec", "traffic", "directResponse", "body"); err != nil {
-		return ctrl.Result{}, err
-	}
-	// Server-Side Apply requires managedFields to be nil on the object passed to Apply.
-	policy.SetManagedFields(nil)
+	// Build a minimal apply object so the operator only claims ownership of the body field.
+	patch := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "agentgateway.dev/v1alpha1",
+		"kind":       "AgentgatewayPolicy",
+		"metadata": map[string]any{
+			"name":      native.ModelListPolicyName,
+			"namespace": req.Namespace,
+		},
+		"spec": map[string]any{
+			"traffic": map[string]any{
+				"directResponse": map[string]any{
+					"body": body,
+				},
+			},
+		},
+	}}
 	if err := r.Apply(ctx,
-		client.ApplyConfigurationFromUnstructured(policy),
+		client.ApplyConfigurationFromUnstructured(patch),
 		client.FieldOwner("thalamus-operator"),
-		client.ForceOwnership, // required since the policy is initially created using helm
+		client.ForceOwnership, // required since helm initially owns the body field
 	); err != nil {
 		return ctrl.Result{}, err
 	}
