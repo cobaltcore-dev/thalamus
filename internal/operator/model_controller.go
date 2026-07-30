@@ -40,15 +40,6 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// Set phase to Creating on first reconcile.
-	if model.Status.Phase == "" || model.Status.Phase == v1alpha1.ModelPhasePending {
-		patch := client.MergeFrom(model.DeepCopy())
-		model.Status.Phase = v1alpha1.ModelPhaseCreating
-		if err := r.Status().Patch(ctx, model, patch); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	var err error
 	switch model.Spec.Backend {
 	case v1alpha1.BackendTypeNative:

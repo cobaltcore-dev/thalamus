@@ -18,6 +18,7 @@ const WeightsTypeHF WeightsType = "hf"
 type ModelPhase string
 
 const (
+	// TODO: set Pending when admission/resource checks block reconciliation (e.g. insufficient GPU quota). Currently unused.
 	ModelPhasePending  ModelPhase = "Pending"
 	ModelPhaseCreating ModelPhase = "Creating"
 	ModelPhaseReady    ModelPhase = "Ready"
