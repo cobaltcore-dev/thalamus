@@ -85,6 +85,9 @@ func (r *ModelListReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 }
 
 func (r *ModelListReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	policyType := &unstructured.Unstructured{}
+	policyType.SetGroupVersionKind(agentgatewayPolicyGVK)
+
 	return ctrl.NewControllerManagedBy(mgr).
 		// Use a Watch (not For) so the reconcile key is always the fixed model-list name,
 		// not the individual Model name.
@@ -98,6 +101,16 @@ func (r *ModelListReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				}}
 			}),
 			builder.WithPredicates(phaseChangedPredicate{})).
+		Watches(policyType, handler.EnqueueRequestsFromMapFunc(
+			func(_ context.Context, obj client.Object) []reconcile.Request {
+				return []reconcile.Request{{
+					NamespacedName: types.NamespacedName{
+						Name:      obj.GetName(),
+						Namespace: obj.GetNamespace(),
+					},
+				}}
+			}),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{})).
 		Named("model-list").
 		Complete(r)
 }

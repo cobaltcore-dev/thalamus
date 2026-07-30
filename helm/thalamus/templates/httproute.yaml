@@ -25,10 +25,6 @@ kind: AgentgatewayPolicy
 metadata:
   name: model-list
   namespace: {{ .Release.Namespace }}
-  annotations:
-    # The thalamus operator manages the body of this policy at runtime.
-    # Helm must not overwrite it after initial creation.
-    helm.sh/resource-policy: keep
 spec:
   targetRefs:
     - group: gateway.networking.k8s.io
