@@ -47,16 +47,9 @@ in-memory index of the models it finds, and exposes them over four API surfaces 
 unmodified Hugging Face, Ollama, OpenAI, or MLflow client can consume them. It does **no** inference and **no** proxying of
 weights beyond streaming them through; it is pure model *distribution* with supply-chain traceability from OCM signatures.
 
-<!-- Replace the placeholder below with the model-server architecture diagram once placed in website/public/ -->
-<!-- e.g. ![model-server architecture](/model-server-overview.png) -->
-
-::: info Diagram placeholder
-Place the model-server overview diagram at `website/public/model-server-overview.png` and replace this block with:
-
-```md
 ![model-server architecture: AI clients → model-server → OCM components in an OCI registry](/model-server-overview.png)
-```
-:::
+
+*Diagram source: [open-component-model/model-server](https://github.com/open-component-model/model-server)*
 
 **1. Packaging the model as an OCM component.** A model becomes an OCM component version whose resources are its files
 (weights, config, tokenizer, model card). Model metadata is carried in the `ext.ocm.software/model-server.*` label namespace,
