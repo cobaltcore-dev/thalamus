@@ -35,7 +35,7 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 	container := corev1.Container{
 		Name:            "engine",
 		Image:           engine.Image,
-		ImagePullPolicy: corev1.PullAlways,
+		ImagePullPolicy: corev1.PullIfNotPresent,
 		Command:         cmd,
 		Env:             env,
 		Ports: []corev1.ContainerPort{

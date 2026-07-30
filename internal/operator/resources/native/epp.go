@@ -127,7 +127,7 @@ func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 	container := corev1.Container{
 		Name:            "epp",
 		Image:           epp.Image,
-		ImagePullPolicy: corev1.PullAlways,
+		ImagePullPolicy: corev1.PullIfNotPresent,
 		Args:            args,
 		Env: append([]corev1.EnvVar{
 			{
