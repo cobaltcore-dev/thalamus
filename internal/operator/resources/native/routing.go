@@ -46,10 +46,14 @@ func BuildInferencePool(model *v1alpha1.Model) *inferencev1.InferencePool {
 // based on the X-Gateway-Base-Model-Name header.
 func BuildHTTPRoute(model *v1alpha1.Model) *gatewayv1.HTTPRoute {
 	ns := gatewayv1.Namespace(model.Namespace)
+	modelName := ""
+	if model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && model.Spec.Weights.HF != nil {
+		modelName = model.Spec.Weights.HF.RepoID
+	}
 	headerValue := gatewayv1.HTTPHeaderMatch{
 		Type:  ptr.To(gatewayv1.HeaderMatchExact),
 		Name:  "X-Gateway-Base-Model-Name",
-		Value: model.Spec.Weights.HF.RepoID,
+		Value: modelName,
 	}
 
 	group := gatewayv1.Group("inference.networking.k8s.io")
