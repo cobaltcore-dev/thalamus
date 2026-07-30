@@ -16,7 +16,7 @@ Hugging Face is a single point of failure we do not own:
 - It can apply censorship to individual models, or restrict who is allowed to download them — SAP included.
 - A team that wants to run *its own* model needs to upload it to HuggingFace first, which may be complicated.
 
-For a European sovereign-cloud offering under the [ApeiroRa](https://apeirora.eu) and IPCEI-CIS umbrella, "our inference
+For a European sovereign-cloud offering under the [ApeiroRA](https://apeirora.eu) and IPCEI-CIS umbrella, "our inference
 platform depends on a US registry we do not operate" is not an acceptable answer. We need a registry we own and control.
 
 [OCM (Open Component Model)](https://ocm.software) provides a protocol built for exactly this: describing, signing, and

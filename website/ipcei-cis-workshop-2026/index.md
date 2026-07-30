@@ -73,35 +73,22 @@ Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deseru
 Thalamus serves large language models, but it does not manage the model weights, which come from external
 providers — chiefly [Hugging Face](https://huggingface.co). That is convenient, and it is also a problem we do not control.
 
-Hugging Face is a single point of failure we do not own:
+Hugging Face is a single point of failure we do not own: it can go down, can 
+be [breached](https://openai.com/index/hugging-face-model-evaluation-security-incident/), apply censorship to individual
+models or restrict someone from downloading them.
 
-- It can go down.
-- It can be [breached](https://openai.com/index/hugging-face-model-evaluation-security-incident/).
-- It can apply censorship to individual models, or restrict who is allowed to download them — SAP included.
-- A team that wants to run *its own* model needs to upload it to HuggingFace first, which may be complicated.
-
-For a European sovereign-cloud offering under the [ApeiroRa](https://apeirora.eu) and IPCEI-CIS umbrella, "our inference
+For a European sovereign-cloud offering under the [ApeiroRA](https://apeirora.eu) and IPCEI-CIS umbrella, "our inference
 platform depends on a US registry we do not operate" is not an acceptable answer. We need a registry we own and control.
 
-[OCM (Open Component Model)](https://ocm.software) provides a protocol built for exactly this: describing, signing, and
-transporting software artifacts across registries in a verifiable, vendor-neutral way — a good fit for sovereign-cloud
-requirements. The OCM project ships a
-[**model-server**](https://github.com/open-component-model/model-server): a proxy that makes OCM components stored in any
-OCI registry look like a Hugging Face Hub (and Ollama, OpenAI, and MLflow) endpoint. Clients do not need to change — they
-still think they are talking to Hugging Face. But the bytes now come from a registry we choose: GitHub Container Registry,
-AWS ECR, Azure ACR, or a sovereign OCI registry such as [Keppel](https://github.com/sapcc/keppel).
+[OCM (Open Component Model)](https://ocm.software) provides a protocol satisfying sovereign-cloud requirements. The OCM project
+ships a [**model-server**](https://github.com/open-component-model/model-server): a proxy that makes OCM components stored
+in any OCI registry be available from a HuggingFace-compatible API, enabling Thalamus to store models in an sovereign OCI
+registry such as [Keppel](https://github.com/sapcc/keppel).
 
 At the hackathon we drafted an end-to-end integration of Thalamus with the OCM protocol and the model-server, proving we can
-swap Hugging Face for any OCI-compatible storage. Concretely, we:
-
-- **Packaged** a lightweight demo model ([`arnir0/Tiny-LLM`](https://huggingface.co/arnir0/Tiny-LLM), ~26 MB) as an OCM
-  component;
-- **Stored** it in the GitHub Container Registry (GHCR) as a versioned OCM component;
-- **Pulled** it from inside a Kubernetes cluster through the model-server's Hugging Face-compatible API;
-- **Deployed** it into a [vLLM](https://github.com/vllm-project/vllm) engine managed by Thalamus and **served inference** —
-  with no code in the inference path aware that the weights never touched Hugging Face.
+swap Hugging Face for any OCI-compatible storage.
 
 The upstream work landed in [`jakobmoellerdev/model-server#1`](https://github.com/jakobmoellerdev/model-server/pull/1),
 in collaboration with [Jakob Möller](https://github.com/jakobmoellerdev), who maintains the model-server.
 
-... [Continue reading →](/ipcei-cis-workshop-2026/ocm-model-weights)
+[Read full post →](/ipcei-cis-workshop-2026/ocm-model-weights)
