@@ -34,7 +34,7 @@ features:
       Highlights from our July 2026 hackathon in Potsdam: a Naira plugin for
       Thalamus and two Open Component Model integrations for packaging the
       stack and distributing model weights.
-    link: /workshop-ipcei-cis-2026
+    link: /ipcei-cis-workshop-2026/
     linkText: Read more
 
   - icon: 🏗️
