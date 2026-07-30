@@ -27,7 +27,7 @@ type modelListResponse struct {
 
 // BuildModelListResponse returns the directResponse JSON body listing only Ready models,
 // sorted by model name for a stable output.
-func BuildModelListResponse(models []v1alpha1.Model) string {
+func BuildModelListResponse(models []v1alpha1.Model) (string, error) {
 	entries := make([]modelEntry, 0, len(models))
 	for _, m := range models {
 		if m.Status.Phase != v1alpha1.ModelPhaseReady {
@@ -54,8 +54,7 @@ func BuildModelListResponse(models []v1alpha1.Model) string {
 
 	body, err := json.Marshal(modelListResponse{Object: "list", Data: entries})
 	if err != nil {
-		// unreachable due to modelListResponse containing only strings and slices.
-		panic(err)
+		return "", err
 	}
-	return string(body)
+	return string(body), nil
 }

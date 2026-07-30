@@ -11,7 +11,10 @@ import (
 )
 
 func TestBuildModelListResponse_Empty(t *testing.T) {
-	body := BuildModelListResponse(nil)
+	body, err := BuildModelListResponse(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	want := `{"object":"list","data":[]}`
 	if body != want {
 		t.Errorf("model list response:\ngot:  %s\nwant: %s", body, want)
@@ -34,7 +37,10 @@ func TestBuildModelListResponse_OnlyReady(t *testing.T) {
 	c.Spec.Weights.HF.RepoID = "org/model-c"
 	c.Status.Phase = v1alpha1.ModelPhaseFailed
 
-	body := BuildModelListResponse([]v1alpha1.Model{a, b, c})
+	body, err := BuildModelListResponse([]v1alpha1.Model{a, b, c})
+	if err != nil {
+		t.Fatal(err)
+	}
 	want := `{"object":"list","data":[{"id":"org/model-a","object":"model","owned_by":"org"}]}`
 	if body != want {
 		t.Errorf("model list response:\ngot:  %s\nwant: %s", body, want)
@@ -57,7 +63,10 @@ func TestBuildModelListResponse_MultipleReady_Sorted(t *testing.T) {
 	m.Spec.Weights.HF.RepoID = "org/mmm"
 	m.Status.Phase = v1alpha1.ModelPhaseReady
 
-	body := BuildModelListResponse([]v1alpha1.Model{z, a, m})
+	body, err := BuildModelListResponse([]v1alpha1.Model{z, a, m})
+	if err != nil {
+		t.Fatal(err)
+	}
 	want := `{"object":"list","data":[{"id":"org/aaa","object":"model","owned_by":"org"},{"id":"org/mmm","object":"model","owned_by":"org"},{"id":"org/zzz","object":"model","owned_by":"org"}]}`
 	if body != want {
 		t.Errorf("model list response:\ngot:  %s\nwant: %s", body, want)
@@ -69,7 +78,10 @@ func TestBuildModelListResponse_NoSlashInRepoID(t *testing.T) {
 	model.Spec.Weights.HF.RepoID = "somemodel"
 	model.Status.Phase = v1alpha1.ModelPhaseReady
 
-	body := BuildModelListResponse([]v1alpha1.Model{model})
+	body, err := BuildModelListResponse([]v1alpha1.Model{model})
+	if err != nil {
+		t.Fatal(err)
+	}
 	want := `{"object":"list","data":[{"id":"somemodel","object":"model","owned_by":"somemodel"}]}`
 	if body != want {
 		t.Errorf("model list response:\ngot:  %s\nwant: %s", body, want)
@@ -88,8 +100,14 @@ func TestBuildModelListResponse_Stable(t *testing.T) {
 	a.Status.Phase = v1alpha1.ModelPhaseReady
 
 	models := []v1alpha1.Model{z, a}
-	first := BuildModelListResponse(models)
-	second := BuildModelListResponse(models)
+	first, err := BuildModelListResponse(models)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := BuildModelListResponse(models)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if first != second {
 		t.Errorf("model list response is not stable:\ngot:  %s\nthen: %s", first, second)
 	}

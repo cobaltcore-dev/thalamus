@@ -46,7 +46,10 @@ func (r *ModelListReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
-	body := native.BuildModelListResponse(modelList.Items)
+	body, err := native.BuildModelListResponse(modelList.Items)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
 	// Fetch the AgentgatewayPolicy, that provides `/v1/models` via directResponse.
 	policy := &unstructured.Unstructured{}
