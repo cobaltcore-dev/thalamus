@@ -1,5 +1,5 @@
 {{- $accelMap := .Values.accelerators }}
-{{- if not .Values.operator.managesModels }}
+{{- if not .Values.operator.enabled }}
 {{- range .Values.models }}
 {{- $m     := . }}
 {{- $accel := index $accelMap $m.accelerator | default dict }}

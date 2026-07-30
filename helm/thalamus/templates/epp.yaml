@@ -6,7 +6,7 @@
 # https://github.com/kubernetes-sigs/gateway-api-inference-extension/tree/main/config/charts/epplib
 # When upgrading the EPP image version, diff _deployment.yaml and _config.yaml against this file.
 {{- $accelMap := .Values.accelerators }}
-{{- if not .Values.operator.managesModels }}
+{{- if not .Values.operator.enabled }}
 {{- range .Values.models }}
 {{- $m := . }}
 {{- $slug := $m.slug }}

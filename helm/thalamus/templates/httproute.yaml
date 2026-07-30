@@ -31,7 +31,7 @@ spec:
       kind: HTTPRoute
       name: model-list
   traffic:
-    {{- if not .Values.operator.managesModels }}
+    {{- if not .Values.operator.enabled }}
     directResponse:
       status: 200
       body: |
