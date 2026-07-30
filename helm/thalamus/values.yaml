@@ -164,6 +164,11 @@ accelerators:
 #         nvidia.com/gpu: "1"
 #       limits:
 #         nvidia.com/gpu: "1"
+#     # Volume source for the vLLM cache (/root/.cache). Defaults to emptyDir.
+#     # Provide any Kubernetes volume source; the PVC must already exist.
+#     cache:
+#       persistentVolumeClaim:
+#         claimName: my-model-cache
 #     # Optional: constrain scheduling to specific nodes (e.g. GPU flavor).
 #     nodeSelector:
 #       nvidia.com/gpu.product: NVIDIA-RTX-PRO-6000-Blackwell-Server-Edition

@@ -97,7 +97,7 @@ spec:
               mountPath: /dev/shm
       volumes:
         - name: vllm-cache
-          emptyDir: {}
+          {{- toYaml ($m.cache | default (dict "emptyDir" dict)) | nindent 10 }}
         - name: dshm
           emptyDir:
             medium: Memory
