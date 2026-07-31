@@ -10,6 +10,8 @@ const messages = chatExport[0].chat.history.messages
 
 # Naira Integration
 
+_Author: [Valentin Küchler](https://github.com/Varsius)_
+
 [Naira](https://github.com/naira-project/naira) is an open-source AI Engineering Development Hub for cloud-native
 teams. It provides a central catalog of AI assets, including models, workflows, and infrastructure, populated by
 Kubernetes-native plugins that collect data from the tools already running in your stack.

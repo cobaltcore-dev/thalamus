@@ -29,18 +29,9 @@ which models are available and what engine configuration they use.
 
 ## OCM: Packaging Thalamus as a Component
 
-We packaged the entire Thalamus installation as an OCM component, migrating our existing
-Helmfile deployment 1:1. The result is a single root component with a matching ResourceGraphDefinition (RGD) that
-describes the whole installation.
+Thalamus today is installed through a set of Helm charts and configuration files bundles through a helmfile. Together with the OCM team, we explored packaging the whole Thalamus installation as a single OCM component. The goal is to turn Thalamus into a versioned, transportable artifact that can be pulled from a sovereign OCI registry and installed without relying on external tooling or manual setup. This work is still experimental and needs to mature before it can replace the current installation path.
 
-Values flow straight through from the root component to each HelmRelease, and OCM's localization rewrites image
-references to point at our own registry, which holds both the components and their localized images. The one
-exception is the GPU operator: it pulls images at runtime based on the kernel versions it discovers on each node, so
-those references cannot be localized ahead of time.
-
-This installation process is still experimental and lives on the
-[`add-ocm-component`](https://github.com/henrichter-sap/thalamus/tree/add-ocm-component) branch. Thanks to the OCM
-team for their help building this.
+[Read full post →](/ipcei-cis-workshop-2026/ocm-packaging)
 
 ---
 

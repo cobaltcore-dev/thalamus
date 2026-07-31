@@ -4,7 +4,7 @@ title: OCM Model Weights as an OCM Component
 
 # OCM: Model Weights as an OCM Component
 
-_Author: Artem Lytvynov_ · _[github.com/violog](https://github.com/violog)_ · _Last changed: 30 July 2026_
+_Author: [Artem Lytvynov](https://github.com/violog)_
 
 Thalamus serves large language models, but it does not manage the model weights, which come from external
 providers — chiefly [Hugging Face](https://huggingface.co). That is convenient, but the weights are outside our control.
