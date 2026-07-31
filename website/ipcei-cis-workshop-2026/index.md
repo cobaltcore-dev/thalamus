@@ -46,25 +46,6 @@ team for their help building this.
 
 ## OCM: Model Weights as an OCM Component
 
-Thalamus serves large language models, but it does not manage the model weights, which come from external
-providers — chiefly [Hugging Face](https://huggingface.co). That is convenient, but it also means the weights are outside our control.
-
-Hugging Face is a single point of failure outside our control: it can go down, be
-[breached](https://openai.com/index/hugging-face-model-evaluation-security-incident/), apply censorship to individual
-models, or restrict users from downloading them.
-
-For a European sovereign-cloud offering under the [ApeiroRA](https://apeirora.eu) and IPCEI-CIS umbrella, depending
-on a US registry we do not operate is not acceptable. We need a registry we own and control.
-
-[OCM (Open Component Model)](https://ocm.software) provides a protocol that meets sovereign-cloud requirements. The OCM project
-ships a [**model-server**](https://github.com/open-component-model/model-server): a proxy that makes OCM components stored
-in any OCI registry available through a Hugging Face-compatible API, enabling Thalamus to store models in a sovereign OCI
-registry such as [Keppel](https://github.com/sapcc/keppel).
-
-At the hackathon, we drafted an end-to-end integration of Thalamus with the OCM protocol and the model-server,
-proving we can replace Hugging Face with any OCI-compatible storage.
-
-The upstream work landed in [`jakobmoellerdev/model-server#1`](https://github.com/jakobmoellerdev/model-server/pull/1),
-in collaboration with [Jakob Möller](https://github.com/jakobmoellerdev), who maintains the model-server.
+Thalamus currently relies on external registries such as Hugging Face for model weights, which creates a dependency outside our control for a sovereign-cloud offering. We prototyped consumption of OCM [**model-server**](https://github.com/open-component-model/model-server) to store model weights as OCM components in an OCI registry of our choice while still exposing them through a Hugging Face-compatible API. During the hackathon we packaged a lightweight demo model, stored it in GHCR, pulled it through the model-server, and served inference from it without the weights ever touching Hugging Face.
 
 [Read full post →](/ipcei-cis-workshop-2026/ocm-model-weights)
