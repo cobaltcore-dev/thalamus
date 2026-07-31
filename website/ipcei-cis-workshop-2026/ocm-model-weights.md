@@ -59,7 +59,7 @@ which is exactly what the proxy reads to reconstruct a Hugging Face-style model 
 # real-model-constructor.yaml (excerpt)
 components:
   - name: example.org/tiny-llm          # OCM names must be lowercase
-    version: 1.0.0
+    version: 1.1.0
     provider:
       name: arnir0
     labels:
@@ -144,7 +144,8 @@ func (c *Client) GetCachedResource(ctx context.Context, cv ComponentVersion, res
 
 **4. Wiring it into Thalamus + vLLM.** From the inference side nothing exotic happens: vLLM's Hugging Face client is pointed
 at the model-server via `HF_ENDPOINT`, and the model is declared as an ordinary Thalamus `Model`. vLLM then pulls
-`arnir0/Tiny-LLM` — weights, tokenizer, config — straight from the OCM component, and serves it:
+`arnir0/Tiny-LLM` (the respective component is named `example.org/tinyllm`) — weights, tokenizer, config — straight from the OCM
+component, and serves it:
 
 ```yaml
 # thalamus values (CPU profile)

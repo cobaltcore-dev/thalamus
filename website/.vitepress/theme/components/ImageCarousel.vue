@@ -1,5 +1,8 @@
 <template>
-  <div class="image-carousel" :style="{ '--aspect-ratio': aspectRatio }">
+  <div v-if="!images.length" class="image-carousel image-carousel-empty">
+    No images to display.
+  </div>
+  <div v-else class="image-carousel" :style="{ '--aspect-ratio': aspectRatio }">
     <div class="image-carousel-viewport">
       <Transition name="carousel-slide" mode="out-in">
         <div :key="currentIndex" class="image-carousel-slide">
@@ -70,10 +73,12 @@ const currentIndex = ref(0)
 let timer: ReturnType<typeof setInterval> | null = null
 
 const next = () => {
+  if (!props.images.length) return
   currentIndex.value = (currentIndex.value + 1) % props.images.length
 }
 
 const prev = () => {
+  if (!props.images.length) return
   currentIndex.value = (currentIndex.value - 1 + props.images.length) % props.images.length
 }
 
@@ -97,12 +102,29 @@ const stopAutoPlay = () => {
 onMounted(startAutoPlay)
 onUnmounted(stopAutoPlay)
 
-watch(() => props.images, startAutoPlay)
+watch(
+  () => props.images,
+  () => {
+    const count = props.images.length
+    if (currentIndex.value > count - 1) {
+      currentIndex.value = count ? count - 1 : 0
+    }
+    startAutoPlay()
+  }
+)
 </script>
 
 <style scoped>
 .image-carousel {
   margin: 1.5rem 0;
+}
+
+.image-carousel-empty {
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--vp-c-text-2);
+  background: var(--vp-c-bg-soft);
+  border-radius: 8px;
 }
 
 .image-carousel-viewport {

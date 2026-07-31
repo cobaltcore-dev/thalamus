@@ -37,7 +37,7 @@ details about Thalamus-managed models.
 />
 
 You can also read the full conversation below or download the raw
-[Open WebUI chat export](/hackathon-2026/naira-chat-export.json).
+[Open WebUI chat export](https://raw.githubusercontent.com/cobaltcore-dev/thalamus/main/website/public/hackathon-2026/naira-chat-export.json).
 
 ## How It Works
 
