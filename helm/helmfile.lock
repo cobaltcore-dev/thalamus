@@ -2,12 +2,12 @@ version: 1.6.0
 dependencies:
   - name: external-dns
     repository: https://kubernetes-sigs.github.io/external-dns/
-    version: 1.19.0
+    version: 1.21.1
   - name: gpu-operator
     repository: https://helm.ngc.nvidia.com/nvidia
     version: v26.3.3
   - name: open-webui
     repository: https://helm.openwebui.com/
     version: 16.0.0
-digest: sha256:bfb43c9b2c76a95feffc3370ca9d7529365ccb9aac76068e6fcc8ca8f9689640
-generated: "2026-07-31T02:29:51.893201637Z"
+digest: sha256:d44ac840d17c917e5104adac9a73daf91cfdccec2c2330964bc4b27eed31fec9
+generated: "2026-07-31T14:46:31.651037778Z"

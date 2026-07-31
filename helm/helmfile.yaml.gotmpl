@@ -77,7 +77,7 @@ releases:
     namespace: external-dns
     createNamespace: true
     chart: external-dns/external-dns
-    version: "1.19.0"
+    version: "1.21.1"
     installed: {{ dig "external-dns" "enabled" false .Values }}
     needs:
       - default/gateway-api-crds
