@@ -14,17 +14,17 @@ const messages = chatExport[0].chat.history.messages
 teams. It provides a central catalog of AI assets, including models, workflows, and infrastructure, populated by
 Kubernetes-native plugins that collect data from the tools already running in your stack.
 
-At the hackathon we built a **Thalamus plugin for Naira**. The plugin watches the `Model` resources that Thalamus
+At the hackathon, we built a **Thalamus plugin for Naira**. The plugin watches the `Model` resources that Thalamus
 manages and synchronizes them into Naira's catalog graph. This gives Naira a live view of which inference models
 are running, what engine serves them, what GPU profile they target, and other operational metadata.
 
 With the catalog populated, Naira's **MCP (Model Context Protocol) server** exposes those facts as tools that any
-MCP-capable LLM client can call. The model can ask Naira for
-current cluster state and answer precise, live questions about Thalamus-managed inference instances.
+MCP-capable LLM client can call. The assistant can query Naira for the current cluster state and answer precise,
+live questions about Thalamus-managed inference instances.
 
 ## Demo
 
-The screenshots below show an Open WebUI chat session where the model uses the Naira MCP server to retrieve live
+The screenshots below show an Open WebUI chat session where the assistant uses the Naira MCP server to retrieve live
 details about Thalamus-managed models.
 
 <ImageCarousel

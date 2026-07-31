@@ -7,17 +7,17 @@ title: OCM Model Weights as an OCM Component
 _Author: Artem Lytvynov_ · _[github.com/violog](https://github.com/violog)_ · _Last changed: 30 July 2026_
 
 Thalamus serves large language models, but it does not manage the model weights, which come from external
-providers — chiefly [Hugging Face](https://huggingface.co). That is convenient, and it is also a problem we do not control.
+providers — chiefly [Hugging Face](https://huggingface.co). That is convenient, but the weights are outside our control.
 
-Hugging Face is a single point of failure we do not own:
+Hugging Face is a single point of failure outside our control:
 
 - It can go down.
 - It can be [breached](https://openai.com/index/hugging-face-model-evaluation-security-incident/).
 - It can apply censorship to individual models, or restrict who is allowed to download them — SAP included.
-- A team that wants to run *its own* model needs to upload it to HuggingFace first, which may be complicated.
+- A team that wants to run *its own* model must upload it to Hugging Face first, which adds friction and a dependency on a public platform.
 
-For a European sovereign-cloud offering under the [ApeiroRA](https://apeirora.eu) and IPCEI-CIS umbrella, "our inference
-platform depends on a US registry we do not operate" is not an acceptable answer. We need a registry we own and control.
+For a European sovereign-cloud offering under the [ApeiroRA](https://apeirora.eu) and IPCEI-CIS umbrella, depending
+on a US registry we do not operate is not acceptable. We need a registry we own and control.
 
 [OCM (Open Component Model)](https://ocm.software) provides a protocol built for exactly this: describing, signing, and
 transporting software artifacts across registries in a verifiable, vendor-neutral way — a good fit for sovereign-cloud
@@ -27,8 +27,8 @@ OCI registry look like a Hugging Face Hub (and Ollama, OpenAI, and MLflow) endpo
 still think they are talking to Hugging Face. But the bytes now come from a registry we choose: GitHub Container Registry,
 AWS ECR, Azure ACR, or a sovereign OCI registry such as [Keppel](https://github.com/sapcc/keppel).
 
-At the hackathon we drafted an end-to-end integration of Thalamus with the OCM protocol and the model-server, proving we can
-swap Hugging Face for any OCI-compatible storage. Concretely, we:
+At the hackathon, we drafted an end-to-end integration of Thalamus with the OCM protocol and the model-server, proving we can
+replace Hugging Face with any OCI-compatible storage. Concretely, we:
 
 - **Packaged** a lightweight demo model ([`arnir0/Tiny-LLM`](https://huggingface.co/arnir0/Tiny-LLM), ~26 MB) as an OCM
   component;
@@ -171,7 +171,7 @@ at the model-server via `HF_ENDPOINT`, and the model is declared as an ordinary 
       # ...
 ```
 
-`hfEndpoint` overrides default HuggingFace URL, allowing vLLM to call the proxy. Model name follows both vLLM and OCM naming conventions, while version is provided through the `--revision` flag.
+`hfEndpoint` overrides the default Hugging Face URL, allowing vLLM to call the proxy. Model name follows both vLLM and OCM naming conventions, while version is provided through the `--revision` flag.
 
 ## Challenges
 
@@ -189,26 +189,24 @@ Getting there was a fight against a stack of small, sharp edges.
   component `example.org/tiny-llm`, and `model.safetensors` became the resource `modelsafetensors`, while the *public* id the
   client sees is preserved separately in the `model-id` label.
 - **vLLM naming rules.** OCM versions a component as `name:version`, but vLLM rejects a colon in the model
-  name, and there was no obvious way to ask it for a specific version. This sent us down implementing a hack that encoded the 
+  name, and there was no obvious way to ask it for a specific version. This sent us down implementing a hack that encoded the
   version into the name with an underscore (`tinyllm_1.1.0`).
   It turned out vLLM already exposes a `--revision` flag for exactly this.
-  authenticated pulls through the ORAS `auth.Client` shown above.
 - **OCM CLI versioning.** The CLI flag syntax and packaging protocol changed between OCM releases.
-  The version installed via `homebrew` appeared to be outdated. Thus, after a discovery on the next day models
-  needed to be repackaged.
+  The version installed via `homebrew` appeared to be outdated. After discovering this the following day, we had to repackage the models.
 - **Listing over plain OCI.** An OCI registry has no OCM "list all components" call (GHCR's catalog endpoint is disabled), so
   the index cannot be auto-populated by discovery alone. For the demo we relied on direct lookup by component name (and a
   local CTF archive, which *does* support listing) as the workaround.
-- **Slow speed of model pull.** This was the biggest challenge, taking most of our attention and time. GHCR credentials were
-  added to mitigate this, but the speed didn't change. The `TinyLLM` model of 25 MB size was pulling for a minute,
-  resulting in timeout failures on vLLM side. Increasing timeouts through environment variables changed the error message,
-  yet the root cause remained the same. It was later discovered that vLLM uses HF client, which has its own non-configurable
-  timeouts inside. Forking vLLM was not an option, ergo we investigated the slowdown. Turned out, HF client inside vLLM
-  interacted with an OCM-packaged model in an unusual way. Instead of pulling a model once and having it locally, it made many
-  calls for each file like `config.json` and `tokenizer_config.json`. Model server didn't handle that; therefore
-  **the entire OCM component** (26 MB) was pulled on every request, resulting in gigabytes of data pulled and rate limiting
-  applied from GHCR. As soon as the most basic cache was implemented, requests became fast and work continued faster on
-  following errors.
+- **Slow model downloads.** This was the biggest challenge, taking most of our attention and time. We added GHCR credentials
+  to speed up downloads, but the download speed did not improve. The `TinyLLM` model (25 MB) was taking over a minute to
+  pull, causing timeout failures on the vLLM side. Increasing the timeouts via environment variables changed the error
+  message, but the root cause remained the same. We later discovered that vLLM uses the HF client, which has internal
+  timeouts that cannot be configured. Forking vLLM was not an option, so we investigated the slowdown. It turned out that
+  the HF client inside vLLM interacted with OCM-packaged models in an unexpected way. Instead of pulling a model once and
+  caching it locally, it made many calls per file — for `config.json`, `tokenizer_config.json`, and others. The
+  model-server had no cache, so **the entire OCM component** (26 MB) was downloaded on every request, resulting in
+  gigabytes of data transferred and rate limiting from GHCR. As soon as a basic cache was implemented, downloads became
+  fast and progress unblocked.
 
 ## Further development
 
@@ -218,7 +216,7 @@ real-world models is an epic-sized effort in its own right. The largest gaps:
 1. **Stable multi-model deployment at real sizes.** Everything so far was validated with a ~26 MB toy model. Production
    models are hundreds of gigabytes, and packing/unpacking speed, memory pressure, and concurrency will surface a whole new
    class of problems that simply do not appear at 26 MB.
-2. **Download speed.** Hugging Face parallelises downloads to fetch large models quickly. The model-server currently does a
+2. **Download speed.** Hugging Face parallelizes downloads to fetch large models quickly. The model-server currently does a
    trivial single-threaded pull. We need to research what different OCI registries support (chunked/parallel/range reads) and
    implement real parallelism in the server.
 3. **Full feature coverage.** Everything we intend to depend on must be tested deliberately: the HF API surface (and possibly
