@@ -67,6 +67,7 @@ export default withMermaid({
         collapsed: false,
         items: [
           { text: 'IPCEI-CIS Hackathon July 2026', link: '/ipcei-cis-workshop-2026/' },
+          { text: 'Naira Integration', link: '/ipcei-cis-workshop-2026/naira-integration' },
           { text: 'OCM Model Weights', link: '/ipcei-cis-workshop-2026/ocm-model-weights' },
         ],
       },

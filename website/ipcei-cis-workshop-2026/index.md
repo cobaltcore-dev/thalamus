@@ -18,44 +18,12 @@ distributing model weights via the Hugging Face protocol through OCM.
 
 ## Naira Integration
 
-[Naira](https://github.com/naira-project/naira) is an open-source AI Engineering Development Hub for cloud-native
-teams. It provides a central catalog of AI assets (models, workflows, and infrastructure) populated by
-Kubernetes-native plugins that collect data from the tools in your stack.
+We built a **Thalamus plugin for Naira** that keeps Naira's AI asset catalog in sync with the models currently
+running in Thalamus. With the catalog populated, Naira's **MCP (Model Context Protocol) server** lets an MCP-capable
+client such as Open WebUI ask live questions about Thalamus-managed inference instances. For example, which models
+are available and what engine configuration they use.
 
-This hackathon produced a **Thalamus plugin for Naira**. The plugin continuously feeds Naira's catalog with the models
-currently running in Thalamus, including their names, engine configuration, GPU allocation, and other operational details.
-With that catalog populated, Naira's **MCP (Model Context Protocol) server** can expose those facts as tools that
-any MCP-capable LLM client can call.
-
-The demo ties it all together. Open WebUI is connected to a model served by Thalamus and has the Naira MCP server
-configured as a tool provider. Because the Thalamus plugin keeps Naira's catalog up to date, the model can answer
-precise, live questions about which models are running in the cluster and what their configuration looks like,
-without any hardcoded knowledge.
-
-### Demo
-
-The screenshot below shows an Open WebUI chat session where the model uses the Naira MCP to retrieve live details
-about Thalamus-managed inference instances.
-
-<!-- Replace the placeholder below with the actual screenshot file once placed in website/public/ -->
-<!-- e.g. ![Naira integration demo](/naira-demo.png) -->
-
-::: info Screenshot placeholder
-Place your screenshot at `website/public/naira-demo.png` and replace this block with:
-
-```md
-![Open WebUI chat via Thalamus and Naira](/naira-demo.png)
-```
-:::
-
-You can also download the raw [Open WebUI chat export](/naira-chat-export.json) from the session.
-
-<!-- Replace the placeholder above with the actual JSON file once placed in website/public/ -->
-<!-- e.g. place the file at website/public/naira-chat-export.json -->
-
-### How It Works
-
-<!-- TODO: fill in plugin architecture, configuration, and usage -->
+[Read full post →](/ipcei-cis-workshop-2026/naira-integration)
 
 ---
 
