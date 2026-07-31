@@ -1,4 +1,4 @@
-version: v1.6.0
+version: 1.6.0
 dependencies:
   - name: external-dns
     repository: https://kubernetes-sigs.github.io/external-dns/
@@ -8,6 +8,6 @@ dependencies:
     version: v26.3.3
   - name: open-webui
     repository: https://helm.openwebui.com/
-    version: 15.2.0
-digest: sha256:87fc44414db7d70ed4b31ff29efd8f7625e29a9f8741e2547cc76248c3de5042
-generated: "2026-07-16T13:40:10.274201+02:00"
+    version: 15.2.1
+digest: sha256:546a2d7334565870f538e6cb5e2844727cab4a22bc71d74f98eb63a612c8b4cd
+generated: "2026-07-31T02:28:50.992189377Z"
