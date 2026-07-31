@@ -29,10 +29,18 @@ are available and what engine configuration they use.
 
 ## OCM: Packaging Thalamus as a Component
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna
-aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
-Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
-Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+We packaged the entire Thalamus installation as an OCM component, migrating our existing
+Helmfile deployment 1:1. The result is a single root component with a matching ResourceGraphDefinition (RGD) that
+describes the whole installation.
+
+Values flow straight through from the root component to each HelmRelease, and OCM's localization rewrites image
+references to point at our own registry, which holds both the components and their localized images. The one
+exception is the GPU operator: it pulls images at runtime based on the kernel versions it discovers on each node, so
+those references cannot be localized ahead of time.
+
+This installation process is still experimental and lives on the
+[`add-ocm-component`](https://github.com/henrichter-sap/thalamus/tree/add-ocm-component) branch. Thanks to the OCM
+team for their help building this!
 
 ---
 
