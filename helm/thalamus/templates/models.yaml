@@ -28,6 +28,10 @@ spec:
         app: vllm-{{ $m.slug }}
         llm-d.ai/inference-serving: "true"
     spec:
+      {{- with $m.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: vllm
           image: {{ include "thalamus.image" $accel.image }}

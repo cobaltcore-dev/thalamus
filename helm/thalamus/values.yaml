@@ -164,6 +164,9 @@ accelerators:
 #         nvidia.com/gpu: "1"
 #       limits:
 #         nvidia.com/gpu: "1"
+#     # Optional: constrain scheduling to specific nodes (e.g. GPU flavor).
+#     nodeSelector:
+#       nvidia.com/gpu.product: NVIDIA-RTX-PRO-6000-Blackwell-Server-Edition
 models: []
 
 # Endpoint Picker (EPP)
