@@ -22,7 +22,7 @@ on a US registry we do not operate is not acceptable. We need a registry we own 
 [OCM (Open Component Model)](https://ocm.software) provides a protocol built for exactly this: describing, signing, and
 transporting software artifacts across registries in a verifiable, vendor-neutral way — a good fit for sovereign-cloud
 requirements. The OCM project ships a
-[**model-server**](https://github.com/open-component-model/model-server): a proxy that makes OCM components stored in any
+[**model-server**](https://github.com/jakobmoellerdev): a proxy that makes OCM components stored in any
 OCI registry look like a Hugging Face Hub (and Ollama, OpenAI, and MLflow) endpoint. Clients do not need to change — they
 still think they are talking to Hugging Face. But the bytes now come from a registry we choose: GitHub Container Registry,
 AWS ECR, Azure ACR, or a sovereign OCI registry such as [Keppel](https://github.com/sapcc/keppel).
@@ -49,7 +49,7 @@ weights beyond streaming them through; it is pure model *distribution* with supp
 
 ![model-server architecture: AI clients → model-server → OCM components in an OCI registry](/model-server-overview.png)
 
-*Diagram source: [open-component-model/model-server](https://github.com/open-component-model/model-server)*
+*Diagram source: [jakobmoellerdev](https://github.com/jakobmoellerdev/model-server)*
 
 **1. Packaging the model as an OCM component.** A model becomes an OCM component version whose resources are its files
 (weights, config, tokenizer, model card). Model metadata is carried in the `ext.ocm.software/model-server.*` label namespace,

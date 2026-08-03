@@ -31,6 +31,6 @@ Thalamus today is installed through a set of Helm charts and configuration files
 
 ## OCM: Model Weights as an OCM Component
 
-Thalamus currently relies on external registries such as Hugging Face for model weights, which creates a dependency outside our control for a sovereign-cloud offering. We prototyped an integration with the OCM [**model-server**](https://github.com/open-component-model/model-server) to store model weights as OCM components in an OCI registry of our choice while still exposing them through a Hugging Face-compatible API. During the hackathon we packaged a lightweight demo model, stored it in GHCR, pulled it through the model-server, and served inference from it without the weights ever touching Hugging Face.
+Thalamus currently relies on external registries such as Hugging Face for model weights, which creates a dependency outside our control for a sovereign-cloud offering. We prototyped an integration with the OCM [**model-server**](https://github.com/jakobmoellerdev/model-server) to store model weights as OCM components in an OCI registry of our choice while still exposing them through a Hugging Face-compatible API. During the hackathon we packaged a lightweight demo model, stored it in GHCR, pulled it through the model-server, and served inference from it without the weights ever touching Hugging Face.
 
 [Read full post →](/ipcei-cis-workshop-2026/ocm-model-weights)
