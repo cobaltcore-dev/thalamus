@@ -14,8 +14,6 @@ questions about running inference instances. We also worked on two
 [Open Component Model (OCM)](https://ocm.software) topics: packaging Thalamus itself as an OCM component and
 distributing model weights through OCM using a Hugging Face-compatible API.
 
----
-
 ## Naira Integration
 
 We built a **Thalamus plugin for Naira** that keeps Naira's AI asset catalog in sync with the models currently
@@ -25,15 +23,11 @@ which models are available and what engine configuration they use.
 
 [Read full post →](/ipcei-cis-workshop-2026/naira-integration)
 
----
-
 ## OCM: Packaging Thalamus as a Component
 
 Thalamus today is installed through a set of Helm charts and configuration files bundles through a helmfile. Together with the OCM team, we explored packaging the whole Thalamus installation as a single OCM component. The goal is to turn Thalamus into a versioned, transportable artifact that can be pulled from a sovereign OCI registry and installed without relying on external tooling or manual setup. This work is still experimental and needs to mature before it can replace the current installation path.
 
 [Read full post →](/ipcei-cis-workshop-2026/ocm-packaging)
-
----
 
 ## OCM: Model Weights as an OCM Component
 
