@@ -110,8 +110,7 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 	}
 
 	labels := map[string]string{
-		"app":                        model.EngineName(),
-		"llm-d.ai/inference-serving": "true",
+		"thalamus.cloud/engine": model.EngineName(),
 	}
 
 	// TODO: updateStrategy should be a field on the Model CRD.
@@ -149,7 +148,7 @@ func BuildEngineService(model *v1alpha1.Model) *corev1.Service {
 			Namespace: model.Namespace,
 		},
 		Spec: corev1.ServiceSpec{
-			Selector: map[string]string{"app": model.EngineName()},
+			Selector: map[string]string{"thalamus.cloud/engine": model.EngineName()},
 			Ports: []corev1.ServicePort{
 				{
 					Name:       "vllm",

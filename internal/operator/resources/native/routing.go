@@ -19,7 +19,7 @@ func BuildInferencePool(model *v1alpha1.Model) *inferencev1.InferencePool {
 	spec := inferencev1.InferencePoolSpec{
 		Selector: inferencev1.LabelSelector{
 			MatchLabels: map[inferencev1.LabelKey]inferencev1.LabelValue{
-				"app": inferencev1.LabelValue(model.EngineName()),
+				"thalamus.cloud/engine": inferencev1.LabelValue(model.EngineName()),
 			},
 		},
 		TargetPorts: []inferencev1.Port{{Number: engineHTTPPort}},

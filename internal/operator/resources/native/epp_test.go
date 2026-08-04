@@ -69,6 +69,12 @@ func TestBuildEPPDeployment(t *testing.T) {
 	if dep.Spec.Template.Spec.ServiceAccountName != model.EPPName() {
 		t.Errorf("ServiceAccountName:\ngot:  %q\nwant: %q", dep.Spec.Template.Spec.ServiceAccountName, model.EPPName())
 	}
+	if dep.Spec.Template.Labels["thalamus.cloud/epp"] != model.EPPName() {
+		t.Error("missing thalamus.cloud/epp label")
+	}
+	if dep.Spec.Selector.MatchLabels["thalamus.cloud/epp"] != model.EPPName() {
+		t.Error("selector mismatch")
+	}
 	if c.LivenessProbe == nil || c.ReadinessProbe == nil {
 		t.Error("missing probes")
 	}
@@ -89,5 +95,8 @@ func TestBuildEPPService(t *testing.T) {
 		if !ports[want] {
 			t.Errorf("missing port %d", want)
 		}
+	}
+	if svc.Spec.Selector["thalamus.cloud/epp"] != model.EPPName() {
+		t.Error("selector mismatch")
 	}
 }

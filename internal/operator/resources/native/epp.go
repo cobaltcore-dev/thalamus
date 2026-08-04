@@ -164,11 +164,11 @@ func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 			Replicas: ptr.To[int32](1),
 			Strategy: appsv1.DeploymentStrategy{Type: recreate},
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{"app": model.EPPName()},
+				MatchLabels: map[string]string{"thalamus.cloud/epp": model.EPPName()},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"app": model.EPPName()},
+					Labels: map[string]string{"thalamus.cloud/epp": model.EPPName()},
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName:            model.EPPName(),
@@ -198,7 +198,7 @@ func BuildEPPService(model *v1alpha1.Model) *corev1.Service {
 			Namespace: model.Namespace,
 		},
 		Spec: corev1.ServiceSpec{
-			Selector: map[string]string{"app": model.EPPName()},
+			Selector: map[string]string{"thalamus.cloud/epp": model.EPPName()},
 			Ports: []corev1.ServicePort{
 				{
 					Name:       "grpc-ext-proc",

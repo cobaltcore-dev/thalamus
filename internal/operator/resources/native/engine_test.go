@@ -58,8 +58,8 @@ func TestBuildEngineDeployment(t *testing.T) {
 	if c.Resources.Requests == nil {
 		t.Error("Resources.Requests is nil")
 	}
-	if dep.Spec.Template.Labels["llm-d.ai/inference-serving"] != "true" {
-		t.Error("missing llm-d.ai/inference-serving label")
+	if dep.Spec.Template.Labels["thalamus.cloud/engine"] != model.EngineName() {
+		t.Error("missing thalamus.cloud/engine label")
 	}
 	if c.StartupProbe == nil || c.LivenessProbe == nil || c.ReadinessProbe == nil {
 		t.Error("missing probes")
@@ -102,7 +102,7 @@ func TestBuildEngineService(t *testing.T) {
 	if len(svc.Spec.Ports) != 1 || svc.Spec.Ports[0].Port != engineHTTPPort {
 		t.Error("unexpected service ports")
 	}
-	if svc.Spec.Selector["app"] != model.EngineName() {
+	if svc.Spec.Selector["thalamus.cloud/engine"] != model.EngineName() {
 		t.Error("selector mismatch")
 	}
 }
