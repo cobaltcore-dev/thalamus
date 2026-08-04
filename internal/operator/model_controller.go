@@ -11,7 +11,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -149,10 +148,7 @@ func (r *ModelReconciler) syncStatus(ctx context.Context, model *v1alpha1.Model)
 func (r *ModelReconciler) syncNativeStatus(ctx context.Context, model *v1alpha1.Model) error {
 	dep := &appsv1.Deployment{}
 	if err := r.Get(ctx, types.NamespacedName{Name: model.EngineName(), Namespace: model.Namespace}, dep); err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil
-		}
-		return err
+		return client.IgnoreNotFound(err)
 	}
 
 	// TODO: ready currently only reflects engine Deployment readiness.
