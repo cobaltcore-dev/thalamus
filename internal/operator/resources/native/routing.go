@@ -12,7 +12,10 @@ import (
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 )
 
-const defaultGatewayName = "inference-gateway"
+const (
+	defaultGatewayName         = "inference-gateway"
+	gatewayBaseModelHeaderName = "X-Gateway-Base-Model-Name"
+)
 
 // BuildInferencePool returns the InferencePool for the model.
 func BuildInferencePool(model *v1alpha1.Model) *inferencev1.InferencePool {
@@ -42,8 +45,7 @@ func BuildInferencePool(model *v1alpha1.Model) *inferencev1.InferencePool {
 	}
 }
 
-// BuildHTTPRoute returns the HTTPRoute that routes requests to the model's InferencePool
-// based on the X-Gateway-Base-Model-Name header.
+// BuildHTTPRoute returns the HTTPRoute that routes requests to the model's InferencePool.
 func BuildHTTPRoute(model *v1alpha1.Model) *gatewayv1.HTTPRoute {
 	ns := gatewayv1.Namespace(model.Namespace)
 	modelName := ""
@@ -52,7 +54,7 @@ func BuildHTTPRoute(model *v1alpha1.Model) *gatewayv1.HTTPRoute {
 	}
 	headerValue := gatewayv1.HTTPHeaderMatch{
 		Type:  ptr.To(gatewayv1.HeaderMatchExact),
-		Name:  "X-Gateway-Base-Model-Name",
+		Name:  gatewayBaseModelHeaderName,
 		Value: modelName,
 	}
 
