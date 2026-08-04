@@ -17,25 +17,27 @@ import (
 func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 	engine := model.Spec.Serving.Engine
 
-	cmd := []string{"vllm", "serve"}
+	command := []string{"vllm", "serve"}
+	args := []string{}
 	env := engine.Env
 
 	if model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && model.Spec.Weights.HF != nil {
 		hf := model.Spec.Weights.HF
-		cmd = append(cmd, hf.RepoID, "--served-model-name="+hf.RepoID)
+		args = append(args, hf.RepoID, "--served-model-name="+hf.RepoID)
 		env = append([]corev1.EnvVar{{
 			Name:      "HF_TOKEN",
 			ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &hf.TokenSecret},
 		}}, env...)
 	}
 
-	cmd = append(cmd, engine.Args...)
+	args = append(args, engine.Args...)
 
 	container := corev1.Container{
 		Name:            "engine",
 		Image:           engine.Image,
 		ImagePullPolicy: corev1.PullIfNotPresent,
-		Command:         cmd,
+		Command:         command,
+		Args:            args,
 		Env:             env,
 		Ports: []corev1.ContainerPort{
 			{Name: "http", ContainerPort: 8000, Protocol: corev1.ProtocolTCP},

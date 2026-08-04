@@ -4,6 +4,7 @@
 package native
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
@@ -34,6 +35,15 @@ func TestBuildEngineDeployment(t *testing.T) {
 	c := dep.Spec.Template.Spec.Containers[0]
 	if c.Image != model.Spec.Serving.Engine.Image {
 		t.Errorf("Image:\ngot:  %q\nwant: %q", c.Image, model.Spec.Serving.Engine.Image)
+	}
+
+	expectedCommand := []string{"vllm", "serve"}
+	if !slices.Equal(c.Command, expectedCommand) {
+		t.Errorf("Command:\ngot:  %v\nwant: %v", c.Command, expectedCommand)
+	}
+	expectedArgs := []string{"arnir0/Tiny-LLM", "--served-model-name=arnir0/Tiny-LLM", "--max-model-len=512"}
+	if !slices.Equal(c.Args, expectedArgs) {
+		t.Errorf("Args:\ngot:  %v\nwant: %v", c.Args, expectedArgs)
 	}
 
 	if c.Env[0].Name != "HF_TOKEN" {
