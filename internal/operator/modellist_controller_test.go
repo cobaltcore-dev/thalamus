@@ -59,7 +59,13 @@ func TestModelListReconcile_PolicyNotFound(t *testing.T) {
 	s := testutil.NewScheme(t)
 	c := fake.NewClientBuilder().WithScheme(s).Build()
 	r := &ModelListReconciler{Client: c, Scheme: s}
-	reconcileModelListOnce(t, r)
+
+	_, err := r.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{Name: native.ModelListPolicyName, Namespace: testNamespace},
+	})
+	if err == nil {
+		t.Fatal("expected error when policy is not found")
+	}
 }
 
 func TestModelListReconcile_NoModels(t *testing.T) {

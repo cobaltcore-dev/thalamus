@@ -38,10 +38,12 @@ func main() {
 	var metricsAddr string
 	var probeAddr string
 	var watchNamespace string
+	var enableModelListPolicySync bool
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. Use :8080 for HTTP or 0 to disable.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.StringVar(&watchNamespace, "namespace", "", "Namespace to watch. Must match the namespace the operator is deployed in.")
+	flag.BoolVar(&enableModelListPolicySync, "enable-model-list-policy-sync", true, "Enable reconciliation of the model-list AgentgatewayPolicy.")
 	// TODO: set to false before GA
 	opts := zap.Options{Development: true}
 	opts.BindFlags(flag.CommandLine)
@@ -73,12 +75,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := (&operator.ModelListReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ModelList")
-		os.Exit(1)
+	if enableModelListPolicySync {
+		if err := (&operator.ModelListReconciler{
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+		}).SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "ModelList")
+			os.Exit(1)
+		}
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

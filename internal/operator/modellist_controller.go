@@ -6,7 +6,6 @@ package operator
 import (
 	"context"
 
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -55,9 +54,6 @@ func (r *ModelListReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	policy := &unstructured.Unstructured{}
 	policy.SetGroupVersionKind(agentgatewayPolicyGVK)
 	if err := r.Get(ctx, types.NamespacedName{Name: native.ModelListPolicyName, Namespace: req.Namespace}, policy); err != nil {
-		if errors.IsNotFound(err) {
-			return ctrl.Result{}, nil
-		}
 		return ctrl.Result{}, err
 	}
 
