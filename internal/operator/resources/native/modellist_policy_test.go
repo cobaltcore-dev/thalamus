@@ -11,13 +11,22 @@ import (
 )
 
 func TestBuildModelListResponse_Empty(t *testing.T) {
+	want := `{"object":"list","data":[]}`
+
 	body, err := BuildModelListResponse(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := `{"object":"list","data":[]}`
 	if body != want {
-		t.Errorf("model list response:\ngot:  %s\nwant: %s", body, want)
+		t.Errorf("model list response (nil):\ngot:  %s\nwant: %s", body, want)
+	}
+
+	body, err = BuildModelListResponse([]v1alpha1.Model{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if body != want {
+		t.Errorf("model list response (empty slice):\ngot:  %s\nwant: %s", body, want)
 	}
 }
 
