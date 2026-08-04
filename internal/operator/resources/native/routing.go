@@ -26,14 +26,10 @@ func BuildInferencePool(model *v1alpha1.Model) *inferencev1.InferencePool {
 			},
 		},
 		TargetPorts: []inferencev1.Port{{Number: engineHTTPPort}},
-	}
-
-	if model.Spec.Serving.EPP != nil {
-		eppPort := inferencev1.Port{Number: 9002}
-		spec.EndpointPickerRef = inferencev1.EndpointPickerRef{
+		EndpointPickerRef: inferencev1.EndpointPickerRef{
 			Name: inferencev1.ObjectName(model.EPPName()),
-			Port: &eppPort,
-		}
+			Port: &inferencev1.Port{Number: 9002},
+		},
 	}
 
 	return &inferencev1.InferencePool{

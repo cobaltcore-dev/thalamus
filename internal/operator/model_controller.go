@@ -78,16 +78,14 @@ func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.M
 	}
 
 	// EPP stack.
-	if model.Spec.Serving.EPP != nil {
-		objs = append(objs,
-			native.BuildEPPServiceAccount(model),
-			native.BuildEPPRole(model),
-			native.BuildEPPRoleBinding(model),
-			native.BuildEPPConfigMap(model),
-			native.BuildEPPDeployment(model),
-			native.BuildEPPService(model),
-		)
-	}
+	objs = append(objs,
+		native.BuildEPPServiceAccount(model),
+		native.BuildEPPRole(model),
+		native.BuildEPPRoleBinding(model),
+		native.BuildEPPConfigMap(model),
+		native.BuildEPPDeployment(model),
+		native.BuildEPPService(model),
+	)
 
 	for _, obj := range objs {
 		if err := r.applyOwned(ctx, model, obj); err != nil {

@@ -29,6 +29,11 @@ func NewModel(name, namespace string) *v1alpha1.Model {
 						},
 					},
 				},
+				EPP: &v1alpha1.EPPSpec{
+					Image: "test/epp:latest",
+					Args:  []string{},
+					Env:   []corev1.EnvVar{},
+				},
 			},
 			Weights: v1alpha1.WeightsSpec{
 				Type: v1alpha1.WeightsTypeHF,

@@ -10,8 +10,9 @@ import (
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
 )
 
-func TestBuildInferencePool_NoEPP(t *testing.T) {
+func TestBuildInferencePool(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
+	model.Spec.Serving.EPP = &v1alpha1.EPPSpec{Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0"}
 	pool := BuildInferencePool(model)
 
 	if pool.Name != model.EngineName() {
@@ -20,17 +21,6 @@ func TestBuildInferencePool_NoEPP(t *testing.T) {
 	if len(pool.Spec.TargetPorts) != 1 || pool.Spec.TargetPorts[0].Number != engineHTTPPort {
 		t.Error("unexpected TargetPorts")
 	}
-	// No EPP configured — EndpointPickerRef must be zero value.
-	if pool.Spec.EndpointPickerRef.Name != "" {
-		t.Errorf("EndpointPickerRef should be empty without EPP, got %q", pool.Spec.EndpointPickerRef.Name)
-	}
-}
-
-func TestBuildInferencePool_WithEPP(t *testing.T) {
-	model := testutil.NewModel("tiny-llm", "default")
-	model.Spec.Serving.EPP = &v1alpha1.EPPSpec{Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0"}
-	pool := BuildInferencePool(model)
-
 	if string(pool.Spec.EndpointPickerRef.Name) != model.EPPName() {
 		t.Errorf("EndpointPickerRef.Name:\ngot:  %q\nwant: %q", pool.Spec.EndpointPickerRef.Name, model.EPPName())
 	}

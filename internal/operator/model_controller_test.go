@@ -40,10 +40,9 @@ func TestReconcile_NotFound(t *testing.T) {
 	reconcileModelOnce(t, r, "missing")
 }
 
-func TestReconcile_NativeEngineOnly(t *testing.T) {
+func TestReconcile_Native(t *testing.T) {
 	s := testutil.NewScheme(t)
 	model := testutil.NewModel("tiny-llm", testNamespace)
-	model.Spec.Serving.EPP = nil
 	c := fake.NewClientBuilder().WithScheme(s).WithObjects(model).WithStatusSubresource(model).Build()
 	r := &ModelReconciler{Client: c, Scheme: s}
 
@@ -54,11 +53,6 @@ func TestReconcile_NativeEngineOnly(t *testing.T) {
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, &corev1.Service{})
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, &inferencev1.InferencePool{})
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, &gatewayv1.HTTPRoute{})
-
-	// No EPP ServiceAccount should have been created.
-	if err := c.Get(context.Background(), types.NamespacedName{Name: "tiny-llm-epp", Namespace: testNamespace}, &corev1.ServiceAccount{}); err == nil {
-		t.Fatal("EPP ServiceAccount should not exist when EPP is not configured")
-	}
 
 	// Deployment must have owner reference pointing at the Model.
 	if len(dep.OwnerReferences) == 0 || dep.OwnerReferences[0].Name != "tiny-llm" {
@@ -96,7 +90,6 @@ func TestReconcile_NativeWithEPP(t *testing.T) {
 func TestReconcile_ReadyWhenDeploymentReady(t *testing.T) {
 	s := testutil.NewScheme(t)
 	model := testutil.NewModel("tiny-llm", testNamespace)
-	model.Spec.Serving.EPP = nil
 	c := fake.NewClientBuilder().WithScheme(s).WithObjects(model).WithStatusSubresource(model).Build()
 	r := &ModelReconciler{Client: c, Scheme: s}
 
