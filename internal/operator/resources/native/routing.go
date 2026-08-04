@@ -22,7 +22,7 @@ func BuildInferencePool(model *v1alpha1.Model) *inferencev1.InferencePool {
 				"app": inferencev1.LabelValue(model.EngineName()),
 			},
 		},
-		TargetPorts: []inferencev1.Port{{Number: 8000}},
+		TargetPorts: []inferencev1.Port{{Number: engineHTTPPort}},
 	}
 
 	if model.Spec.Serving.EPP != nil {

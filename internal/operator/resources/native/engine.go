@@ -13,6 +13,9 @@ import (
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 )
 
+// engineHTTPPort is the TCP port the vLLM engine listens on.
+const engineHTTPPort = 8000
+
 // BuildEngineDeployment returns the desired Deployment for the vLLM inference engine.
 func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 	engine := model.Spec.Serving.Engine
@@ -40,7 +43,7 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 		Args:            args,
 		Env:             env,
 		Ports: []corev1.ContainerPort{
-			{Name: "http", ContainerPort: 8000, Protocol: corev1.ProtocolTCP},
+			{Name: "http", ContainerPort: engineHTTPPort, Protocol: corev1.ProtocolTCP},
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{Name: "vllm-cache", MountPath: "/root/.cache"},
@@ -50,7 +53,7 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path: "/v1/models",
-					Port: intstr.FromInt32(8000),
+					Port: intstr.FromInt32(engineHTTPPort),
 				},
 			},
 			InitialDelaySeconds: 15,
@@ -62,7 +65,7 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path: "/health",
-					Port: intstr.FromInt32(8000),
+					Port: intstr.FromInt32(engineHTTPPort),
 				},
 			},
 			PeriodSeconds:    10,
@@ -73,7 +76,7 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path: "/v1/models",
-					Port: intstr.FromInt32(8000),
+					Port: intstr.FromInt32(engineHTTPPort),
 				},
 			},
 			PeriodSeconds:    5,
@@ -150,8 +153,8 @@ func BuildEngineService(model *v1alpha1.Model) *corev1.Service {
 			Ports: []corev1.ServicePort{
 				{
 					Name:       "vllm",
-					Port:       8000,
-					TargetPort: intstr.FromInt32(8000),
+					Port:       engineHTTPPort,
+					TargetPort: intstr.FromInt32(engineHTTPPort),
 					Protocol:   corev1.ProtocolTCP,
 				},
 			},

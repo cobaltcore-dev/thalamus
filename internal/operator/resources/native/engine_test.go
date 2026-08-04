@@ -99,7 +99,7 @@ func TestBuildEngineService(t *testing.T) {
 	if svc.Name != model.EngineName() {
 		t.Errorf("Name:\ngot:  %q\nwant: %q", svc.Name, model.EngineName())
 	}
-	if len(svc.Spec.Ports) != 1 || svc.Spec.Ports[0].Port != 8000 {
+	if len(svc.Spec.Ports) != 1 || svc.Spec.Ports[0].Port != engineHTTPPort {
 		t.Error("unexpected service ports")
 	}
 	if svc.Spec.Selector["app"] != model.EngineName() {

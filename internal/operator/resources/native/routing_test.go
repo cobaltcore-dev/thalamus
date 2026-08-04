@@ -17,7 +17,7 @@ func TestBuildInferencePool_NoEPP(t *testing.T) {
 	if pool.Name != model.EngineName() {
 		t.Errorf("Name:\ngot:  %q\nwant: %q", pool.Name, model.EngineName())
 	}
-	if len(pool.Spec.TargetPorts) != 1 || pool.Spec.TargetPorts[0].Number != 8000 {
+	if len(pool.Spec.TargetPorts) != 1 || pool.Spec.TargetPorts[0].Number != engineHTTPPort {
 		t.Error("unexpected TargetPorts")
 	}
 	// No EPP configured — EndpointPickerRef must be zero value.
