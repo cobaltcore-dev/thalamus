@@ -191,10 +191,20 @@ epp:
     #   type: concurrency-detector
 
 extraDeploy: []
+  # List of extra manifests (structured objects or templated strings).
   # - apiVersion: v1
   #   kind: ConfigMap
   #   metadata:
   #     name: example-configmap
+  #     namespace: "{{ .Release.Namespace }}"
+  #   data:
+  #     example-key: example-value
+  #
+  # Alternatively, use a map of structured manifests; keys become metadata.name.
+  # example-configmap:
+  #   apiVersion: v1
+  #   kind: ConfigMap
+  #   metadata:
   #     namespace: "{{ .Release.Namespace }}"
   #   data:
   #     example-key: example-value
