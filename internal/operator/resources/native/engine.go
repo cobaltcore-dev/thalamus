@@ -29,7 +29,6 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 		}}, env...)
 	}
 
-	cmd = append(cmd, "--port=8000", "--disable-uvicorn-access-log")
 	cmd = append(cmd, engine.Args...)
 
 	container := corev1.Container{
