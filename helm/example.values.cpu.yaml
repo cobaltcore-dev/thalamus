@@ -15,7 +15,6 @@ thalamus:
       extraArgs:
         - "--max-model-len=512"
         - "--max-num-seqs=1"
-        - "--dtype=float32"
         - "--enforce-eager"
       extraEnv:
         - name: VLLM_CPU_KVCACHE_SPACE

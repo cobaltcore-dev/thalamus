@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  actions: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -36,7 +37,7 @@ jobs:
       - name: Create Kind cluster
         uses: helm/kind-action@v1.14.0
         with:
-          cluster_name: thalamus-e2e
+          cluster_name: thalamus
           node_image: kindest/node:v1.31.12
 
       - name: Install helmfile
@@ -90,7 +91,7 @@ jobs:
         if: failure()
         run: |
           echo "=== Node resources ==="
-          kubectl describe node thalamus-e2e-control-plane | grep -A20 "Allocated resources"
+          kubectl describe node kind-control-plane | grep -A20 "Allocated resources"
           echo "=== Pods ==="
           kubectl get pods -A -o json \
             | jq -r '
@@ -113,3 +114,16 @@ jobs:
               done
           echo "=== Gateway / HTTPRoutes / InferencePools ==="
           kubectl get gateway,httproutes,inferencepools -n thalamus -o yaml
+          echo "=== Collecting complete Kind node logs ==="
+          mkdir -p debug-logs
+          docker exec thalamus-control-plane sh -c \
+            'tar -czhf - /var/log/containers/ 2>/dev/null' \
+            > debug-logs/node-logs.tar.gz
+
+      - name: Upload debug logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-debug-logs
+          path: debug-logs/
+          retention-days: 1
