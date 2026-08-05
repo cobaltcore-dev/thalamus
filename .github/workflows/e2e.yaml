@@ -91,7 +91,7 @@ jobs:
         if: failure()
         run: |
           echo "=== Node resources ==="
-          kubectl describe node kind-control-plane | grep -A20 "Allocated resources"
+          kubectl describe node thalamus-control-plane | grep -A20 "Allocated resources"
           echo "=== Pods ==="
           kubectl get pods -A -o json \
             | jq -r '

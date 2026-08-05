@@ -8,7 +8,7 @@ gpu-operator:
 
 thalamus:
   models:
-    - slug: tiny-llm
+    - slug: smollm2-135m
       model: HuggingFaceTB/SmolLM2-135M-Instruct
       accelerator: cpu
       replicas: 1
