@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: Copyright 2026 SAP SE or an SAP affiliate company and cobaltcore-dev contributors
+# SPDX-License-Identifier: Apache-2.0
+
+# Only override components that are disabled in helm/example.values.cpu.yaml.
+node-feature-discovery:
+  enabled: true
+gpu-operator:
+  enabled: true
+
+thalamus:
+  models: []

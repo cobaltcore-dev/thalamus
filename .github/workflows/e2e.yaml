@@ -19,9 +19,17 @@ concurrency:
 
 jobs:
   e2e:
-    name: End-to-End Tests
+    name: E2E (${{ matrix.name }})
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: minimal
+            values-file: test/e2e/values.yaml
+          - name: all-components
+            values-file: test/e2e/values.all.yaml
 
     steps:
       - name: Check out code
@@ -53,8 +61,10 @@ jobs:
         run: |
           helmfile --file helmfile.yaml.gotmpl apply \
             --skip-diff-on-install \
+            --wait=true \
+            --timeout=600 \
             --state-values-file ${{ github.workspace }}/helm/example.values.cpu.yaml \
-            --state-values-file ${{ github.workspace }}/test/e2e/values.yaml
+            --state-values-file ${{ github.workspace }}/${{ matrix.values-file }}
 
       - name: Wait for gateway
         run: |
@@ -63,25 +73,15 @@ jobs:
             --for=condition=Programmed=True \
             --timeout=120s
 
-      - name: Wait for model pod
-        run: |
-          kubectl rollout status deployment/vllm-tiny-llm \
-            --namespace thalamus \
-            --timeout=600s
-
-      - name: Wait for EPP
-        run: |
-          kubectl rollout status deployment/vllm-tiny-llm-epp \
-            --namespace thalamus \
-            --timeout=120s
-
       - name: Port-forward gateway
+        if: matrix.name == 'minimal'
         run: |
           kubectl port-forward svc/inference-gateway \
             8080:80 --namespace thalamus &
           sleep 3
 
       - name: Run e2e validation
+        if: matrix.name == 'minimal'
         env:
           MODEL: arnir0/Tiny-LLM
           MAX_RETRIES: "6"
