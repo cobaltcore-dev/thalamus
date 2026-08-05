@@ -55,7 +55,7 @@ tests:
           path: data.key
           value: value
 
-  - it: should let map keys override existing metadata.name
+  - it: should not override user-provided metadata.name
     set:
       extraDeploy:
         map-key-name:
@@ -71,7 +71,7 @@ tests:
           count: 1
       - equal:
           path: metadata.name
-          value: map-key-name
+          value: existing-name
 
   - it: should render string manifests in a map
     set:

@@ -20,7 +20,7 @@
 {{- else }}
   {{- $obj := deepCopy $value }}
   {{- $metadata := $obj.metadata | default dict }}
-  {{- if hasKey . "name" }}
+  {{- if and (hasKey . "name") (not (hasKey $metadata "name")) }}
     {{- $_ := set $metadata "name" .name }}
   {{- end }}
   {{- $_ := set $obj "metadata" $metadata }}

@@ -200,7 +200,7 @@ extraDeploy: []
   #   data:
   #     example-key: example-value
   #
-  # Alternatively, use a map of structured manifests; keys become metadata.name (ignored for string manifests). See tests/extra-deploy_test.yaml.
+  # Alternatively, use a map of structured manifests; keys inject metadata.name (for non-string objects) when not present. See tests/extra-deploy_test.yaml.
   # example-configmap:
   #   apiVersion: v1
   #   kind: ConfigMap
