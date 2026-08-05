@@ -105,7 +105,7 @@ tests:
           metadata:
             namespace: "{{ .Release.Namespace }}"
           data:
-            releaseName: '{{ printf "{{ .Release.Name }}" }}'
+            releaseName: '{{ "{{ .Release.Name }}" }}'
     asserts:
       - hasDocuments:
           count: 1
@@ -144,6 +144,14 @@ tests:
         equal:
           path: metadata.name
           value: second-configmap
+
+  - it: should fail on empty map values
+    set:
+      extraDeploy:
+        empty-configmap: null
+    asserts:
+      - failedTemplate:
+          errorMessage: 'extraDeploy entry "empty-configmap" has no content'
 
   - it: should support loops to create multiple objects from a string
     release:

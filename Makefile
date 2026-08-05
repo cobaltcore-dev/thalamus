@@ -41,8 +41,19 @@ lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes.
 	"$(GOLANGCI_LINT)" run --fix
 
 .PHONY: test
-test: ## Run all tests.
+test: go-test helm-unittest ## Run all tests.
+
+.PHONY: go-test
+go-test: ## Run Go tests.
 	go test ./...
+
+.PHONY: helm-unittest
+helm-unittest: ## Run Helm unit tests for the thalamus chart.
+	@set -e; \
+	if ! helm plugin list | grep -q "^unittest"; then \
+		helm plugin install https://github.com/helm-unittest/helm-unittest.git --version $(HELM_UNITTEST_VERSION); \
+	fi
+	helm unittest helm/thalamus
 
 .PHONY: testsum
 testsum: gotestsum ## Run all tests (clean output for passing, verbose for failing). Options: WATCH=1, RUN=<pattern>, PACKAGE=<pkg>, FORMAT=<fmt>
@@ -69,6 +80,8 @@ CONTROLLER_TOOLS_VERSION  ?= v0.21.0
 GOLANGCI_LINT_VERSION     ?= v2.12.2
 # renovate: datasource=go depName=gotest.tools/gotestsum
 GOTESTSUM_VERSION         ?= v1.13.0
+# renovate: datasource=github-releases depName=helm-unittest/helm-unittest
+HELM_UNITTEST_VERSION     ?= v1.1.2
 
 CRD_REF_DOCS              ?= $(shell command -v crd-ref-docs 2>/dev/null || echo $(LOCALBIN)/crd-ref-docs)
 # renovate: datasource=go depName=github.com/elastic/crd-ref-docs

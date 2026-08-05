@@ -11,6 +11,10 @@
 {{- range $items }}
 ---
 {{- $value := .value }}
+{{- if not $value }}
+  {{- $entryName := .name | default "<anonymous list entry>" }}
+  {{- fail (printf "extraDeploy entry %q has no content" $entryName) }}
+{{- end }}
 {{- if typeIs "string" $value }}
   {{- tpl $value $ }}
 {{- else }}

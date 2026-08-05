@@ -41,8 +41,7 @@ jobs:
         run: |
           set -eux
           make lint
-      - name: Run helm unittest
+      - name: Run tests
         run: |
           set -eux
-          helm plugin install https://github.com/helm-unittest/helm-unittest.git
-          helm unittest helm/thalamus
+          make test
