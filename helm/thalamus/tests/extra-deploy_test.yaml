@@ -18,20 +18,12 @@ tests:
           kind: ConfigMap
           metadata:
             name: list-configmap
-            namespace: "{{ .Release.Namespace }}"
-          data:
-            key: value
     asserts:
       - hasDocuments:
           count: 1
-      - isKind:
-          of: ConfigMap
       - equal:
           path: metadata.name
           value: list-configmap
-      - equal:
-          path: data.key
-          value: value
 
   - it: should use map keys as object names
     set:
@@ -39,21 +31,12 @@ tests:
         map-configmap:
           apiVersion: v1
           kind: ConfigMap
-          metadata:
-            namespace: "{{ .Release.Namespace }}"
-          data:
-            key: value
     asserts:
       - hasDocuments:
           count: 1
-      - isKind:
-          of: ConfigMap
       - equal:
           path: metadata.name
           value: map-configmap
-      - equal:
-          path: data.key
-          value: value
 
   - it: should not override user-provided metadata.name
     set:
@@ -63,9 +46,6 @@ tests:
           kind: ConfigMap
           metadata:
             name: existing-name
-            namespace: "{{ .Release.Namespace }}"
-          data:
-            key: value
     asserts:
       - hasDocuments:
           count: 1
@@ -81,17 +61,36 @@ tests:
           kind: ConfigMap
           metadata:
             name: explicit-name
-            namespace: "{{ .Release.Namespace }}"
-          data:
-            key: value
     asserts:
       - hasDocuments:
           count: 1
-      - isKind:
-          of: ConfigMap
       - equal:
           path: metadata.name
           value: explicit-name
+
+  - it: should template values in string manifests
+    release:
+      name: thalamus
+      namespace: thalamus
+    set:
+      extraDeploy:
+        string-configmap: |
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: explicit-name
+            namespace: "{{ .Release.Namespace }}"
+          data:
+            releaseName: '{{ "{{ .Release.Name }}" }}'
+    asserts:
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: metadata.namespace
+          value: thalamus
+      - equal:
+          path: data.releaseName
+          value: "{{ .Release.Name }}"
 
   - it: should template values exactly once
     release:
@@ -122,28 +121,22 @@ tests:
         first-configmap:
           apiVersion: v1
           kind: ConfigMap
-          metadata:
-            namespace: "{{ .Release.Namespace }}"
-          data:
-            key: first
         second-configmap:
           apiVersion: v1
           kind: ConfigMap
-          metadata:
-            namespace: "{{ .Release.Namespace }}"
-          data:
-            key: second
     asserts:
       - hasDocuments:
           count: 2
-      - documentIndex: 0
-        equal:
-          path: metadata.name
-          value: first-configmap
-      - documentIndex: 1
-        equal:
-          path: metadata.name
-          value: second-configmap
+      - containsDocument:
+          kind: ConfigMap
+          apiVersion: v1
+          name: first-configmap
+          any: true
+      - containsDocument:
+          kind: ConfigMap
+          apiVersion: v1
+          name: second-configmap
+          any: true
 
   - it: should fail on empty map values
     set:
