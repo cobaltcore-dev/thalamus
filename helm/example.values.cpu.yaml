@@ -9,16 +9,17 @@ gpu-operator:
 thalamus:
   models:
     - slug: tiny-llm
-      model: arnir0/Tiny-LLM
+      model: HuggingFaceTB/SmolLM2-135M-Instruct
       accelerator: cpu
       replicas: 1
       extraArgs:
         - "--max-model-len=512"
+        - "--max-num-seqs=1"
         - "--dtype=float32"
         - "--enforce-eager"
       extraEnv:
         - name: VLLM_CPU_KVCACHE_SPACE
-          value: "4"
+          value: "2"
       resources:
         requests:
           cpu: "2"

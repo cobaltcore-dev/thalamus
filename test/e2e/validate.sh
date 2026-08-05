@@ -6,7 +6,7 @@
 set -euo pipefail
 
 BASE_URL="http://${GATEWAY_HOST:-localhost}:${GATEWAY_PORT:-8080}"
-MODEL="${MODEL:-arnir0/Tiny-LLM}"
+MODEL="${MODEL:-HuggingFaceTB/SmolLM2-135M-Instruct}"
 MAX_RETRIES="${MAX_RETRIES:-60}"
 RETRY_INTERVAL="${RETRY_INTERVAL:-10}"
 

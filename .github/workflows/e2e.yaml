@@ -81,7 +81,7 @@ jobs:
       - name: Run e2e validation
         if: matrix.name == 'minimal'
         env:
-          MODEL: arnir0/Tiny-LLM
+          MODEL: HuggingFaceTB/SmolLM2-135M-Instruct
           MAX_RETRIES: "6"
           RETRY_INTERVAL: "5"
         run: bash test/e2e/validate.sh
