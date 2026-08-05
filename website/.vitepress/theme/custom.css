@@ -39,6 +39,7 @@ html {
 
 .medium-zoom-image--opened {
   z-index: 101;
+  object-fit: contain !important;
 }
 
 /* Mermaid: zoom-in cursor on hoverable diagrams */

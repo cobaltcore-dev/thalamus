@@ -6,7 +6,12 @@
     <div class="image-carousel-viewport">
       <Transition name="carousel-slide" mode="out-in">
         <div :key="currentIndex" class="image-carousel-slide">
-          <img :src="images[currentIndex].src" :alt="images[currentIndex].alt || ''" />
+          <img
+            ref="activeImage"
+            class="carousel-zoom-image"
+            :src="withBase(images[currentIndex].src)"
+            :alt="images[currentIndex].alt || ''"
+          />
         </div>
       </Transition>
 
@@ -49,7 +54,12 @@
 </template>
 
 <script setup lang="ts">
+import mediumZoom from 'medium-zoom'
+import { withBase } from 'vitepress'
 import { ref, watch, onMounted, onUnmounted } from 'vue'
+
+const activeImage = ref<HTMLImageElement | null>(null)
+let zoomInstance: ReturnType<typeof mediumZoom> | null = null
 
 interface CarouselImage {
   src: string
@@ -64,7 +74,7 @@ const props = withDefaults(
     aspectRatio?: string
   }>(),
   {
-    interval: 5000,
+    interval: 10000,
     aspectRatio: '16 / 9',
   }
 )
@@ -86,6 +96,21 @@ const goTo = (index: number) => {
   currentIndex.value = index
 }
 
+const attachZoom = () => {
+  if (!activeImage.value) return
+  zoomInstance?.detach()
+  zoomInstance = mediumZoom(activeImage.value, {
+    background: 'var(--vp-c-bg)',
+    margin: 80,
+  })
+}
+
+watch(activeImage, (el) => {
+  if (el) {
+    attachZoom()
+  }
+})
+
 const startAutoPlay = () => {
   if (props.interval <= 0 || props.images.length <= 1) return
   stopAutoPlay()
@@ -99,8 +124,15 @@ const stopAutoPlay = () => {
   }
 }
 
-onMounted(startAutoPlay)
-onUnmounted(stopAutoPlay)
+onMounted(() => {
+  startAutoPlay()
+})
+
+onUnmounted(() => {
+  stopAutoPlay()
+  zoomInstance?.detach()
+  zoomInstance = null
+})
 
 watch(
   () => props.images,
@@ -112,6 +144,8 @@ watch(
     startAutoPlay()
   }
 )
+
+
 </script>
 
 <style scoped>
@@ -147,6 +181,10 @@ watch(
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+.carousel-zoom-image {
+  cursor: zoom-in;
 }
 
 .image-carousel-button {

@@ -34,7 +34,7 @@ const route = useRoute()
 const zoomedSvg = ref<string | null>(null)
 
 const initImageZoom = () => {
-  mediumZoom('.main img', { background: 'var(--vp-c-bg)', margin: 80 })
+  mediumZoom('.main img:not(.carousel-zoom-image)', { background: 'var(--vp-c-bg)', margin: 80 })
 }
 
 const handleMermaidClick = (event: MouseEvent) => {
