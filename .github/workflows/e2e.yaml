@@ -27,9 +27,7 @@ jobs:
       matrix:
         include:
           - name: minimal
-            values-file: test/e2e/values.yaml
-          - name: all-components
-            values-file: test/e2e/values.all.yaml
+          - name: components
 
     steps:
       - name: Check out code
@@ -64,7 +62,7 @@ jobs:
             --wait=true \
             --timeout=600 \
             --state-values-file ${{ github.workspace }}/helm/example.values.cpu.yaml \
-            --state-values-file ${{ github.workspace }}/${{ matrix.values-file }}
+            --state-values-file ${{ github.workspace }}/test/e2e/values.${{ matrix.name }}.yaml
 
       - name: Wait for gateway
         run: |
