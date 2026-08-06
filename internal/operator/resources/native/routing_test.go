@@ -8,6 +8,7 @@ import (
 
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
+	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 )
 
 func TestBuildInferencePool(t *testing.T) {
@@ -24,8 +25,8 @@ func TestBuildInferencePool(t *testing.T) {
 	if string(pool.Spec.EndpointPickerRef.Name) != model.EPPName() {
 		t.Errorf("EndpointPickerRef.Name:\ngot:  %q\nwant: %q", pool.Spec.EndpointPickerRef.Name, model.EPPName())
 	}
-	if pool.Spec.EndpointPickerRef.Port == nil || pool.Spec.EndpointPickerRef.Port.Number != 9002 {
-		t.Error("EndpointPickerRef.Port != 9002")
+	if pool.Spec.EndpointPickerRef.Port == nil || pool.Spec.EndpointPickerRef.Port.Number != inferencev1.PortNumber(eppGRPCExtProcPort) {
+		t.Errorf("EndpointPickerRef.Port != %d", eppGRPCExtProcPort)
 	}
 }
 

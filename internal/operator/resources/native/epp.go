@@ -16,7 +16,23 @@ import (
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 )
 
-const eppConfigKey = "default-plugins.yaml"
+const (
+	eppConfigKey = "default-plugins.yaml"
+
+	// EPP port names.
+	eppGRPCExtProcPortName = "grpc-ext-proc"
+	eppGRPCHealthPortName  = "grpc-health"
+	eppMetricsPortName     = "metrics"
+	eppHTTPMetricsPortName = "http-metrics"
+
+	// EPP port numbers.
+	eppGRPCExtProcPort int32 = 9002
+	eppGRPCHealthPort  int32 = 9003
+	eppMetricsPort     int32 = 9090
+
+	// eppHealthService is the gRPC health probe service name.
+	eppHealthService = "inference-extension"
+)
 
 //go:embed epp_config.yaml
 var eppConfig string
@@ -107,7 +123,7 @@ func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 	}
 	args = append(args, epp.Args...)
 
-	eppService := "inference-extension"
+	eppService := eppHealthService
 	container := corev1.Container{
 		Name:            "epp",
 		Image:           epp.Image,
@@ -128,23 +144,23 @@ func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 			},
 		}, epp.Env...),
 		Ports: []corev1.ContainerPort{
-			{Name: "grpc-ext-proc", ContainerPort: 9002, Protocol: corev1.ProtocolTCP},
-			{Name: "grpc-health", ContainerPort: 9003, Protocol: corev1.ProtocolTCP},
-			{Name: "metrics", ContainerPort: 9090, Protocol: corev1.ProtocolTCP},
+			{Name: eppGRPCExtProcPortName, ContainerPort: eppGRPCExtProcPort, Protocol: corev1.ProtocolTCP},
+			{Name: eppGRPCHealthPortName, ContainerPort: eppGRPCHealthPort, Protocol: corev1.ProtocolTCP},
+			{Name: eppMetricsPortName, ContainerPort: eppMetricsPort, Protocol: corev1.ProtocolTCP},
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{Name: "config", MountPath: "/config", ReadOnly: true},
 		},
 		LivenessProbe: &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
-				GRPC: &corev1.GRPCAction{Port: 9003, Service: &eppService},
+				GRPC: &corev1.GRPCAction{Port: eppGRPCHealthPort, Service: &eppService},
 			},
 			InitialDelaySeconds: 5,
 			PeriodSeconds:       10,
 		},
 		ReadinessProbe: &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
-				GRPC: &corev1.GRPCAction{Port: 9003, Service: &eppService},
+				GRPC: &corev1.GRPCAction{Port: eppGRPCHealthPort, Service: &eppService},
 			},
 			PeriodSeconds: 2,
 		},
@@ -201,15 +217,15 @@ func BuildEPPService(model *v1alpha1.Model) *corev1.Service {
 			Selector: map[string]string{"thalamus.cloud/epp": model.EPPName()},
 			Ports: []corev1.ServicePort{
 				{
-					Name:       "grpc-ext-proc",
-					Port:       9002,
-					TargetPort: intstr.FromInt32(9002),
+					Name:       eppGRPCExtProcPortName,
+					Port:       eppGRPCExtProcPort,
+					TargetPort: intstr.FromInt32(eppGRPCExtProcPort),
 					Protocol:   corev1.ProtocolTCP,
 				},
 				{
-					Name:       "http-metrics",
-					Port:       9090,
-					TargetPort: intstr.FromInt32(9090),
+					Name:       eppHTTPMetricsPortName,
+					Port:       eppMetricsPort,
+					TargetPort: intstr.FromInt32(eppMetricsPort),
 					Protocol:   corev1.ProtocolTCP,
 				},
 			},

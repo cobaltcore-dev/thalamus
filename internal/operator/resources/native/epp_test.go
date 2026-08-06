@@ -91,7 +91,7 @@ func TestBuildEPPService(t *testing.T) {
 	for _, p := range svc.Spec.Ports {
 		ports[p.Port] = true
 	}
-	for _, want := range []int32{9002, 9090} {
+	for _, want := range []int32{eppGRPCExtProcPort, eppMetricsPort} {
 		if !ports[want] {
 			t.Errorf("missing port %d", want)
 		}
