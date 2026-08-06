@@ -8,4 +8,4 @@ vendor-crds: ## Re-download vendored upstream CRDs from their pinned release tag
 	curl -fsSL -o gateway-api/templates/crds.yaml \
 		"https://github.com/kubernetes-sigs/gateway-api/releases/download/$(GATEWAY_API_VERSION)/standard-install.yaml"
 	curl -fsSL -o gateway-api-inference-extension/templates/crds.yaml \
-		"https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/$(GATEWAY_API_INFERENCE_EXTENSION_VERSION)/manifests.yaml"
+		"https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/$(GATEWAY_API_INFERENCE_EXTENSION_VERSION)/v1-manifests.yaml"
