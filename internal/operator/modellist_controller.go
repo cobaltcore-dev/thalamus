@@ -29,6 +29,12 @@ var agentgatewayPolicyGVK = schema.GroupVersionKind{
 	Kind:    "AgentgatewayPolicy",
 }
 
+const (
+	modelListContentTypeHeader = "Content-Type"
+	modelListContentTypeValue  = "application/json"
+	modelListDirectStatus      = 200
+)
+
 // ModelListReconciler keeps the model-list AgentgatewayPolicy in sync
 // with the set of Ready Model CRs in each namespace.
 type ModelListReconciler struct {
@@ -57,16 +63,24 @@ func (r *ModelListReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
-	// Check if the body already matches to avoid unnecessary updates.
-	current, _, err := unstructured.NestedString(policy.Object, "spec", "traffic", "directResponse", "body")
+	// Check if the direct response already matches to avoid unnecessary updates.
+	currentBody, _, err := unstructured.NestedString(policy.Object, "spec", "traffic", "directResponse", "body")
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if current == body {
+	currentStatus, _, err := unstructured.NestedInt64(policy.Object, "spec", "traffic", "directResponse", "status")
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	currentContentType, found, err := directResponseHeaderValue(policy.Object, modelListContentTypeHeader)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if currentBody == body && currentStatus == modelListDirectStatus && found && currentContentType == modelListContentTypeValue {
 		return ctrl.Result{}, nil
 	}
 
-	// Build a minimal apply object so the operator only claims ownership of the body field.
+	// Build a minimal apply object so the operator only claims ownership of the fields it sets.
 	patch := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "agentgateway.dev/v1alpha1",
 		"kind":       "AgentgatewayPolicy",
@@ -77,7 +91,11 @@ func (r *ModelListReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		"spec": map[string]any{
 			"traffic": map[string]any{
 				"directResponse": map[string]any{
-					"body": body,
+					"status": modelListDirectStatus,
+					"body":   body,
+					"headers": []map[string]any{
+						{"name": modelListContentTypeHeader, "value": modelListContentTypeValue},
+					},
 				},
 			},
 		},
@@ -123,6 +141,30 @@ func (r *ModelListReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{})).
 		Named("model-list").
 		Complete(r)
+}
+
+// directResponseHeaderValue returns the value of the named header in the policy's
+// spec.traffic.directResponse.headers list, if present.
+func directResponseHeaderValue(obj map[string]any, name string) (string, bool, error) {
+	headers, found, err := unstructured.NestedSlice(obj, "spec", "traffic", "directResponse", "headers")
+	if err != nil || !found {
+		return "", false, err
+	}
+	for _, h := range headers {
+		header, ok := h.(map[string]any)
+		if !ok {
+			continue
+		}
+		headerName, ok := header["name"].(string)
+		if !ok {
+			continue
+		}
+		if headerName == name {
+			value, ok := header["value"].(string)
+			return value, ok, nil
+		}
+	}
+	return "", false, nil
 }
 
 // phaseChangedPredicate fires only when a Model is created, deleted, or its phase changes to/from Ready.

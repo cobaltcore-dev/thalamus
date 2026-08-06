@@ -23,8 +23,17 @@ func newModelListPolicy() *unstructured.Unstructured {
 	u.SetGroupVersionKind(agentgatewayPolicyGVK)
 	u.SetName(native.ModelListPolicyName)
 	u.SetNamespace(testNamespace)
+	if err := unstructured.SetNestedField(u.Object, int64(modelListDirectStatus),
+		"spec", "traffic", "directResponse", "status"); err != nil {
+		panic(err)
+	}
 	if err := unstructured.SetNestedField(u.Object, `{"object":"list","data":[]}`,
 		"spec", "traffic", "directResponse", "body"); err != nil {
+		panic(err)
+	}
+	if err := unstructured.SetNestedSlice(u.Object, []any{
+		map[string]any{"name": modelListContentTypeHeader, "value": modelListContentTypeValue},
+	}, "spec", "traffic", "directResponse", "headers"); err != nil {
 		panic(err)
 	}
 	return u
@@ -55,6 +64,32 @@ func mustGetPolicyBody(t *testing.T, r *ModelListReconciler) string {
 	return body
 }
 
+func mustAssertContentType(t *testing.T, r *ModelListReconciler) {
+	t.Helper()
+	policy := &unstructured.Unstructured{}
+	policy.SetGroupVersionKind(agentgatewayPolicyGVK)
+	if err := r.Get(context.Background(), types.NamespacedName{Name: native.ModelListPolicyName, Namespace: testNamespace}, policy); err != nil {
+		t.Fatalf("get policy: %v", err)
+	}
+	value, found, err := directResponseHeaderValue(policy.Object, modelListContentTypeHeader)
+	if err != nil {
+		t.Fatalf("directResponseHeaderValue: %v", err)
+	}
+	if !found {
+		t.Fatal("Content-Type header not found")
+	}
+	if value != modelListContentTypeValue {
+		t.Errorf("Content-Type header:\ngot:  %q\nwant: %q", value, modelListContentTypeValue)
+	}
+	status, _, err := unstructured.NestedInt64(policy.Object, "spec", "traffic", "directResponse", "status")
+	if err != nil {
+		t.Fatalf("NestedInt64: %v", err)
+	}
+	if status != modelListDirectStatus {
+		t.Errorf("directResponse status:\ngot:  %d\nwant: %d", status, modelListDirectStatus)
+	}
+}
+
 func TestModelListReconcile_PolicyNotFound(t *testing.T) {
 	s := testutil.NewScheme(t)
 	c := fake.NewClientBuilder().WithScheme(s).Build()
@@ -78,6 +113,7 @@ func TestModelListReconcile_NoModels(t *testing.T) {
 	if body := mustGetPolicyBody(t, r); body != `{"object":"list","data":[]}` {
 		t.Errorf("model list policy body:\ngot:  %s\nwant: %s", body, `{"object":"list","data":[]}`)
 	}
+	mustAssertContentType(t, r)
 }
 
 func TestModelListReconcile_OneReadyModel(t *testing.T) {
@@ -97,6 +133,7 @@ func TestModelListReconcile_OneReadyModel(t *testing.T) {
 	if body != expected {
 		t.Errorf("model list policy body:\ngot:  %s\nwant: %s", body, expected)
 	}
+	mustAssertContentType(t, r)
 }
 
 func TestModelListReconcile_OnlyReadyModelsListed(t *testing.T) {
@@ -120,6 +157,7 @@ func TestModelListReconcile_OnlyReadyModelsListed(t *testing.T) {
 	if body != expected {
 		t.Errorf("model list policy body:\ngot:  %s\nwant: %s", body, expected)
 	}
+	mustAssertContentType(t, r)
 }
 
 func TestModelListReconcile_SkipsUpdateWhenBodyUnchanged(t *testing.T) {
@@ -132,6 +170,19 @@ func TestModelListReconcile_SkipsUpdateWhenBodyUnchanged(t *testing.T) {
 	if body := mustGetPolicyBody(t, r); body != `{"object":"list","data":[]}` {
 		t.Errorf("model list policy body:\ngot:  %s\nwant: %s", body, `{"object":"list","data":[]}`)
 	}
+	mustAssertContentType(t, r)
+}
+
+func TestModelListReconcile_AppliesWhenContentTypeMissing(t *testing.T) {
+	s := testutil.NewScheme(t)
+	u := newModelListPolicy()
+	unstructured.RemoveNestedField(u.Object, "spec", "traffic", "directResponse", "headers")
+	c := fake.NewClientBuilder().WithScheme(s).WithObjects(u).Build()
+	r := &ModelListReconciler{Client: c, Scheme: s}
+
+	reconcileModelListOnce(t, r)
+
+	mustAssertContentType(t, r)
 }
 
 func TestPhaseChangedPredicate(t *testing.T) {
