@@ -6,9 +6,10 @@ package native
 import (
 	"testing"
 
+	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
-	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 )
 
 func TestBuildInferencePool(t *testing.T) {

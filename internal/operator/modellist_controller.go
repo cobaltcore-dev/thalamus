@@ -145,9 +145,9 @@ func (r *ModelListReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // directResponseHeaderValue returns the value of the named header in the policy's
 // spec.traffic.directResponse.headers list, if present.
-func directResponseHeaderValue(obj map[string]any, name string) (string, bool, error) {
-	headers, found, err := unstructured.NestedSlice(obj, "spec", "traffic", "directResponse", "headers")
-	if err != nil || !found {
+func directResponseHeaderValue(obj map[string]any, name string) (value string, found bool, err error) {
+	headers, headersFound, err := unstructured.NestedSlice(obj, "spec", "traffic", "directResponse", "headers")
+	if err != nil || !headersFound {
 		return "", false, err
 	}
 	for _, h := range headers {
