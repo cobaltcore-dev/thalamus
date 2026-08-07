@@ -28,8 +28,8 @@ func TestBuildEPPRole(t *testing.T) {
 	if role.Name != model.EPPName() {
 		t.Errorf("Name:\ngot:  %q\nwant: %q", role.Name, model.EPPName())
 	}
-	if len(role.Rules) != 3 {
-		t.Errorf("rules:\ngot:  %d\nwant: 3", len(role.Rules))
+	if len(role.Rules) != 2 {
+		t.Errorf("rules:\ngot:  %d\nwant: 2", len(role.Rules))
 	}
 }
 

@@ -65,11 +65,6 @@ func BuildEPPRole(model *v1alpha1.Model) *rbacv1.Role {
 				Resources: []string{"inferencepools"},
 				Verbs:     []string{"get", "watch", "list"},
 			},
-			{
-				APIGroups: []string{"inference.networking.x-k8s.io"},
-				Resources: []string{"inferencemodelrewrites", "inferenceobjectives"},
-				Verbs:     []string{"get", "watch", "list"},
-			},
 		},
 	}
 }
