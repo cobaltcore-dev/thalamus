@@ -1,5 +1,5 @@
 operator:
-  enabled: true
+  enabled: false
   replicas: 1
   image:
     registry: ghcr.io
