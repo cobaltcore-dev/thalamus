@@ -125,6 +125,9 @@ jobs:
               | "\(.metadata.namespace) \(.metadata.name)"
             ' \
             | while read ns pod; do
+                echo "===== $ns/$pod (describe) ====="
+                kubectl describe pod -n "$ns" "$pod" || true
+
                 echo "===== $ns/$pod (current) ====="
                 kubectl logs -n "$ns" "$pod" --all-containers=true --prefix=true || true
 
