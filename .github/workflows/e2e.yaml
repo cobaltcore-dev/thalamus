@@ -55,6 +55,12 @@ jobs:
             --namespace thalamus \
             --from-literal=HF_TOKEN=${{ secrets.HF_TOKEN }}
 
+      - name: Build and load operator image
+        run: |
+          docker build -t ghcr.io/cobaltcore-dev/thalamus:pr -f Dockerfile .
+          kind load docker-image ghcr.io/cobaltcore-dev/thalamus:pr \
+            --name thalamus
+
       - name: Deploy Thalamus
         working-directory: helm
         run: |
@@ -63,7 +69,8 @@ jobs:
             --wait=true \
             --timeout=600 \
             --state-values-file ${{ github.workspace }}/helm/example.values.cpu.yaml \
-            --state-values-file ${{ github.workspace }}/test/e2e/values.${{ matrix.name }}.yaml
+            --state-values-file ${{ github.workspace }}/test/e2e/values.${{ matrix.name }}.yaml \
+            --state-values-set thalamus.operator.image.tag=pr
 
       - name: Wait for gateway
         run: |
