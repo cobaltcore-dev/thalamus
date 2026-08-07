@@ -21,6 +21,8 @@ thalamus:
           value: "1"
         - name: VLLM_CPU_OMP_THREADS_BIND
           value: "nobind"
+        - name: CPU_VISIBLE_MEMORY_NODES
+          value: "0,1"
       resources:
         requests:
           cpu: "2"
