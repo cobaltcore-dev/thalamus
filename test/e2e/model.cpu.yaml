@@ -22,6 +22,8 @@ spec:
           value: nobind
         - name: CPU_VISIBLE_MEMORY_NODES
           value: "0,1"
+        - name: ONEDNN_VERBOSE
+          value: "all"
       resources:
         requests:
           cpu: "2"
