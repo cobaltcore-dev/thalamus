@@ -19,6 +19,8 @@ thalamus:
       extraEnv:
         - name: VLLM_CPU_KVCACHE_SPACE
           value: "1"
+        - name: VLLM_CPU_OMP_THREADS_BIND
+          value: "nobind"
       resources:
         requests:
           cpu: "2"
