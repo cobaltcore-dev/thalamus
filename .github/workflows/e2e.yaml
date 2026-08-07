@@ -21,7 +21,7 @@ concurrency:
 jobs:
   e2e:
     name: E2E (${{ matrix.name }})
-    runs-on: ubuntu-latest
+    runs-on: large_runner_16core_64gb
     timeout-minutes: 20
     strategy:
       fail-fast: false
