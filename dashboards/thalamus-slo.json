@@ -552,9 +552,9 @@
             { "x": 6,  "y": 13, "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/e2e_p99" } },
             { "x": 12, "y": 13, "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/itl_p50" } },
             { "x": 18, "y": 13, "width": 6, "height": 10, "content": { "$ref": "#/spec/panels/itl_p99" } },
-            { "x": 0,  "y": 26, "width": 6, "height": 7, "content": { "$ref": "#/spec/panels/queue_depth" } },
-            { "x": 6,  "y": 26, "width": 6, "height": 7, "content": { "$ref": "#/spec/panels/ready_endpoints" } },
-            { "x": 12, "y": 26, "width": 6, "height": 7, "content": { "$ref": "#/spec/panels/time_to_ready" } }
+            { "x": 0,  "y": 26, "width": 8, "height": 7, "content": { "$ref": "#/spec/panels/queue_depth" } },
+            { "x": 8,  "y": 26, "width": 8, "height": 7, "content": { "$ref": "#/spec/panels/ready_endpoints" } },
+            { "x": 16, "y": 26, "width": 8, "height": 7, "content": { "$ref": "#/spec/panels/time_to_ready" } }
           ]
         }
       }
