@@ -51,6 +51,8 @@ owner_info:
 
 gateway:
   name: inference-gateway
+  annotations: {}
+    # cert-manager.io/issuer: my-issuer
   listeners:
     http:
       port: 80
@@ -64,7 +66,6 @@ gateway:
       protocol: HTTPS
       # hostname: api.example.com
       # tls:
-      #   mode: Terminate
       #   certificateRefs:
       #     - name: gateway-tls
       allowedRoutes:
@@ -76,7 +77,6 @@ gateway:
       protocol: HTTPS
       # hostname: example.com
       # tls:
-      #   mode: Terminate
       #   certificateRefs:
       #     - name: gateway-tls
       allowedRoutes:

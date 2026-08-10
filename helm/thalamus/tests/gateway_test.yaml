@@ -1,0 +1,34 @@
+suite: gateway template
+
+templates:
+  - gateway.yaml
+
+tests:
+  - it: should not set annotations on the Gateway by default
+    release:
+      name: thalamus
+      namespace: thalamus
+    asserts:
+      - documentIndex: 0
+        isKind:
+          of: Gateway
+      - documentIndex: 0
+        notExists:
+          path: metadata.annotations
+
+  - it: should render gateway.annotations on the Gateway when set
+    release:
+      name: thalamus
+      namespace: thalamus
+    set:
+      gateway:
+        annotations:
+          cert-manager.io/issuer: digicert-issuer
+    asserts:
+      - documentIndex: 0
+        isKind:
+          of: Gateway
+      - documentIndex: 0
+        equal:
+          path: metadata.annotations["cert-manager.io/issuer"]
+          value: digicert-issuer
