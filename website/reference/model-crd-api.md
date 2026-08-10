@@ -182,7 +182,7 @@ _Appears in:_
 
 | Field | Description |
 | --- | --- |
-| `Pending` |  |
+| `Pending` | TODO: set Pending when admission/resource checks block reconciliation (e.g. insufficient GPU quota). Currently unused.<br /> |
 | `Creating` |  |
 | `Ready` |  |
 | `Failed` |  |

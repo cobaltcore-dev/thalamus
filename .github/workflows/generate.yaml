@@ -1,7 +1,8 @@
 # Copyright SAP SE
 # SPDX-License-Identifier: Apache-2.0
 
-name: Lint
+name: Generate
+
 "on":
   push:
     branches:
@@ -10,26 +11,31 @@ name: Lint
     branches:
       - '*'
   workflow_dispatch: {}
+
 permissions:
   contents: read
+
 jobs:
-  checks:
-    name: Checks
+  generate:
+    name: Generate
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
         uses: actions/checkout@v7
+
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
           go-version-file: 'go.mod'
-      - name: Run make generate lint-fix
-        run: make generate lint-fix
+
+      - name: Run make generate
+        run: make generate
+
       - name: Check for diff
         run: |
           set -e
           if ! git diff --exit-code; then
-            echo "::error::Generated files are out of date. Run 'make generate lint-fix' and commit the changes."
+            echo "::error::Generated files are out of date. Run 'make generate' and commit the changes."
             exit 1
           fi
           if git ls-files --others --exclude-standard | grep -q .; then
@@ -37,11 +43,3 @@ jobs:
             git ls-files --others --exclude-standard
             exit 1
           fi
-      - name: Run golangci-lint
-        run: |
-          set -eux
-          make lint
-      - name: Run tests
-        run: |
-          set -eux
-          make test
