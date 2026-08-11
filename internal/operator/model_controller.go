@@ -15,7 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -142,40 +141,6 @@ func (r *ModelReconciler) syncStatus(ctx context.Context, model *v1alpha1.Model)
 	}
 
 	return r.Status().Patch(ctx, model, patch)
-}
-
-// syncNativeStatus derives and updates ready state of a model.
-func (r *ModelReconciler) syncNativeStatus(ctx context.Context, model *v1alpha1.Model) error {
-	dep := &appsv1.Deployment{}
-	if err := r.Get(ctx, types.NamespacedName{Name: model.EngineName(), Namespace: model.Namespace}, dep); err != nil {
-		return client.IgnoreNotFound(err)
-	}
-
-	// TODO: ready currently only reflects engine Deployment readiness.
-	// A fully accurate Ready signal should also verify:
-	//   - EPP Deployment ReadyReplicas >= 1 (when spec.serving.epp is set)
-	//   - InferencePool status.conditions[Accepted]=True (gateway accepted the pool)
-	//   - Other components being present and healthy
-	ready := dep.Status.ReadyReplicas >= 1
-	if ready {
-		model.Status.Phase = v1alpha1.ModelPhaseReady
-	} else {
-		model.Status.Phase = v1alpha1.ModelPhaseCreating
-	}
-
-	condStatus := metav1.ConditionFalse
-	condReason := "DeploymentNotReady"
-	if ready {
-		condStatus = metav1.ConditionTrue
-		condReason = "DeploymentReady"
-	}
-	meta.SetStatusCondition(&model.Status.Conditions, metav1.Condition{
-		Type:               v1alpha1.ModelConditionReady,
-		Status:             condStatus,
-		Reason:             condReason,
-		ObservedGeneration: model.Generation,
-	})
-	return nil
 }
 
 // syncKServeStatus is a stub — not yet implemented.
