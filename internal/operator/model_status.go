@@ -95,6 +95,10 @@ func (r *ModelReconciler) deploymentReady(ctx context.Context, model *v1alpha1.M
 		return
 	}
 
+	if dep.Status.ObservedGeneration < dep.Generation {
+		return v1alpha1.ModelPhaseCreating, notReadyReason, resource + " deployment status is stale", nil
+	}
+
 	if failed, msg := deploymentFailed(dep); failed {
 		return v1alpha1.ModelPhaseFailed, failedReason, msg, nil
 	}
@@ -105,14 +109,11 @@ func (r *ModelReconciler) deploymentReady(ctx context.Context, model *v1alpha1.M
 	return v1alpha1.ModelPhaseCreating, notReadyReason, resource + " deployment has insufficient ready replicas", nil
 }
 
-// deploymentReplicasReady reports whether the Deployment's observed ready
-// replicas have reached the desired count for the current generation.
+// deploymentReplicasReady reports whether the Deployment's ready replicas
+// have reached the desired count. A count of zero is not considered ready.
 func deploymentReplicasReady(dep *appsv1.Deployment) bool {
-	if dep.Status.ObservedGeneration < dep.Generation {
-		return false
-	}
 	var desired int32 = 1
-	if dep.Spec.Replicas != nil {
+	if dep.Spec.Replicas != nil && *dep.Spec.Replicas > desired {
 		desired = *dep.Spec.Replicas
 	}
 	return dep.Status.ReadyReplicas >= desired
@@ -147,6 +148,7 @@ func (r *ModelReconciler) inferencePoolReady(ctx context.Context, model *v1alpha
 				}
 				return false
 			},
+			nil,
 		)
 		if pphase != v1alpha1.ModelPhaseReady {
 			allReady = false
@@ -190,6 +192,9 @@ func (r *ModelReconciler) httpRouteReady(ctx context.Context, model *v1alpha1.Mo
 			func(condReason string) bool {
 				return condReason == string(gatewayv1.RouteReasonPending)
 			},
+			func(condReason string) bool {
+				return condReason == string(gatewayv1.RouteReasonBackendNotFound)
+			},
 		)
 		if pphase != v1alpha1.ModelPhaseReady {
 			allReady = false
@@ -217,10 +222,14 @@ func (r *ModelReconciler) httpRouteReady(ctx context.Context, model *v1alpha1.Mo
 // checkParentConditions evaluates the Accepted and ResolvedRefs conditions for a
 // single parent. It returns ModelPhaseReady only when the Accepted condition is
 // present and True and the ResolvedRefs condition is either absent or True.
+// ResolvedRefs=False is treated as ModelPhaseFailed unless the reason is known
+// to be transient. Accepted=False is treated as ModelPhaseCreating unless the
+// reason is known to be transient. Otherwise it is ModelPhaseFailed.
 func checkParentConditions(
 	conditions []metav1.Condition,
 	acceptedType, resolvedType string,
 	isTransientAcceptedReason func(string) bool,
+	isTransientResolvedReason func(string) bool,
 ) (phase v1alpha1.ModelPhase, message string) {
 
 	acceptedCond := meta.FindStatusCondition(conditions, acceptedType)
@@ -232,7 +241,11 @@ func checkParentConditions(
 	}
 
 	if resolvedCond != nil && resolvedCond.Status == metav1.ConditionFalse {
-		return v1alpha1.ModelPhaseFailed, fmt.Sprintf("%s: %s", resolvedCond.Reason, resolvedCond.Message)
+		msg := fmt.Sprintf("%s: %s", resolvedCond.Reason, resolvedCond.Message)
+		if isTransientResolvedReason != nil && isTransientResolvedReason(resolvedCond.Reason) {
+			return v1alpha1.ModelPhaseCreating, msg
+		}
+		return v1alpha1.ModelPhaseFailed, msg
 	}
 
 	if acceptedCond != nil && acceptedCond.Status == metav1.ConditionFalse {
