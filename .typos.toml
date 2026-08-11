@@ -8,4 +8,6 @@
 [files]
 extend-exclude = [
   "go.mod",
+  "helm/gateway-api/templates/crds.yaml",
+  "website/public/hackathon-2026/naira-chat-export.json",
 ]

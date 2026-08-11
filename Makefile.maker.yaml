@@ -33,6 +33,11 @@ githubWorkflow:
   securityChecks:
     enabled: true
 
+typos:
+  extendExcludes:
+    - helm/gateway-api/templates/crds.yaml
+    - website/public/hackathon-2026/naira-chat-export.json
+
 renovate:
   enabled: true
   assignees:
