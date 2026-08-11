@@ -82,15 +82,32 @@ verbatim: |
   # renovate: datasource=github-releases depName=helm-unittest/helm-unittest
   HELM_UNITTEST_VERSION     ?= v1.1.2
 
-  CONTROLLER_GEN ?= $(shell command -v controller-gen 2>/dev/null || echo $(shell go env GOPATH)/bin/controller-gen)
-  CRD_REF_DOCS   ?= $(shell command -v crd-ref-docs 2>/dev/null || echo $(shell go env GOPATH)/bin/crd-ref-docs)
+  CONTROLLER_GEN = $(LOCALBIN)/controller-gen
+  CRD_REF_DOCS   = $(LOCALBIN)/crd-ref-docs
+
+  LOCALBIN ?= $(shell pwd)/bin
+  $(LOCALBIN):
+      mkdir -p $(LOCALBIN)
+
+  # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
+  # $1 - target path with name of binary
+  # $2 - package url which can be installed
+  # $3 - specific version of package
+  define go-install-tool
+      @[ -f "$(1)-$(3)" ] || { \
+          set -e; \
+          package=$(2)@$(3) ;\
+          echo "Downloading $${package}" ;\
+          rm -f $(1) || true ;\
+          GOBIN=$(LOCALBIN) go install $${package} ;\
+          mv $(1) $(1)-$(3) ;\
+      } ;\
+      ln -sf $(1)-$(3) $(1)
+  endef
 
   .PHONY: install-controller-gen
-  install-controller-gen:
-      @if [ ! -x "$(CONTROLLER_GEN)" ]; then \
-          echo "Downloading controller-gen $(CONTROLLER_TOOLS_VERSION)"; \
-          go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION); \
-      fi
+  install-controller-gen: $(LOCALBIN)
+      $(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen,$(CONTROLLER_TOOLS_VERSION))
 
   .PHONY: generate
   generate: crds deepcopy
@@ -104,11 +121,8 @@ verbatim: |
       $(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
   .PHONY: install-crd-ref-docs
-  install-crd-ref-docs:
-      @if [ ! -x "$(CRD_REF_DOCS)" ]; then \
-          echo "Downloading crd-ref-docs $(CRD_REF_DOCS_VERSION)"; \
-          go install github.com/elastic/crd-ref-docs@$(CRD_REF_DOCS_VERSION); \
-      fi
+  install-crd-ref-docs: $(LOCALBIN)
+      $(call go-install-tool,$(CRD_REF_DOCS),github.com/elastic/crd-ref-docs,$(CRD_REF_DOCS_VERSION))
 
   .PHONY: docs
   docs: install-crd-ref-docs
