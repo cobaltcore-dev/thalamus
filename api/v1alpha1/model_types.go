@@ -30,17 +30,19 @@ const (
 	ModelConditionReady = "Ready"
 )
 
+type ModelReason string
+
 const (
-	ModelReasonReady                     = "Ready"
-	ModelReasonEngineNotReady            = "EngineNotReady"
-	ModelReasonEngineDeploymentFailed    = "EngineDeploymentFailed"
-	ModelReasonEPPNotReady               = "EPPNotReady"
-	ModelReasonEPPDeploymentFailed       = "EPPDeploymentFailed"
-	ModelReasonInferencePoolNotAccepted  = "InferencePoolNotAccepted"
-	ModelReasonInferencePoolRejected     = "InferencePoolRejected"
-	ModelReasonHTTPRouteNotAccepted      = "HTTPRouteNotAccepted"
-	ModelReasonHTTPRouteRejected         = "HTTPRouteRejected"
-	ModelReasonHTTPRoutePartiallyInvalid = "HTTPRoutePartiallyInvalid"
+	ModelReasonReady                     ModelReason = "Ready"
+	ModelReasonEngineNotReady            ModelReason = "EngineNotReady"
+	ModelReasonEngineDeploymentFailed    ModelReason = "EngineDeploymentFailed"
+	ModelReasonEPPNotReady               ModelReason = "EPPNotReady"
+	ModelReasonEPPDeploymentFailed       ModelReason = "EPPDeploymentFailed"
+	ModelReasonInferencePoolNotAccepted  ModelReason = "InferencePoolNotAccepted"
+	ModelReasonInferencePoolRejected     ModelReason = "InferencePoolRejected"
+	ModelReasonHTTPRouteNotAccepted      ModelReason = "HTTPRouteNotAccepted"
+	ModelReasonHTTPRouteRejected         ModelReason = "HTTPRouteRejected"
+	ModelReasonHTTPRoutePartiallyInvalid ModelReason = "HTTPRoutePartiallyInvalid"
 )
 
 // +kubebuilder:validation:Enum=native;kserve;kaito

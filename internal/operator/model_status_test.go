@@ -25,7 +25,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 		name       string
 		prepare    func(*testing.T, client.Client, *v1alpha1.Model)
 		wantPhase  v1alpha1.ModelPhase
-		wantReason string
+		wantReason v1alpha1.ModelReason
 	}{
 		{
 			name: "ready when all ready",
@@ -418,7 +418,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			if cond.Status != wantStatus {
 				t.Errorf("Ready condition status:\ngot:  %q\nwant: %q", cond.Status, wantStatus)
 			}
-			if cond.Reason != tc.wantReason {
+			if cond.Reason != string(tc.wantReason) {
 				t.Errorf("Ready condition reason:\ngot:  %q\nwant: %q", cond.Reason, tc.wantReason)
 			}
 		})
