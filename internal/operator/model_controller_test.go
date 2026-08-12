@@ -12,7 +12,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -186,6 +185,7 @@ func TestReconcile_ScaleToZero_KeepsForeignOwnedObject(t *testing.T) {
 	model.Spec.Replicas = 0
 
 	// A pre-existing engine deployment that is owned by something else.
+	controller := true
 	foreign := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "tiny-llm-engine",
@@ -195,7 +195,7 @@ func TestReconcile_ScaleToZero_KeepsForeignOwnedObject(t *testing.T) {
 				Kind:       "ConfigMap",
 				Name:       "foreign-owner",
 				UID:        "foreign-uid",
-				Controller: ptr.To(true),
+				Controller: &controller,
 			}},
 		},
 	}
