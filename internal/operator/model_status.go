@@ -24,6 +24,11 @@ import (
 // engine Deployment, EPP Deployment, InferencePool acceptance,
 // and HTTPRoute acceptance.
 func (r *ModelReconciler) syncNativeStatus(ctx context.Context, model *v1alpha1.Model) error {
+	if model.Spec.Replicas == 0 {
+		setModelStatus(model, v1alpha1.ModelPhaseInactive, v1alpha1.ModelReasonNoReplicasDesired, "model has no desired replicas")
+		return nil
+	}
+
 	resources := []struct {
 		name          string
 		syncCondition func(context.Context, *v1alpha1.Model) (bool, error)

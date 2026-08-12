@@ -10,6 +10,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -45,5 +46,17 @@ func MustGet(t *testing.T, c client.Client, name, namespace string, obj client.O
 	t.Helper()
 	if err := c.Get(context.Background(), types.NamespacedName{Name: name, Namespace: namespace}, obj); err != nil {
 		t.Fatalf("Get %T %q: %v", obj, name, err)
+	}
+}
+
+// MustNotGet asserts that obj does not exist in c by name/namespace.
+func MustNotGet(t *testing.T, c client.Client, name, namespace string, obj client.Object) {
+	t.Helper()
+	err := c.Get(context.Background(), types.NamespacedName{Name: name, Namespace: namespace}, obj)
+	if err == nil {
+		t.Fatalf("expected %T %q to be deleted, but it still exists", obj, name)
+	}
+	if !apierrors.IsNotFound(err) {
+		t.Fatalf("unexpected error fetching %T %q: %v", obj, name, err)
 	}
 }

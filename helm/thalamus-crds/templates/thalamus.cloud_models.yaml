@@ -72,6 +72,14 @@ spec:
                 - kserve
                 - kaito
                 type: string
+              replicas:
+                default: 1
+                description: |-
+                  Replicas defines the number of engine replicas to deploy for this model.
+                  Defaults to 1.
+                format: int32
+                minimum: 0
+                type: integer
               scheduling:
                 description: Scheduling defines scheduling constraints for the model's
                   pods.

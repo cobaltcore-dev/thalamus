@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -65,7 +66,7 @@ func (r *ModelReconciler) reconcileKAITO(_ context.Context, _ *v1alpha1.Model) e
 	return errors.New("kaito backend is not yet implemented")
 }
 
-// reconcileNative creates or updates all child resources for the native backend.
+// reconcileNative creates, updates, or deletes all child resources for the native backend.
 func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.Model) error {
 	// Engine stack.
 	objs := []client.Object{
@@ -84,6 +85,16 @@ func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.M
 		native.BuildEPPDeployment(model),
 		native.BuildEPPService(model),
 	)
+
+	if model.Spec.Replicas == 0 {
+		// Delete in reverse order so consumers are removed before their dependencies.
+		for _, obj := range slices.Backward(objs) {
+			if err := r.Delete(ctx, obj); client.IgnoreNotFound(err) != nil {
+				return err
+			}
+		}
+		return nil
+	}
 
 	for _, obj := range objs {
 		if err := r.applyOwned(ctx, model, obj); err != nil {

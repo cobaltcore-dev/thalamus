@@ -75,6 +75,24 @@ func TestBuildEngineDeployment(t *testing.T) {
 	}
 }
 
+func TestBuildEngineDeployment_MultipleReplicas(t *testing.T) {
+	model := testutil.NewModel("tiny-llm", "default")
+	model.Spec.Replicas = 3
+	dep := BuildEngineDeployment(model)
+	if dep.Spec.Replicas == nil || *dep.Spec.Replicas != 3 {
+		t.Errorf("Replicas:\ngot:  %v\nwant: 3", dep.Spec.Replicas)
+	}
+}
+
+func TestBuildEngineDeployment_ZeroReplicas(t *testing.T) {
+	model := testutil.NewModel("tiny-llm", "default")
+	model.Spec.Replicas = 0
+	dep := BuildEngineDeployment(model)
+	if dep.Spec.Replicas == nil || *dep.Spec.Replicas != 0 {
+		t.Errorf("Replicas:\ngot:  %v\nwant: 0", dep.Spec.Replicas)
+	}
+}
+
 func TestBuildEngineDeployment_NodeSelector(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	model.Spec.Scheduling = &v1alpha1.SchedulingSpec{

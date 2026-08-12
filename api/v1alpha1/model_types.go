@@ -22,6 +22,7 @@ const (
 	ModelPhasePending  ModelPhase = "Pending"
 	ModelPhaseCreating ModelPhase = "Creating"
 	ModelPhaseReady    ModelPhase = "Ready"
+	ModelPhaseInactive ModelPhase = "Inactive"
 	ModelPhaseFailed   ModelPhase = "Failed"
 )
 
@@ -38,6 +39,7 @@ const (
 	ModelReasonEngineDeploymentFailed    ModelReason = "EngineDeploymentFailed"
 	ModelReasonEPPNotReady               ModelReason = "EPPNotReady"
 	ModelReasonEPPDeploymentFailed       ModelReason = "EPPDeploymentFailed"
+	ModelReasonNoReplicasDesired         ModelReason = "NoReplicasDesired"
 	ModelReasonInferencePoolNotAccepted  ModelReason = "InferencePoolNotAccepted"
 	ModelReasonInferencePoolRejected     ModelReason = "InferencePoolRejected"
 	ModelReasonHTTPRouteNotAccepted      ModelReason = "HTTPRouteNotAccepted"
@@ -151,6 +153,13 @@ type ModelSpec struct {
 	// +kubebuilder:default=native
 	// +kubebuilder:validation:Optional
 	Backend BackendType `json:"backend,omitempty"`
+
+	// Replicas defines the number of engine replicas to deploy for this model.
+	// Defaults to 1.
+	// +kubebuilder:default=1
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Optional
+	Replicas int32 `json:"replicas,omitempty"`
 
 	// Serving defines how the model is served.
 	Serving ServingSpec `json:"serving"`

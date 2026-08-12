@@ -182,9 +182,10 @@ _Appears in:_
 
 | Field | Description |
 | --- | --- |
-| `Pending` |  |
+| `Pending` | TODO: set Pending when admission/resource checks block reconciliation (e.g. insufficient GPU quota). Currently unused.<br /> |
 | `Creating` |  |
 | `Ready` |  |
+| `Inactive` |  |
 | `Failed` |  |
 
 
@@ -202,6 +203,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `backend` _[BackendType](#backendtype)_ | Backend selects which inference backend manages this model's resources.<br />Defaults to "native". | native | Enum: [native kserve kaito] <br />Optional: \{\} <br /> |
+| `replicas` _integer_ | Replicas defines the number of engine replicas to deploy for this model.<br />Defaults to 1. | 1 | Minimum: 0 <br />Optional: \{\} <br /> |
 | `serving` _[ServingSpec](#servingspec)_ | Serving defines how the model is served. |  |  |
 | `weights` _[WeightsSpec](#weightsspec)_ | Weights defines where the model weights are sourced from. |  |  |
 | `scheduling` _[SchedulingSpec](#schedulingspec)_ | Scheduling defines scheduling constraints for the model's pods. |  | Optional: \{\} <br /> |

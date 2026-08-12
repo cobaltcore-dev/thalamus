@@ -8,7 +8,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/ptr"
 
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 )
@@ -127,7 +126,7 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 			Namespace: model.Namespace,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: ptr.To[int32](1),
+			Replicas: &model.Spec.Replicas,
 			Strategy: appsv1.DeploymentStrategy{Type: deploymentStrategy},
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,

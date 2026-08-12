@@ -16,7 +16,8 @@ func NewModel(name, namespace string) *v1alpha1.Model {
 	return &v1alpha1.Model{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
 		Spec: v1alpha1.ModelSpec{
-			Backend: v1alpha1.BackendTypeNative,
+			Backend:  v1alpha1.BackendTypeNative,
+			Replicas: 1,
 			Serving: v1alpha1.ServingSpec{
 				Engine: v1alpha1.EngineSpec{
 					Image: "test/engine:latest",
