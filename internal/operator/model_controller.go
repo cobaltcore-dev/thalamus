@@ -16,6 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -89,7 +90,7 @@ func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.M
 	if model.Spec.Replicas == 0 {
 		// Delete in reverse order so consumers are removed before their dependencies.
 		for _, obj := range slices.Backward(objs) {
-			if err := r.Delete(ctx, obj); client.IgnoreNotFound(err) != nil {
+			if err := r.deleteOwned(ctx, model, obj); err != nil {
 				return err
 			}
 		}
@@ -102,6 +103,17 @@ func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.M
 		}
 	}
 	return nil
+}
+
+// deleteOwned removes desired if it exists and is controlled by owner.
+func (r *ModelReconciler) deleteOwned(ctx context.Context, owner *v1alpha1.Model, desired client.Object) error {
+	if err := r.Get(ctx, types.NamespacedName{Name: desired.GetName(), Namespace: desired.GetNamespace()}, desired); err != nil {
+		return client.IgnoreNotFound(err)
+	}
+	if !metav1.IsControlledBy(desired, owner) {
+		return fmt.Errorf("refusing to delete %T %s/%s: not owned by model %s", desired, desired.GetNamespace(), desired.GetName(), owner.Name)
+	}
+	return client.IgnoreNotFound(r.Delete(ctx, desired))
 }
 
 // applyOwned sets an owner reference on obj then applies it via Server-Side Apply.
