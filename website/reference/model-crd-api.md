@@ -94,6 +94,7 @@ _Appears in:_
 | `args` _string array_ | Args are passed directly to the inference engine as CLI arguments. |  | Optional: \{\} <br /> |
 | `env` _[EnvVar](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#envvar-v1-core) array_ | Env defines environment variables for the inference engine container. |  | Optional: \{\} <br /> |
 | `resources` _[ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#resourcerequirements-v1-core)_ | Resources defines the compute resources required by the inference engine. |  | Optional: \{\} <br /> |
+| `cache` _[VolumeSource](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#volumesource-v1-core)_ | Cache defines the volume source for the vLLM cache directory (/root/.cache).<br />Defaults to an emptyDir. Provide any Kubernetes volume source; referenced<br />PersistentVolumeClaims must already exist. |  | Optional: \{\} <br /> |
 
 
 #### EngineType
