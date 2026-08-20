@@ -106,8 +106,7 @@ spec:
                       cache:
                         description: |-
                           Cache defines the volume source for the vLLM cache directory (/root/.cache).
-                          Defaults to an emptyDir. Provide any Kubernetes volume source; referenced
-                          PersistentVolumeClaims must already exist.
+                          Defaults to an emptyDir. Accepts any Kubernetes volume source.
                         properties:
                           awsElasticBlockStore:
                             description: |-

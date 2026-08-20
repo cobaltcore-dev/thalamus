@@ -110,8 +110,7 @@ type EngineSpec struct {
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 
 	// Cache defines the volume source for the vLLM cache directory (/root/.cache).
-	// Defaults to an emptyDir. Provide any Kubernetes volume source; referenced
-	// PersistentVolumeClaims must already exist.
+	// Defaults to an emptyDir. Accepts any Kubernetes volume source.
 	// +kubebuilder:validation:Optional
 	Cache *corev1.VolumeSource `json:"cache,omitempty"`
 }
