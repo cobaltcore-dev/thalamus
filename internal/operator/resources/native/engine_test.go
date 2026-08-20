@@ -117,7 +117,7 @@ func TestBuildEngineDeployment_CacheDefaultsToEmptyDir(t *testing.T) {
 	dep := BuildEngineDeployment(testutil.NewModel("tiny-llm", "default"))
 	for _, v := range dep.Spec.Template.Spec.Volumes {
 		if v.Name == "vllm-cache" {
-			if v.VolumeSource.EmptyDir == nil {
+			if v.EmptyDir == nil {
 				t.Error("expected emptyDir when cache not set")
 			}
 			return
@@ -134,7 +134,7 @@ func TestBuildEngineDeployment_CachePVC(t *testing.T) {
 	dep := BuildEngineDeployment(model)
 	for _, v := range dep.Spec.Template.Spec.Volumes {
 		if v.Name == "vllm-cache" {
-			if v.VolumeSource.PersistentVolumeClaim == nil || v.VolumeSource.PersistentVolumeClaim.ClaimName != "my-model-cache" {
+			if v.PersistentVolumeClaim == nil || v.PersistentVolumeClaim.ClaimName != "my-model-cache" {
 				t.Errorf("unexpected cache volume source: %+v", v.VolumeSource)
 			}
 			return
