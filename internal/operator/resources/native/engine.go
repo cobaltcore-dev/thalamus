@@ -88,12 +88,17 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 		container.Resources = *engine.Resources
 	}
 
+	cacheVolumeSource := corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}
+	if engine.Cache != nil {
+		cacheVolumeSource = *engine.Cache
+	}
+
 	podSpec := corev1.PodSpec{
 		Containers: []corev1.Container{container},
 		Volumes: []corev1.Volume{
 			{
 				Name:         "vllm-cache",
-				VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+				VolumeSource: cacheVolumeSource,
 			},
 			{
 				Name: "dshm",

@@ -7,6 +7,8 @@ import (
 	"slices"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
 )
@@ -109,6 +111,36 @@ func TestBuildEngineDeployment_NoScheduling(t *testing.T) {
 	if dep.Spec.Template.Spec.NodeSelector != nil {
 		t.Error("expected nil NodeSelector when scheduling not set")
 	}
+}
+
+func TestBuildEngineDeployment_CacheDefaultsToEmptyDir(t *testing.T) {
+	dep := BuildEngineDeployment(testutil.NewModel("tiny-llm", "default"))
+	for _, v := range dep.Spec.Template.Spec.Volumes {
+		if v.Name == "vllm-cache" {
+			if v.VolumeSource.EmptyDir == nil {
+				t.Error("expected emptyDir when cache not set")
+			}
+			return
+		}
+	}
+	t.Error("vllm-cache volume not found")
+}
+
+func TestBuildEngineDeployment_CachePVC(t *testing.T) {
+	model := testutil.NewModel("tiny-llm", "default")
+	model.Spec.Serving.Engine.Cache = &corev1.VolumeSource{
+		PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: "my-model-cache"},
+	}
+	dep := BuildEngineDeployment(model)
+	for _, v := range dep.Spec.Template.Spec.Volumes {
+		if v.Name == "vllm-cache" {
+			if v.VolumeSource.PersistentVolumeClaim == nil || v.VolumeSource.PersistentVolumeClaim.ClaimName != "my-model-cache" {
+				t.Errorf("unexpected cache volume source: %+v", v.VolumeSource)
+			}
+			return
+		}
+	}
+	t.Error("vllm-cache volume not found")
 }
 
 func TestBuildEngineService(t *testing.T) {

@@ -108,6 +108,12 @@ type EngineSpec struct {
 	// Resources defines the compute resources required by the inference engine.
 	// +kubebuilder:validation:Optional
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
+
+	// Cache defines the volume source for the vLLM cache directory (/root/.cache).
+	// Defaults to an emptyDir. Provide any Kubernetes volume source; referenced
+	// PersistentVolumeClaims must already exist.
+	// +kubebuilder:validation:Optional
+	Cache *corev1.VolumeSource `json:"cache,omitempty"`
 }
 
 // EPPSpec configures the Endpoint Picker Proxy (EPP).
