@@ -174,7 +174,7 @@ epp:
   image:
     registry: ghcr.io
     repository: llm-d/llm-d-router-endpoint-picker
-    tag: v0.9.0
+    tag: v0.10.0
     digest: ""
     pullPolicy: IfNotPresent
   resources:
