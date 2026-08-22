@@ -69,7 +69,6 @@ jobs:
             --skip-diff-on-install \
             --wait=true \
             --timeout=600 \
-            --state-values-file ${{ github.workspace }}/helm/example.values.cpu.yaml \
             --state-values-file ${{ github.workspace }}/test/e2e/values.${{ matrix.name }}.yaml \
             --state-values-set thalamus.operator.image.tag=pr
 

@@ -1,5 +1,4 @@
 operator:
-  enabled: false
   replicas: 1
   image:
     registry: ghcr.io
@@ -117,78 +116,6 @@ gateway:
             matchLabels:
               thalamus-apikey: "true"
 
-# Accelerator profiles
-accelerators:
-  cpu:
-    image:
-      registry: docker.io
-      repository: vllm/vllm-openai-cpu
-      tag: v0.26.0
-      digest: ""
-      pullPolicy: IfNotPresent
-    baseArgs: []
-    baseEnv: []
-    securityContext:
-      seccompProfile:
-        type: Unconfined
-      capabilities:
-        add:
-          - SYS_NICE
-  nvidia:
-    image:
-      registry: docker.io
-      repository: vllm/vllm-openai
-      tag: v0.26.0
-      digest: ""
-      pullPolicy: IfNotPresent
-    baseArgs:
-      - "--gpu-memory-utilization=0.95"
-    baseEnv:
-      - name: NCCL_P2P_LEVEL
-        value: "PIX"
-      - name: NCCL_IB_DISABLE
-        value: "1"
-    securityContext: {}
-
-# List of models to deploy. Each entry produces a model Deployment, Service, and InferencePool.
-# Example:
-# models:
-#   - slug: my-model
-#     model: org/my-model
-#     accelerator: nvidia
-#     replicas: 1
-#     extraArgs: []
-#     extraEnv: []
-#     resources:
-#       requests:
-#         nvidia.com/gpu: "1"
-#       limits:
-#         nvidia.com/gpu: "1"
-#     # Optional: constrain scheduling to specific nodes (e.g. GPU flavor).
-#     nodeSelector:
-#       nvidia.com/gpu.product: NVIDIA-RTX-PRO-6000-Blackwell-Server-Edition
-models: []
-
-# Endpoint Picker (EPP)
-epp:
-  image:
-    registry: ghcr.io
-    repository: llm-d/llm-d-router-endpoint-picker
-    tag: v0.9.0
-    digest: ""
-    pullPolicy: IfNotPresent
-  resources:
-    requests:
-      cpu: "1"
-      memory: 1Gi
-    limits:
-      memory: 2Gi
-  flowControl:
-    enabled: false
-    # saturationDetector:
-    #   pluginRef: concurrency-detector  # defaults to utilization-detector
-    # saturationDetectorPlugin:
-    #   type: concurrency-detector
 
 extraDeploy: []
   # List of extra manifests (structured objects or templated strings).
@@ -209,10 +136,3 @@ extraDeploy: []
   #   data:
   #     example-key: example-value
 
-defaultRoute: {}
-  # parentRefs:
-  #   - name: inference-gateway
-  #     namespace: thalamus
-  #     sectionName: https-api
-  # hostnames:
-  #   - api.example.com

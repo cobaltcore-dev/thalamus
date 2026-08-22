@@ -5,15 +5,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   parentRefs:
-    {{- if .Values.defaultRoute.parentRefs }}
-    {{- toYaml .Values.defaultRoute.parentRefs | nindent 4 }}
-    {{- else }}
     - name: {{ .Values.gateway.name }}
-    {{- end }}
-  {{- with .Values.defaultRoute.hostnames }}
-  hostnames:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
   rules:
     - matches:
         - path:
@@ -31,27 +23,9 @@ spec:
       kind: HTTPRoute
       name: model-list
   traffic:
-    {{- if not .Values.operator.enabled }}
-    directResponse:
-      status: 200
-      body: |
-        {
-          "object": "list",
-          "data": [
-            {{- range $i, $m := .Values.models }}
-            {
-              "id": {{ $m.model | quote }},
-              "object": "model",
-              "owned_by": {{ $m.model | splitList "/" | first | quote }}
-            }{{ if lt (add1 $i) (len $.Values.models) }},{{ end }}
-            {{- end }}
-          ]
-        }
-    {{- else }}
     directResponse:
       status: 200
       body: '{"object":"list","data":[]}'
-    {{- end }}
     headerModifiers:
       response:
         set:

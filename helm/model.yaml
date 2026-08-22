@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: Copyright 2026 SAP SE or an SAP affiliate company and cobaltcore-dev contributors
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: thalamus.cloud/v1alpha1
+kind: Model
+metadata:
+  name: qwen3-6-27b
+  namespace: thalamus
+spec:
+  backend: native
+  serving:
+    engine:
+      image: docker.io/vllm/vllm-openai:v0.26.0
+      args:
+        - --tensor-parallel-size=2
+        - --reasoning-parser=qwen3
+      resources:
+        requests:
+          nvidia.com/gpu: "2"
+        limits:
+          nvidia.com/gpu: "2"
+    epp:
+      image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0
+  weights:
+    type: hf
+    hf:
+      repoId: Qwen/Qwen3.6-27B
+      tokenSecret:
+        name: hf-token
+        key: HF_TOKEN

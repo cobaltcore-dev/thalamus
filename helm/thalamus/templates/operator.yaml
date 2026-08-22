@@ -1,4 +1,3 @@
-{{- if .Values.operator.enabled }}
 {{- if gt (int .Values.operator.replicas) 1 }}
 {{- fail "operator.replicas > 1 is not supported: the operator has no leader election" }}
 {{- end }}
@@ -120,4 +119,3 @@ spec:
           {{- with .Values.operator.readinessProbe }}
           readinessProbe: {{ toYaml . | nindent 12 }}
           {{- end }}
-{{- end }}

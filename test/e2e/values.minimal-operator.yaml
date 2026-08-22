@@ -5,7 +5,7 @@ kube-prometheus-stack:
   enabled: false
 open-webui:
   enabled: false
-
-thalamus:
-  operator:
-    enabled: true
+node-feature-discovery:
+  enabled: false
+gpu-operator:
+  enabled: false

@@ -105,16 +105,8 @@ The `helm/helmfile.yaml.gotmpl` manifest installs the full stack as a set of
 ordered helmfile releases: the Gateway API and Inference Extension CRDs, the
 Thalamus CRDs, the GPU operator and node feature discovery, the agentgateway
 with its CRDs, `kube-prometheus-stack` for observability, the `thalamus` chart
-(operator + workloads: inference gateway, models, routes), and finally
-`open-webui`. Helmfile registers the required helm repositories and applies
-the releases in dependency order.
-
-> **Thalamus operator — under development**
->
-> The Thalamus operator will automate model instance management and move model
-> declaration from Helm values to the `thalamus.cloud/v1alpha1 Model` CRD,
-> enabling fully declarative, per-resource lifecycle control. Until then, models
-> are managed through the `models:` values key described below.
+(operator + gateway), and finally `open-webui`. Helmfile registers the required
+helm repositories and applies the releases in dependency order.
 
 Deploy with chart defaults:
 
@@ -126,39 +118,41 @@ To customize values for your cluster, write a release-keyed values file and
 pass it via `--state-values-file`. The top-level keys are helmfile release
 names (e.g. `thalamus`, `open-webui`, `gpu-operator`, `kube-prometheus-stack`,
 `agentgateway`); everything underneath is forwarded to that release as chart
-values. See [`example.values.yaml`](../helm/example.values.yaml) for a
-reference shape of the `thalamus` release values.
-
-```yaml
-# my-cluster.yaml
-thalamus:
-  models:
-    - slug: qwen3-6-27b
-      model: Qwen/Qwen3.6-27B
-      accelerator: nvidia
-      resources:
-        requests: { nvidia.com/gpu: "2" }
-        limits:   { nvidia.com/gpu: "2" }
-```
+values.
 
 ```bash
 helmfile --file helm/helmfile.yaml.gotmpl apply \
   --state-values-file my-cluster.yaml
 ```
 
+To disable optional components (e.g. on a local cluster without GPUs):
+
+```bash
+helmfile --file helm/helmfile.yaml.gotmpl apply \
+  --state-values-set node-feature-discovery.enabled=false \
+  --state-values-set gpu-operator.enabled=false
+```
+
 To preview changes before applying, use `helmfile diff` in place of `apply`.
 
-**Caveats for values file:**
-- Adjust `resources` for your selected model. If it fails without a visible
-error, it might be OOM-killed due to RAM overflowing the specified `limit`.
-- If your resources are limited, you may try setting up
-`"--max-model-len=8192"` under `baseArgs` and explore other options to
-optimize the model.
-- Model slugs must be valid DNS-1035 labels: lowercase alphanumeric and hyphens
-only, starting with a letter. Dots and underscores are not allowed (e.g. use
-`qwen3-0-6b`, not `qwen3-0.6b`).
+## Step 4 — Deploy a model
 
-## Step 4 — Access the stack
+Models are declared as `thalamus.cloud/v1alpha1 Model` resources and applied
+independently of the helm release. See [`helm/model.yaml`](../helm/model.yaml)
+for a GPU example and [`helm/model.cpu.yaml`](../helm/model.cpu.yaml) for a
+CPU example.
+
+```bash
+kubectl apply -f helm/model.yaml
+```
+
+Wait for the model to become ready:
+
+```bash
+kubectl wait model/<name> --namespace thalamus --for=condition=Ready --timeout=600s
+```
+
+## Step 5 — Access the stack
 
 Once the pods are running, the stack is reachable in two ways.
 
@@ -196,22 +190,16 @@ Then open `http://localhost:8080` in your browser.
 
 ## Local development (CPU-only)
 
-For a lightweight local setup without a GPU, use
-[`helm/example.values.cpu.yaml`](../helm/example.values.cpu.yaml) as your
-values file. The modest resource requests make it suitable for local clusters like minikube or kind.
+For a lightweight local setup without a GPU, disable the GPU-specific components
+and apply the CPU model example:
 
 ```bash
 helmfile --file helm/helmfile.yaml.gotmpl apply \
-  --state-values-file helm/example.values.cpu.yaml
-```
+  --state-values-set node-feature-discovery.enabled=false \
+  --state-values-set gpu-operator.enabled=false
 
-> **Note:** The CPU image has no Apple Silicon / Metal acceleration. Inference
-> will be significantly slower than on a GPU or native macOS runtimes like
-> Ollama.
-> **Note:** When using the Docker driver (default on macOS), Docker does not
-> fully virtualize memory — vLLM sees the entire host RAM and will attempt to
-> allocate a large fraction of it, exceeding your container limits and causing
-> an OOM kill. Set `--gpu-memory-utilization` explicitly to avoid this.
+kubectl apply -f helm/model.cpu.yaml
+```
 
 ## Next Steps
 

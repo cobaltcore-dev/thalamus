@@ -5,8 +5,7 @@ kube-prometheus-stack:
   enabled: false
 open-webui:
   enabled: false
-
-accelerators:
-  cpu:
-    image:
-      tag: v0.22.1
+node-feature-discovery:
+  enabled: false
+gpu-operator:
+  enabled: false

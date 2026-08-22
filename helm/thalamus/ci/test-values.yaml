@@ -1,9 +1,0 @@
-models:
-  - slug: test-model
-    model: org/test-model
-    accelerator: cpu
-    resources:
-      requests:
-        cpu: "1"
-      limits:
-        cpu: "1"
