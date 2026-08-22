@@ -27,8 +27,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: minimal-helm
-          - name: minimal-operator
+          - name: minimal
           - name: components
 
     steps:
@@ -80,12 +79,12 @@ jobs:
             --timeout=120s
 
       - name: Apply Model CR
-        if: matrix.name == 'minimal-operator'
+        if: matrix.name == 'minimal'
         run: |
           kubectl apply -f ${{ github.workspace }}/test/e2e/model.cpu.yaml
 
       - name: Wait for model readiness
-        if: matrix.name == 'minimal-operator'
+        if: matrix.name == 'minimal'
         run: |
           kubectl wait model/smollm2-135m \
             --namespace thalamus \
@@ -93,14 +92,14 @@ jobs:
             --timeout=600s
 
       - name: Port-forward gateway
-        if: matrix.name == 'minimal-helm' || matrix.name == 'minimal-operator'
+        if: matrix.name == 'minimal'
         run: |
           kubectl port-forward svc/inference-gateway \
             8080:80 --namespace thalamus &
           sleep 3
 
       - name: Run e2e validation
-        if: matrix.name == 'minimal-helm' || matrix.name == 'minimal-operator'
+        if: matrix.name == 'minimal'
         env:
           MODEL: HuggingFaceTB/SmolLM2-135M-Instruct
           MAX_RETRIES: "6"
