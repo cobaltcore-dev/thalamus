@@ -1,0 +1,71 @@
+{{- $op  := .Values.monitoring.operator | default dict }}
+{{- $eng := .Values.monitoring.engine   | default dict }}
+{{- $epp := .Values.monitoring.epp      | default dict }}
+
+{{- if dig "enabled" .Values.monitoring.enabled $op }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "thalamus.operator.name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "thalamus.operator.labels" . | nindent 4 }}
+    {{- with merge ($op.additionalLabels | default dict) .Values.monitoring.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "thalamus.operator.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: metrics
+      interval: {{ $op.interval | default .Values.monitoring.interval }}
+      scrapeTimeout: {{ $op.scrapeTimeout | default .Values.monitoring.scrapeTimeout }}
+{{- end }}
+
+{{- if dig "enabled" .Values.monitoring.enabled $eng }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ .Release.Name }}-engine
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "thalamus.engine.labels" . | nindent 4 }}
+    {{- with merge ($eng.additionalLabels | default dict) .Values.monitoring.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchExpressions:
+      - key: thalamus.cloud/engine
+        operator: Exists
+  podMetricsEndpoints:
+    - port: http
+      interval: {{ $eng.interval | default .Values.monitoring.interval }}
+      scrapeTimeout: {{ $eng.scrapeTimeout | default .Values.monitoring.scrapeTimeout }}
+{{- end }}
+
+{{- if dig "enabled" .Values.monitoring.enabled $epp }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Release.Name }}-epp
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "thalamus.epp.labels" . | nindent 4 }}
+    {{- with merge ($epp.additionalLabels | default dict) .Values.monitoring.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchExpressions:
+      - key: thalamus.cloud/epp
+        operator: Exists
+  endpoints:
+    - port: http-metrics
+      interval: {{ $epp.interval | default .Values.monitoring.interval }}
+      scrapeTimeout: {{ $epp.scrapeTimeout | default .Values.monitoring.scrapeTimeout }}
+{{- end }}

@@ -36,13 +36,36 @@ operator:
       port: health
     initialDelaySeconds: 5
     periodSeconds: 10
-  metrics:
-    enabled: false
   serviceAccount:
     create: true
     name: ""
   rbac:
     create: true
+
+monitoring:
+  enabled: false
+  interval: 30s
+  scrapeTimeout: 10s
+  additionalLabels: {}
+
+  # Per-component overrides. Omitted fields inherit the values above.
+  operator:
+    # enabled: false
+    # interval: 30s
+    # scrapeTimeout: 10s
+    # additionalLabels: {}
+
+  engine:
+    # enabled: false
+    # interval: 30s
+    # scrapeTimeout: 10s
+    # additionalLabels: {}
+
+  epp:
+    # enabled: false
+    # interval: 30s
+    # scrapeTimeout: 10s
+    # additionalLabels: {}
 
 owner_info:
   support_group: workload-management
