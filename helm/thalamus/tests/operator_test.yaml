@@ -7,6 +7,9 @@ release:
   name: thalamus
   namespace: thalamus
 
+set:
+  operator.enabled: true
+
 tests:
   - it: should carry the full label hierarchy on the Deployment
     asserts:
