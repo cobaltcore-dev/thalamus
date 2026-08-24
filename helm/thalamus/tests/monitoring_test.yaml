@@ -36,7 +36,7 @@ tests:
           value: thalamus-operator
         documentIndex: 0
 
-  - it: operator ServiceMonitor should carry the full label hierarchy with component=operator
+  - it: should set standard labels on the operator ServiceMonitor
     set:
       monitoring.enabled: true
       monitoring.engine.enabled: false
@@ -59,7 +59,7 @@ tests:
           value: operator
         documentIndex: 0
 
-  - it: engine PodMonitor should carry the full label hierarchy with component=engine
+  - it: should set standard labels on the engine PodMonitor
     set:
       monitoring.enabled: true
       monitoring.operator.enabled: false
@@ -91,7 +91,7 @@ tests:
           value: engine
         documentIndex: 0
 
-  - it: epp ServiceMonitor should carry the full label hierarchy with component=epp
+  - it: should set standard labels on the epp ServiceMonitor
     set:
       monitoring.enabled: true
       monitoring.operator.enabled: false
