@@ -47,6 +47,10 @@ tests:
           value: thalamus
         documentIndex: 0
       - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: thalamus
+        documentIndex: 0
+      - equal:
           path: metadata.labels["app.kubernetes.io/name"]
           value: thalamus-operator
         documentIndex: 0
@@ -75,6 +79,10 @@ tests:
           value: thalamus
         documentIndex: 0
       - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
+          value: thalamus
+        documentIndex: 0
+      - equal:
           path: metadata.labels["app.kubernetes.io/name"]
           value: thalamus-engine
         documentIndex: 0
@@ -100,6 +108,10 @@ tests:
         documentIndex: 0
       - equal:
           path: metadata.labels["app.kubernetes.io/part-of"]
+          value: thalamus
+        documentIndex: 0
+      - equal:
+          path: metadata.labels["app.kubernetes.io/instance"]
           value: thalamus
         documentIndex: 0
       - equal:

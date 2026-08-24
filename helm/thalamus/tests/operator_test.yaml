@@ -7,58 +7,55 @@ release:
   name: thalamus
   namespace: thalamus
 
-set:
-  operator.enabled: true
-
 tests:
   - it: should carry the full label hierarchy on the Deployment
     asserts:
       - isKind:
           of: Deployment
-        documentIndex: 3
+        documentIndex: 4
       - equal:
           path: metadata.labels["app.kubernetes.io/part-of"]
           value: thalamus
-        documentIndex: 3
+        documentIndex: 4
       - equal:
           path: metadata.labels["app.kubernetes.io/instance"]
           value: thalamus
-        documentIndex: 3
+        documentIndex: 4
       - equal:
           path: metadata.labels["app.kubernetes.io/name"]
           value: thalamus-operator
-        documentIndex: 3
+        documentIndex: 4
       - equal:
           path: metadata.labels["app.kubernetes.io/component"]
           value: operator
-        documentIndex: 3
+        documentIndex: 4
       - equal:
           path: metadata.labels["app.kubernetes.io/managed-by"]
           value: Helm
-        documentIndex: 3
+        documentIndex: 4
 
   - it: should use selectorLabels (name + instance only) for matchLabels and pod template
     asserts:
       - isKind:
           of: Deployment
-        documentIndex: 3
+        documentIndex: 4
       - equal:
           path: spec.selector.matchLabels["app.kubernetes.io/name"]
           value: thalamus-operator
-        documentIndex: 3
+        documentIndex: 4
       - equal:
           path: spec.selector.matchLabels["app.kubernetes.io/instance"]
           value: thalamus
-        documentIndex: 3
+        documentIndex: 4
       - notExists:
           path: spec.selector.matchLabels["app.kubernetes.io/component"]
-        documentIndex: 3
+        documentIndex: 4
       - equal:
           path: spec.template.metadata.labels["app.kubernetes.io/name"]
           value: thalamus-operator
-        documentIndex: 3
+        documentIndex: 4
 
-  - it: should carry the full label hierarchy on ServiceAccount, Role, and RoleBinding
+  - it: should carry the full label hierarchy on ServiceAccount, Role, RoleBinding, and Service
     asserts:
       - equal:
           path: metadata.labels["app.kubernetes.io/component"]
@@ -72,6 +69,13 @@ tests:
           path: metadata.labels["app.kubernetes.io/component"]
           value: operator
         documentIndex: 2
+      - isKind:
+          of: Service
+        documentIndex: 3
+      - equal:
+          path: metadata.labels["app.kubernetes.io/component"]
+          value: operator
+        documentIndex: 3
 
   - it: should use release name as part-of even when release name differs from chart name
     release:
@@ -80,8 +84,8 @@ tests:
       - equal:
           path: metadata.labels["app.kubernetes.io/part-of"]
           value: my-release
-        documentIndex: 3
+        documentIndex: 4
       - equal:
           path: metadata.labels["app.kubernetes.io/name"]
           value: my-release-operator
-        documentIndex: 3
+        documentIndex: 4
