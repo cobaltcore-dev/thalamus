@@ -201,6 +201,17 @@ helmfile --file helm/helmfile.yaml.gotmpl apply \
 kubectl apply -f helm/model.cpu.yaml
 ```
 
+> **Note:** The CPU image has no Apple Silicon / Metal acceleration. Inference
+> will be significantly slower than on a GPU or native macOS runtimes like
+> Ollama.
+
+> **Note:** When using the Docker driver (default on macOS), Docker does not
+> fully virtualize memory — vLLM sees the entire host RAM and will attempt to
+> allocate a large fraction of it, exceeding your container limits and causing
+> an OOM kill. Set `--gpu-memory-utilization` explicitly to avoid this. If a
+> model fails to start without a visible error, it was most likely OOM-killed;
+> adjust its `resources` for the selected model.
+
 ## Next Steps
 
 - Browse the [Model CRD API Reference](/reference/model-crd-api) for all available fields.
