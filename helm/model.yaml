@@ -12,8 +12,12 @@ spec:
     engine:
       image: docker.io/vllm/vllm-openai:v0.26.0
       args:
+        - --gpu-memory-utilization=0.95
         - --tensor-parallel-size=1
         - --reasoning-parser=qwen3
+        - --tool-call-parser=qwen3_coder
+        - --enable-auto-tool-choice
+        - '--speculative-config={"method": "mtp", "num_speculative_tokens": 2}'
       resources:
         requests:
           cpu: "4"
