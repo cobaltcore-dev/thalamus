@@ -149,7 +149,7 @@ kubectl apply -f helm/model.yaml
 Wait for the model to become ready:
 
 ```bash
-kubectl wait model/<name> --namespace thalamus --for=condition=Ready --timeout=600s
+kubectl wait model/qwen3-6-27b --namespace thalamus --for=condition=Ready --timeout=600s
 ```
 
 ## Step 5 — Access the stack
