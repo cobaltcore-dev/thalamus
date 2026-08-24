@@ -43,7 +43,16 @@ func BuildInferencePool(model *v1alpha1.Model) *inferencev1.InferencePool {
 
 // BuildHTTPRoute returns the HTTPRoute that routes requests to the model's InferencePool.
 func BuildHTTPRoute(model *v1alpha1.Model) *gatewayv1.HTTPRoute {
-	ns := gatewayv1.Namespace(model.Namespace)
+	routing := model.Spec.Routing
+	if len(routing) == 0 {
+		routing = []gatewayv1.ParentReference{{Name: defaultGatewayName}}
+	}
+
+	parentRefs := make([]gatewayv1.ParentReference, len(routing))
+	for i, ref := range routing {
+		parentRefs[i] = applyParentRefDefaults(ref)
+	}
+
 	modelName := ""
 	if model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && model.Spec.Weights.HF != nil {
 		modelName = model.Spec.Weights.HF.RepoID
@@ -64,12 +73,7 @@ func BuildHTTPRoute(model *v1alpha1.Model) *gatewayv1.HTTPRoute {
 		},
 		Spec: gatewayv1.HTTPRouteSpec{
 			CommonRouteSpec: gatewayv1.CommonRouteSpec{
-				ParentRefs: []gatewayv1.ParentReference{
-					{
-						Name:      gatewayv1.ObjectName(defaultGatewayName),
-						Namespace: &ns,
-					},
-				},
+				ParentRefs: parentRefs,
 			},
 			Rules: []gatewayv1.HTTPRouteRule{
 				{
@@ -91,4 +95,29 @@ func BuildHTTPRoute(model *v1alpha1.Model) *gatewayv1.HTTPRoute {
 			},
 		},
 	}
+}
+
+func applyParentRefDefaults(ref gatewayv1.ParentReference) gatewayv1.ParentReference {
+	merged := gatewayv1.ParentReference{
+		Name: gatewayv1.ObjectName(defaultGatewayName),
+	}
+	if ref.Group != nil {
+		merged.Group = ref.Group
+	}
+	if ref.Kind != nil {
+		merged.Kind = ref.Kind
+	}
+	if ref.Name != "" {
+		merged.Name = ref.Name
+	}
+	if ref.Namespace != nil {
+		merged.Namespace = ref.Namespace
+	}
+	if ref.SectionName != nil {
+		merged.SectionName = ref.SectionName
+	}
+	if ref.Port != nil {
+		merged.Port = ref.Port
+	}
+	return merged
 }
