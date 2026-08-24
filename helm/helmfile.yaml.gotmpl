@@ -41,7 +41,7 @@ releases:
     namespace: monitoring
     createNamespace: true
     chart: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
-    version: "88.3.0"
+    version: "88.5.4"
     installed: {{ dig "kube-prometheus-stack" "enabled" true .Values }}
     values:
       - nodeExporter:
