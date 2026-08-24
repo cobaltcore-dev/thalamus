@@ -10,7 +10,7 @@ spec:
   backend: native
   serving:
     engine:
-      image: docker.io/vllm/vllm-openai-cpu:v0.26.0
+      image: docker.io/vllm/vllm-openai-cpu:v0.22.1
       args:
         - --max-model-len=512
         - --max-num-seqs=1
