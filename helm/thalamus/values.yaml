@@ -44,8 +44,8 @@ operator:
 
 monitoring:
   enabled: false
-  interval: 30s
-  scrapeTimeout: 10s
+  interval: 15s
+  scrapeTimeout: 5s
   additionalLabels: {}
 
   # Per-component overrides. Omitted fields inherit the values above.
