@@ -26,7 +26,7 @@ func BuildInferencePool(model *v1alpha1.Model) *inferencev1.InferencePool {
 			},
 		},
 		TargetPorts: []inferencev1.Port{{Number: engineHTTPPort}},
-		EndpointPickerRef: inferencev1.EndpointPickerRef{
+		EndpointPickerRef: &inferencev1.EndpointPickerRef{
 			Name: inferencev1.ObjectName(model.EPPName()),
 			Port: &inferencev1.Port{Number: inferencev1.PortNumber(eppGRPCExtProcPort)},
 		},
