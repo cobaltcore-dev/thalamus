@@ -13,10 +13,6 @@ vendor-crds: ## Re-download vendored upstream CRDs from their pinned release tag
 	mv gateway-api/Chart.yaml.tmp gateway-api/Chart.yaml
 	curl -fsSL -o gateway-api-inference-extension/templates/crds.yaml \
 		"https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/$(GATEWAY_API_INFERENCE_EXTENSION_VERSION)/v1-manifests.yaml"
-	awk -v version="$(GATEWAY_API_INFERENCE_EXTENSION_VERSION)" \
-		'/inference\.networking\.k8s\.io\/bundle-version:/ { print "    inference.networking.k8s.io/bundle-version: " version; next } { print }' \
-		gateway-api-inference-extension/templates/crds.yaml > gateway-api-inference-extension/templates/crds.yaml.tmp
-	mv gateway-api-inference-extension/templates/crds.yaml.tmp gateway-api-inference-extension/templates/crds.yaml
 	awk -v version="$(patsubst v%,%,$(GATEWAY_API_INFERENCE_EXTENSION_VERSION))" \
 		'/^version:/ { print "version: " version; next } { print }' \
 		gateway-api-inference-extension/Chart.yaml > gateway-api-inference-extension/Chart.yaml.tmp
