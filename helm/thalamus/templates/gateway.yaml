@@ -17,7 +17,7 @@ spec:
   listeners:
     {{- range $name, $listener := .Values.gateway.listeners }}
     - name: {{ $name }}
-      {{- toYaml | nindent 6 }}
+      {{- toYaml $listener | nindent 6 }}
     {{- end }}
 ---
 apiVersion: agentgateway.dev/v1alpha1
