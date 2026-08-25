@@ -11,7 +11,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -518,10 +517,10 @@ func TestDeploymentReplicasReady(t *testing.T) {
 		want     bool
 	}{
 		{"ready with default one replica", nil, 1, true},
-		{"ready when all three replicas ready", ptr.To[int32](3), 3, true},
-		{"not ready when only one of three ready", ptr.To[int32](3), 1, false},
-		{"not ready when zero ready", ptr.To[int32](1), 0, false},
-		{"not ready when zero replicas requested", ptr.To[int32](0), 0, false},
+		{"ready when all three replicas ready", new(int32(3)), 3, true},
+		{"not ready when only one of three ready", new(int32(3)), 1, false},
+		{"not ready when zero ready", new(int32(1)), 0, false},
+		{"not ready when zero replicas requested", new(int32(0)), 0, false},
 	}
 
 	for _, tc := range cases {

@@ -11,7 +11,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/ptr"
 
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 )
@@ -172,7 +171,7 @@ func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 			Namespace: model.Namespace,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: ptr.To[int32](1),
+			Replicas: new(int32(1)),
 			Strategy: appsv1.DeploymentStrategy{Type: recreate},
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"thalamus.cloud/epp": model.EPPName()},
@@ -183,7 +182,7 @@ func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName:            model.EPPName(),
-					TerminationGracePeriodSeconds: ptr.To[int64](130),
+					TerminationGracePeriodSeconds: new(int64(130)),
 					Containers:                    []corev1.Container{container},
 					Volumes: []corev1.Volume{
 						{

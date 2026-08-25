@@ -5,7 +5,6 @@ package native
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -43,19 +42,15 @@ func BuildInferencePool(model *v1alpha1.Model) *inferencev1.InferencePool {
 
 // BuildHTTPRoute returns the HTTPRoute that routes requests to the model's InferencePool.
 func BuildHTTPRoute(model *v1alpha1.Model) *gatewayv1.HTTPRoute {
-	ns := gatewayv1.Namespace(model.Namespace)
 	modelName := ""
 	if model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && model.Spec.Weights.HF != nil {
 		modelName = model.Spec.Weights.HF.RepoID
 	}
 	headerValue := gatewayv1.HTTPHeaderMatch{
-		Type:  ptr.To(gatewayv1.HeaderMatchExact),
+		Type:  new(gatewayv1.HeaderMatchExact),
 		Name:  gatewayBaseModelHeaderName,
 		Value: modelName,
 	}
-
-	group := gatewayv1.Group("inference.networking.k8s.io")
-	kind := gatewayv1.Kind("InferencePool")
 
 	return &gatewayv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
@@ -66,8 +61,8 @@ func BuildHTTPRoute(model *v1alpha1.Model) *gatewayv1.HTTPRoute {
 			CommonRouteSpec: gatewayv1.CommonRouteSpec{
 				ParentRefs: []gatewayv1.ParentReference{
 					{
-						Name:      gatewayv1.ObjectName(defaultGatewayName),
-						Namespace: &ns,
+						Name:      defaultGatewayName,
+						Namespace: new(gatewayv1.Namespace(model.Namespace)),
 					},
 				},
 			},
@@ -80,8 +75,8 @@ func BuildHTTPRoute(model *v1alpha1.Model) *gatewayv1.HTTPRoute {
 						{
 							BackendRef: gatewayv1.BackendRef{
 								BackendObjectReference: gatewayv1.BackendObjectReference{
-									Group: &group,
-									Kind:  &kind,
+									Group: new(gatewayv1.Group("inference.networking.k8s.io")),
+									Kind:  new(gatewayv1.Kind("InferencePool")),
 									Name:  gatewayv1.ObjectName(model.EngineName()),
 								},
 							},
