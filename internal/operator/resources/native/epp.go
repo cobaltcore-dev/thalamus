@@ -207,6 +207,7 @@ func BuildEPPService(model *v1alpha1.Model) *corev1.Service {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      model.EPPName(),
 			Namespace: model.Namespace,
+			Labels:    map[string]string{"thalamus.cloud/epp": model.EPPName()},
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{"thalamus.cloud/epp": model.EPPName()},

@@ -99,4 +99,7 @@ func TestBuildEPPService(t *testing.T) {
 	if svc.Spec.Selector["thalamus.cloud/epp"] != model.EPPName() {
 		t.Error("selector mismatch")
 	}
+	if svc.Labels["thalamus.cloud/epp"] != model.EPPName() {
+		t.Error("missing thalamus.cloud/epp metadata label (required for ServiceMonitor selector)")
+	}
 }
