@@ -79,4 +79,5 @@ spec:
       status: 200
       body: '{"object":"list","data":[]}'
       headers:
-        Content-Type: application/json
+        - name: Content-Type
+          value: application/json
