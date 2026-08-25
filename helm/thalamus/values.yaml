@@ -76,31 +76,10 @@ gateway:
   annotations: {}
     # cert-manager.io/issuer: my-issuer
   listeners:
-    http:
+    # All OpenAI-compatible routes (per-model and model-list) attach to this listener by default.
+    api:
       port: 80
       protocol: HTTP
-      allowedRoutes:
-        namespaces:
-          from: All
-    https-api:
-      enabled: false
-      port: 443
-      protocol: HTTPS
-      # hostname: api.example.com
-      # tls:
-      #   certificateRefs:
-      #     - name: gateway-tls
-      allowedRoutes:
-        namespaces:
-          from: All
-    https-frontend:
-      enabled: false
-      port: 443
-      protocol: HTTPS
-      # hostname: example.com
-      # tls:
-      #   certificateRefs:
-      #     - name: gateway-tls
       allowedRoutes:
         namespaces:
           from: All
@@ -111,34 +90,6 @@ gateway:
         type: ClusterIP
         # type: LoadBalancer
         # loadBalancerIP: ""
-
-  # Map of AgentgatewayPolicy resources, keyed by name. Each entry renders one
-  # policy; its body is used as the policy spec. `enabled: false` skips it.
-  # `targetRefs` default to the Gateway and are merged per-entry, so an entry
-  # need only specify the fields it overrides (e.g. `- sectionName: https-api`).
-  # If the default Gateway target should not be used, either attach by label
-  # with `targetSelectors`, or spell out full `targetRefs` entries.
-  policies:
-    bbr:
-      # enabled: false
-      traffic:
-        phase: PreRouting
-        transformation:
-          request:
-            set:
-              - name: X-Gateway-Base-Model-Name
-                value: json(request.body).model
-
-    # Secrets holding keys must be labelled `thalamus-apikey: "true"`.
-    apikey-auth:
-      enabled: false
-      traffic:
-        apiKeyAuthentication:
-          mode: Strict
-          secretSelector:
-            matchLabels:
-              thalamus-apikey: "true"
-
 
 extraDeploy: []
   # List of extra manifests (structured objects or templated strings).

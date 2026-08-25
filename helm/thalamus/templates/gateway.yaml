@@ -29,49 +29,54 @@ metadata:
   namespace: {{ .Release.Namespace }}
 spec:
   {{- toYaml .Values.gateway.parameters | nindent 2 }}
-{{- range $name, $policy := .Values.gateway.policies }}
-{{- if ne $policy.enabled false }}
 ---
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayPolicy
 metadata:
-  name: {{ $name }}
-  namespace: {{ $.Release.Namespace }}
+  name: bbr
+  namespace: {{ .Release.Namespace }}
 spec:
-  {{- $field := ternary "targetSelectors" "targetRefs" (hasKey $policy "targetSelectors") }}
-  {{- $default := dict "group" "gateway.networking.k8s.io" "kind" "Gateway" }}
-  {{- if eq $field "targetRefs" }}
-  {{- $default = merge $default (dict "name" $.Values.gateway.name) }}
-  {{- end }}
-  {{- $targets := list }}
-  {{- range (default (list dict) (index $policy $field)) }}
-  {{- $targets = append $targets (merge (deepCopy .) $default) }}
-  {{- end }}
-  {{ $field }}:
-    {{- toYaml $targets | nindent 4 }}
-  {{- toYaml (omit $policy "enabled" "targetRefs" "targetSelectors") | nindent 2 }}
-{{- end }}
-{{- end }}
-{{- $hasHTTPS := false }}
-{{- range .Values.gateway.listeners }}
-{{- if and (eq (.protocol | default "") "HTTPS") (ne .enabled false) }}{{ $hasHTTPS = true }}{{ end }}
-{{- end }}
-{{- $http := .Values.gateway.listeners.http }}
-{{- if and $http (ne $http.enabled false) $hasHTTPS }}
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.gateway.name }}
+      sectionName: api
+  traffic:
+    phase: PreRouting
+    transformation:
+      request:
+        set:
+          - name: X-Gateway-Base-Model-Name
+            value: json(request.body).model
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: http-to-https-redirect
+  name: model-list
   namespace: {{ .Release.Namespace }}
 spec:
   parentRefs:
     - name: {{ .Values.gateway.name }}
-      sectionName: http
+      sectionName: api
   rules:
-    - filters:
-        - type: RequestRedirect
-          requestRedirect:
-            scheme: https
-            statusCode: 301
-{{- end }}
+    - matches:
+        - path:
+            type: Exact
+            value: /v1/models
+---
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: model-list
+  namespace: {{ .Release.Namespace }}
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: model-list
+  traffic:
+    directResponse:
+      status: 200
+      body: '{"object":"list","data":[]}'
+      headers:
+        Content-Type: application/json

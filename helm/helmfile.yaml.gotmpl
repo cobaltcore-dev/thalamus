@@ -124,6 +124,7 @@ releases:
           parentRefs:
             - name: inference-gateway
               namespace: thalamus
+              sectionName: frontend
       - {{ dig "open-webui" dict .Values | toYaml | nindent 10 }}
 
   - name: thalamus-crds
@@ -139,4 +140,14 @@ releases:
       - thalamus/thalamus-crds
       - agentgateway-system/agentgateway
     values:
+      {{- if (dig "open-webui" "enabled" true .Values) }}
+      - gateway:
+          listeners:
+            frontend:
+              port: 80
+              protocol: HTTP
+              allowedRoutes:
+                namespaces:
+                  from: All
+      {{- end }}
       - {{ dig "thalamus" dict .Values | toYaml | nindent 10 }}
