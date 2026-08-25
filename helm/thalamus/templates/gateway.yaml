@@ -16,10 +16,8 @@ spec:
       name: {{ .Values.gateway.name }}
   listeners:
     {{- range $name, $listener := .Values.gateway.listeners }}
-    {{- if ne $listener.enabled false }}
     - name: {{ $name }}
-      {{- toYaml (omit $listener "enabled") | nindent 6 }}
-    {{- end }}
+      {{- toYaml | nindent 6 }}
     {{- end }}
 ---
 apiVersion: agentgateway.dev/v1alpha1

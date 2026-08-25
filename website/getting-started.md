@@ -40,23 +40,30 @@ kubectl create secret generic hf-token \
 
 ## Step 2 — Create API key secrets (optional)
 
-When the `apikey-auth` policy is enabled (`gateway.policies.apikey-auth.enabled`),
-every request to the targeted routes or listeners must carry a valid
-`Authorization: Bearer <token>` header. Tokens are stored as
-Kubernetes Secrets labelled `thalamus-apikey: "true"`.
-
-Set `targetRefs` on the policy to scope where auth is enforced. `targetRefs`
-default to the Gateway, so an entry only needs the fields it overrides — here,
-the listener section to protect:
+Agentgateway supports API key authentication via `AgentgatewayPolicy`. Deploy one
+via `extraDeploy` to require a valid `Authorization: Bearer <token>` header on the
+`api` listener. Tokens are stored as Kubernetes Secrets labelled `thalamus-apikey: "true"`.
 
 ```yaml
 thalamus:
-  gateway:
-    policies:
-      apikey-auth:
-        enabled: true
+  extraDeploy:
+    apikey-auth:
+      apiVersion: agentgateway.dev/v1alpha1
+      kind: AgentgatewayPolicy
+      metadata:
+        namespace: thalamus
+      spec:
         targetRefs:
-          - sectionName: https-api
+          - group: gateway.networking.k8s.io
+            kind: Gateway
+            name: inference-gateway
+            sectionName: api
+        traffic:
+          authn:
+            apiKey:
+              secretLabelSelector:
+                matchLabels:
+                  thalamus-apikey: "true"
 ```
 
 Create one secret per user or client:
@@ -74,29 +81,6 @@ Open WebUI connects to the inference API internally and also requires a token. S
 open-webui:
   openaiApiKeyExistingSecret: apikey-openwebui
   openaiApiKeyExistingSecretKey: api-key
-```
-
-### Custom gateway policies
-
-`apikey-auth` and `bbr` are just entries in `gateway.policies`. Any key you add
-renders an `AgentgatewayPolicy` of the same name, with the entry used as its
-spec. `targetRefs` default to the Gateway and are merged per-entry, so you only
-specify overrides. Attach elsewhere with a full `targetRefs` entry or by label
-via `targetSelectors`:
-
-```yaml
-thalamus:
-  gateway:
-    policies:
-      rate-limit:
-        targetRefs:
-          - kind: HTTPRoute
-            name: aggregated-models
-        traffic:
-          localRateLimit:
-            - maxTokens: 100
-              tokensPerFill: 100
-              fillInterval: 60s
 ```
 
 ## Step 3 — Deploy the stack
@@ -173,20 +157,17 @@ curl http://<gateway-ip>/v1/chat/completions \
 For local clusters without a `LoadBalancer`, use port-forward:
 
 ```bash
+# OpenAI-compatible API
 kubectl port-forward svc/inference-gateway 8080:80 -n thalamus
+# Open WebUI (browser)
+kubectl port-forward svc/inference-gateway 3000:8080 -n thalamus
 ```
 
 ### Open WebUI
 
 `thalamus` includes [Open WebUI](https://github.com/open-webui/open-webui),
 a browser-based chat interface. It is reachable via the hostname configured in
-your `open-webui.route.hostnames` value, or via port-forward for local access:
-
-```bash
-kubectl port-forward svc/open-webui 8080:80 -n open-webui
-```
-
-Then open `http://localhost:8080` in your browser.
+your `open-webui.route.hostnames` value, or via the port-forward above for local access. Open `http://localhost:3000` in your browser.
 
 ## Local development (CPU-only)
 
