@@ -2,4 +2,4 @@ apiVersion: v2
 name: gateway-api
 description: Vendored Gateway API standard-channel CRDs.
 type: application
-version: 1.5.1
+version: 1.6.1
