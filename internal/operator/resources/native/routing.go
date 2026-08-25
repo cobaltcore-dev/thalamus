@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	defaultGatewayName        = "inference-gateway"
-	defaultGatewaySectionName = "api"
+	defaultGatewayName         = "inference-gateway"
+	defaultGatewaySectionName  = "api"
 	gatewayBaseModelHeaderName = "X-Gateway-Base-Model-Name"
 )
 
