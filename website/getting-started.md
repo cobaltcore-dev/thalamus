@@ -57,11 +57,11 @@ thalamus:
             name: inference-gateway
             sectionName: api
         traffic:
-          authn:
-            apiKey:
-              secretLabelSelector:
-                matchLabels:
-                  thalamus-apikey: "true"
+          apiKeyAuthentication:
+            mode: Strict
+            secretSelector:
+              matchLabels:
+                thalamus-apikey: "true"
 ```
 
 Create one secret per user or client:
