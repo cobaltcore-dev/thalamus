@@ -40,9 +40,7 @@ kubectl create secret generic hf-token \
 
 ## Step 2 — Create API key secrets (optional)
 
-Agentgateway supports API key authentication via `AgentgatewayPolicy`. Deploy one
-via `extraDeploy` to require a valid `Authorization: Bearer <token>` header on the
-`api` listener. Tokens are stored as Kubernetes Secrets labelled `thalamus-apikey: "true"`.
+By default, the Thalamus API accepts unauthenticated requests. To enable token-based authentication, deploy an `AgentgatewayPolicy` through the extraDeploy section in your Helm values. The example policy below requires every request to include a valid `Authorization: Bearer <key>` header. API keys are loaded from Kubernetes secrets labeled `thalamus-apikey: "true"`.
 
 ```yaml
 thalamus:
