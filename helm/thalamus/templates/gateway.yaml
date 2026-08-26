@@ -78,4 +78,4 @@ spec:
       body: '{"object":"list","data":[]}'
       headers:
         - name: Content-Type
-          value: application/json
+          value: "'application/json'"

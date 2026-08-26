@@ -31,7 +31,7 @@ var agentgatewayPolicyGVK = schema.GroupVersionKind{
 
 const (
 	modelListContentTypeHeader = "Content-Type"
-	modelListContentTypeValue  = "application/json"
+	modelListContentTypeValue  = "'application/json'"
 	modelListDirectStatus      = 200
 )
 
