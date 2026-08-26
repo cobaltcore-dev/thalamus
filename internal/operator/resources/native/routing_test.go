@@ -38,8 +38,15 @@ func TestBuildHTTPRoute(t *testing.T) {
 	if route.Name != model.EngineName() {
 		t.Errorf("Name:\ngot:  %q\nwant: %q", route.Name, model.EngineName())
 	}
-	if len(route.Spec.ParentRefs) != 1 || string(route.Spec.ParentRefs[0].Name) != defaultGatewayName {
-		t.Error("unexpected ParentRefs")
+	if len(route.Spec.ParentRefs) != 1 {
+		t.Errorf("len(route.Spec.ParentRefs): %d, want 1", len(route.Spec.ParentRefs))
+	}
+	parentRef := route.Spec.ParentRefs[0]
+	if name := parentRef.Name; name != defaultGatewayName {
+		t.Errorf("parentRef.Name:\ngot:  %q\nwant: %q", name, defaultGatewayName)
+	}
+	if section := *parentRef.SectionName; section != defaultGatewaySectionName {
+		t.Errorf("parentRef.SectionName: got: %q, want %q", section, defaultGatewaySectionName)
 	}
 	rule := route.Spec.Rules[0]
 	if len(rule.Matches) != 1 || rule.Matches[0].Headers[0].Value != "arnir0/Tiny-LLM" {

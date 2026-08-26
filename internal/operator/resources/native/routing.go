@@ -53,17 +53,6 @@ func BuildHTTPRoute(model *v1alpha1.Model) *gatewayv1.HTTPRoute {
 		Value: modelName,
 	}
 
-	parentRefs := model.Spec.Routing
-	if len(parentRefs) == 0 {
-		parentRefs = []gatewayv1.ParentReference{
-			{
-				Name:        defaultGatewayName,
-				Namespace:   new(gatewayv1.Namespace(model.Namespace)),
-				SectionName: new(gatewayv1.SectionName(defaultGatewaySectionName)),
-			},
-		}
-	}
-
 	return &gatewayv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      model.EngineName(),
@@ -71,7 +60,13 @@ func BuildHTTPRoute(model *v1alpha1.Model) *gatewayv1.HTTPRoute {
 		},
 		Spec: gatewayv1.HTTPRouteSpec{
 			CommonRouteSpec: gatewayv1.CommonRouteSpec{
-				ParentRefs: parentRefs,
+				ParentRefs: []gatewayv1.ParentReference{
+					{
+						Name:        defaultGatewayName,
+						Namespace:   new(gatewayv1.Namespace(model.Namespace)),
+						SectionName: new(gatewayv1.SectionName(defaultGatewaySectionName)),
+					},
+				},
 			},
 			Rules: []gatewayv1.HTTPRouteRule{
 				{

@@ -8,7 +8,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // +kubebuilder:validation:Enum=hf
@@ -176,11 +175,6 @@ type ModelSpec struct {
 	// Scheduling defines scheduling constraints for the model's pods.
 	// +kubebuilder:validation:Optional
 	Scheduling *SchedulingSpec `json:"scheduling,omitempty"`
-
-	// Routing defines the list of Gateway parentRefs the HTTPRoute for this model attaches to.
-	// Defaults to the chart-managed "inference-gateway" on the "api" listener.
-	// +kubebuilder:validation:Optional
-	Routing []gatewayv1.ParentReference `json:"routing,omitempty"`
 }
 
 // ModelStatus defines the observed state of a Model.
