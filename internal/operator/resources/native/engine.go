@@ -58,7 +58,7 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 			InitialDelaySeconds: 60,
 			PeriodSeconds:       10,
 			TimeoutSeconds:      5,
-			FailureThreshold:    60,
+			FailureThreshold:    360,
 		},
 		LivenessProbe: &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
