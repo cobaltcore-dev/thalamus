@@ -1,7 +1,7 @@
 import { withMermaid } from 'vitepress-plugin-mermaid'
 import markdownItFootnote from 'markdown-it-footnote'
 
-const docsVersion = process.env.DOCS_VERSION
+const docsVersion = process.env.DOCS_VERSION || 'main'
 const pagesBase = process.env.PAGES_BASE
 const base = docsVersion && pagesBase
   ? `/${pagesBase}/${docsVersion}/`
@@ -92,6 +92,9 @@ export default withMermaid({
 
   markdown: {
     config: (md) => {
+      md.core.ruler.before('normalize', 'replace-docs-version', (state) => {
+        state.src = state.src.replace(/@@DOCS_VERSION@@/g, docsVersion)
+      })
       md.use(markdownItFootnote)
     },
   },

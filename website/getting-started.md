@@ -120,8 +120,8 @@ To preview changes before applying, use `helmfile diff` in place of `apply`.
 ## Step 4 — Deploy a model
 
 Models are declared as `thalamus.cloud/v1alpha1 Model` resources and applied
-independently of the helm release. See [`helm/model.yaml`](../helm/model.yaml)
-for a GPU example and [`helm/model.cpu.yaml`](../helm/model.cpu.yaml) for a
+independently of the helm release. See [`helm/model.yaml`](https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/helm/model.yaml)
+for a GPU example and [`helm/model.cpu.yaml`](https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/helm/model.cpu.yaml) for a
 CPU example.
 
 ```bash
