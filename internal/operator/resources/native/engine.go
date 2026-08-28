@@ -117,14 +117,6 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 		"thalamus.cloud/engine": model.EngineName(),
 	}
 
-	// TODO: updateStrategy should be a field on the Model CRD.
-	// Ideally the operator implements a best-effort rolling strategy: check whether
-	// the cluster has enough spare capacity to bring up a new replica before terminating
-	// the old one (e.g. by inspecting node allocatable vs pending resource requests),
-	// and fall back to Recreate when it does not. For now Recreate is the safe default
-	// because LLM pods are large and a second replica will often not fit.
-	deploymentStrategy := appsv1.RecreateDeploymentStrategyType
-
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      model.EngineName(),
@@ -132,7 +124,6 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &model.Spec.Replicas,
-			Strategy: appsv1.DeploymentStrategy{Type: deploymentStrategy},
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
