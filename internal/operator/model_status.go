@@ -16,11 +16,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	agentgatewayv1alpha1 "github.com/agentgateway/agentgateway/controller/api/v1alpha1/agentgateway"
+
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 )
 
 // syncNativeStatus derives and updates the ready state of a model by checking:
-// engine Deployment, EPP Deployment, and HTTPRoute acceptance.
+// engine Deployment, EPP Deployment, ext-proc policy attachment, and
+// HTTPRoute acceptance.
 func (r *ModelReconciler) syncNativeStatus(ctx context.Context, model *v1alpha1.Model) error {
 	if model.Spec.Replicas == 0 {
 		setModelStatus(model, v1alpha1.ModelPhaseInactive, v1alpha1.ModelReasonNoReplicasDesired, "model has no desired replicas")
@@ -33,6 +36,7 @@ func (r *ModelReconciler) syncNativeStatus(ctx context.Context, model *v1alpha1.
 	}{
 		{"engine", r.syncEngineCondition},
 		{"epp", r.syncEPPCondition},
+		{"epp ext-proc policy", r.syncEPPExtProcPolicyCondition},
 		{"http route", r.syncHTTPRouteCondition},
 	}
 
@@ -75,6 +79,57 @@ func (r *ModelReconciler) syncEngineCondition(ctx context.Context, model *v1alph
 // syncEPPCondition checks the EPP Deployment and updates the model status.
 func (r *ModelReconciler) syncEPPCondition(ctx context.Context, model *v1alpha1.Model) (bool, error) {
 	return r.syncDeploymentCondition(ctx, model, model.EPPName(), v1alpha1.ModelReasonEPPNotReady, v1alpha1.ModelReasonEPPDeploymentFailed)
+}
+
+// syncEPPExtProcPolicyCondition checks the model's ext-proc AgentgatewayPolicy
+// and updates the model status. The policy is ready once agentgateway has
+// accepted it (Accepted=True) and attached it to the target HTTPRoute
+// (Attached=True).
+func (r *ModelReconciler) syncEPPExtProcPolicyCondition(ctx context.Context, model *v1alpha1.Model) (bool, error) {
+	policyName := model.ExtProcPolicyName()
+	policy := &agentgatewayv1alpha1.AgentgatewayPolicy{}
+	if err := r.Get(ctx, types.NamespacedName{Name: policyName, Namespace: model.Namespace}, policy); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonEPPExtProcNotAccepted, fmt.Sprintf("ext-proc policy %s not found", policyName))
+			return false, nil
+		}
+		return false, err
+	}
+
+	if len(policy.Status.Ancestors) == 0 {
+		setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonEPPExtProcNotAccepted, fmt.Sprintf("ext-proc policy %s has no status yet", policyName))
+		return false, nil
+	}
+
+	allReady := true
+	var failedMessage string
+	for _, ancestor := range policy.Status.Ancestors {
+		// Accepted is the primary validity signal: the agentgateway controller
+		// sets Attached=False/Pending both for rejected policies and for
+		// policies whose target is not resolvable yet, so the Accepted
+		// condition decides rejection.
+		acceptedCond := meta.FindStatusCondition(ancestor.Conditions, agentgatewayv1alpha1.PolicyConditionAccepted)
+		attachedCond := meta.FindStatusCondition(ancestor.Conditions, agentgatewayv1alpha1.PolicyConditionAttached)
+		if acceptedCond != nil && acceptedCond.Status == metav1.ConditionFalse {
+			failedMessage = fmt.Sprintf("%s: %s", acceptedCond.Reason, acceptedCond.Message)
+			continue
+		}
+		if acceptedCond != nil && acceptedCond.Status == metav1.ConditionTrue &&
+			attachedCond != nil && attachedCond.Status == metav1.ConditionTrue {
+			continue
+		}
+		allReady = false
+	}
+
+	if failedMessage != "" {
+		setModelStatus(model, v1alpha1.ModelPhaseFailed, v1alpha1.ModelReasonEPPExtProcRejected, failedMessage)
+		return false, nil
+	}
+	if allReady {
+		return true, nil
+	}
+	setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonEPPExtProcNotAccepted, fmt.Sprintf("ext-proc policy %s not accepted by gateway", policyName))
+	return false, nil
 }
 
 // syncDeploymentCondition checks a child Deployment and updates the model status.

@@ -40,6 +40,8 @@ const (
 	ModelReasonEPPNotReady               ModelReason = "EPPNotReady"
 	ModelReasonEPPDeploymentFailed       ModelReason = "EPPDeploymentFailed"
 	ModelReasonNoReplicasDesired         ModelReason = "NoReplicasDesired"
+	ModelReasonEPPExtProcNotAccepted     ModelReason = "EPPExtProcNotAccepted"
+	ModelReasonEPPExtProcRejected        ModelReason = "EPPExtProcRejected"
 	ModelReasonHTTPRouteNotAccepted      ModelReason = "HTTPRouteNotAccepted"
 	ModelReasonHTTPRouteRejected         ModelReason = "HTTPRouteRejected"
 	ModelReasonHTTPRoutePartiallyInvalid ModelReason = "HTTPRoutePartiallyInvalid"
@@ -228,6 +230,9 @@ func (m *Model) EngineName() string { return m.Name + "-engine" }
 
 // EPPName returns the Kubernetes resource name for the model's Endpoint Picker Proxy.
 func (m *Model) EPPName() string { return m.Name + "-epp" }
+
+// ExtProcPolicyName returns the Kubernetes resource name for the model's ext-proc AgentgatewayPolicy.
+func (m *Model) ExtProcPolicyName() string { return m.Name + "-extproc" }
 
 // DetectedEngineType derives the engine type from the engine container image.
 func (m *Model) DetectedEngineType() EngineType {

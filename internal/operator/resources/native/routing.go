@@ -23,7 +23,7 @@ const (
 func BuildEPPExtProcPolicy(model *v1alpha1.Model) *agentgatewayv1alpha1.AgentgatewayPolicy {
 	port := eppGRPCExtProcPort
 	return &agentgatewayv1alpha1.AgentgatewayPolicy{
-		Name:      model.Name + "-extproc",
+		Name:      model.ExtProcPolicyName(),
 		Namespace: model.Namespace,
 		Spec: agentgatewayv1alpha1.AgentgatewayPolicySpec{
 			TargetRefs: []agentgatewayv1alpha1.LocalPolicyTargetReferenceWithSectionName{

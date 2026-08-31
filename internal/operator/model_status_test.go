@@ -14,6 +14,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	agentgatewayv1alpha1 "github.com/agentgateway/agentgateway/controller/api/v1alpha1/agentgateway"
+
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
 )
@@ -30,6 +32,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
+				markExtProcPolicyReady(t, c, m.ExtProcPolicyName())
 				markHTTPRouteReady(t, c, m.EngineName())
 			},
 			wantPhase:  v1alpha1.ModelPhaseReady,
@@ -39,6 +42,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			name: "creating when engine deployment not ready",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EPPName())
+				markExtProcPolicyReady(t, c, m.ExtProcPolicyName())
 				markHTTPRouteReady(t, c, m.EngineName())
 			},
 			wantPhase:  v1alpha1.ModelPhaseCreating,
@@ -48,16 +52,56 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			name: "creating when epp deployment not ready",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
+				markExtProcPolicyReady(t, c, m.ExtProcPolicyName())
 				markHTTPRouteReady(t, c, m.EngineName())
 			},
 			wantPhase:  v1alpha1.ModelPhaseCreating,
 			wantReason: v1alpha1.ModelReasonEPPNotReady,
 		},
 		{
+			name: "creating when ext-proc policy has no status",
+			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
+				markDeploymentReady(t, c, m.EngineName())
+				markDeploymentReady(t, c, m.EPPName())
+				markHTTPRouteReady(t, c, m.EngineName())
+			},
+			wantPhase:  v1alpha1.ModelPhaseCreating,
+			wantReason: v1alpha1.ModelReasonEPPExtProcNotAccepted,
+		},
+		{
+			name: "creating when ext-proc policy attached is pending",
+			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
+				markDeploymentReady(t, c, m.EngineName())
+				markDeploymentReady(t, c, m.EPPName())
+				markHTTPRouteReady(t, c, m.EngineName())
+				markExtProcPolicyStatus(t, c, m.ExtProcPolicyName(),
+					metav1.Condition{Type: agentgatewayv1alpha1.PolicyConditionAccepted, Status: metav1.ConditionTrue, Reason: agentgatewayv1alpha1.PolicyReasonValid},
+					metav1.Condition{Type: agentgatewayv1alpha1.PolicyConditionAttached, Status: metav1.ConditionFalse, Reason: agentgatewayv1alpha1.PolicyReasonPending, Message: "pending"},
+				)
+			},
+			wantPhase:  v1alpha1.ModelPhaseCreating,
+			wantReason: v1alpha1.ModelReasonEPPExtProcNotAccepted,
+		},
+		{
+			name: "failed when ext-proc policy rejected",
+			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
+				markDeploymentReady(t, c, m.EngineName())
+				markDeploymentReady(t, c, m.EPPName())
+				markHTTPRouteReady(t, c, m.EngineName())
+				markExtProcPolicyStatus(t, c, m.ExtProcPolicyName(),
+					metav1.Condition{Type: agentgatewayv1alpha1.PolicyConditionAccepted, Status: metav1.ConditionFalse, Reason: agentgatewayv1alpha1.PolicyReasonInvalid, Message: "invalid policy"},
+					metav1.Condition{Type: agentgatewayv1alpha1.PolicyConditionAttached, Status: metav1.ConditionFalse, Reason: agentgatewayv1alpha1.PolicyReasonPending, Message: "Policy is not attached due to invalid status"},
+				)
+			},
+			wantPhase:  v1alpha1.ModelPhaseFailed,
+			wantReason: v1alpha1.ModelReasonEPPExtProcRejected,
+		},
+		{
 			name: "creating when http route not ready",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
+				markExtProcPolicyReady(t, c, m.ExtProcPolicyName())
 			},
 			wantPhase:  v1alpha1.ModelPhaseCreating,
 			wantReason: v1alpha1.ModelReasonHTTPRouteNotAccepted,
@@ -73,6 +117,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					t.Fatalf("update deployment status: %v", err)
 				}
 				markDeploymentReady(t, c, m.EPPName())
+				markExtProcPolicyReady(t, c, m.ExtProcPolicyName())
 				markHTTPRouteReady(t, c, m.EngineName())
 			},
 			wantPhase:  v1alpha1.ModelPhaseCreating,
@@ -83,6 +128,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
+				markExtProcPolicyReady(t, c, m.ExtProcPolicyName())
 				markHTTPRouteStatus(t, c, m.EngineName(), metav1.Condition{
 					Type:    string(gatewayv1.RouteConditionAccepted),
 					Status:  metav1.ConditionFalse,
@@ -152,6 +198,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
+				markExtProcPolicyReady(t, c, m.ExtProcPolicyName())
 				markHTTPRouteStatus(t, c, m.EngineName(), metav1.Condition{
 					Type:    string(gatewayv1.RouteConditionAccepted),
 					Status:  metav1.ConditionFalse,
@@ -167,6 +214,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
+				markExtProcPolicyReady(t, c, m.ExtProcPolicyName())
 				markHTTPRouteStatus(t, c, m.EngineName(), metav1.Condition{
 					Type:    string(gatewayv1.RouteConditionAccepted),
 					Status:  metav1.ConditionFalse,
@@ -182,6 +230,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
+				markExtProcPolicyReady(t, c, m.ExtProcPolicyName())
 				markHTTPRouteStatus(t, c, m.EngineName(),
 					metav1.Condition{Type: string(gatewayv1.RouteConditionAccepted), Status: metav1.ConditionTrue, Reason: string(gatewayv1.RouteReasonAccepted)},
 					metav1.Condition{Type: string(gatewayv1.RouteConditionResolvedRefs), Status: metav1.ConditionTrue, Reason: string(gatewayv1.RouteReasonResolvedRefs)},
@@ -196,6 +245,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
+				markExtProcPolicyReady(t, c, m.ExtProcPolicyName())
 				markHTTPRouteStatus(t, c, m.EngineName(), metav1.Condition{
 					Type:    string(gatewayv1.RouteConditionResolvedRefs),
 					Status:  metav1.ConditionFalse,
@@ -211,6 +261,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
+				markExtProcPolicyReady(t, c, m.ExtProcPolicyName())
 				markHTTPRouteParents(t, c, m.EngineName(),
 					gatewayv1.RouteParentStatus{
 						ParentRef:      gatewayv1.ParentReference{Name: gatewayv1.ObjectName("gw")},
@@ -237,6 +288,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
+				markExtProcPolicyReady(t, c, m.ExtProcPolicyName())
 				markHTTPRouteParents(t, c, m.EngineName(),
 					gatewayv1.RouteParentStatus{
 						ParentRef:      gatewayv1.ParentReference{Name: gatewayv1.ObjectName("gw")},
@@ -345,6 +397,28 @@ func markHTTPRouteParents(t *testing.T, c client.Client, name string, parents ..
 	if err := c.Status().Update(context.Background(), route); err != nil {
 		t.Fatalf("update http route status: %v", err)
 	}
+}
+
+func markExtProcPolicyStatus(t *testing.T, c client.Client, name string, conds ...metav1.Condition) {
+	t.Helper()
+	policy := &agentgatewayv1alpha1.AgentgatewayPolicy{}
+	testutil.MustGet(t, c, name, testNamespace, policy)
+	policy.Status.Ancestors = []gatewayv1.PolicyAncestorStatus{{
+		AncestorRef:    gatewayv1.ParentReference{Name: gatewayv1.ObjectName("gw")},
+		ControllerName: "test-controller",
+		Conditions:     conds,
+	}}
+	if err := c.Status().Update(context.Background(), policy); err != nil {
+		t.Fatalf("update ext-proc policy status: %v", err)
+	}
+}
+
+func markExtProcPolicyReady(t *testing.T, c client.Client, name string) {
+	t.Helper()
+	markExtProcPolicyStatus(t, c, name,
+		metav1.Condition{Type: agentgatewayv1alpha1.PolicyConditionAccepted, Status: metav1.ConditionTrue, Reason: agentgatewayv1alpha1.PolicyReasonValid},
+		metav1.Condition{Type: agentgatewayv1alpha1.PolicyConditionAttached, Status: metav1.ConditionTrue, Reason: agentgatewayv1alpha1.PolicyReasonAttached},
+	)
 }
 
 func TestDeploymentReplicasReady(t *testing.T) {

@@ -17,8 +17,8 @@ func TestBuildEPPExtProcPolicy(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	policy := BuildEPPExtProcPolicy(model)
 
-	if policy.Name != model.Name+"-extproc" {
-		t.Errorf("Name:\ngot:  %q\nwant: %q", policy.Name, model.Name+"-extproc")
+	if policy.Name != model.ExtProcPolicyName() {
+		t.Errorf("Name:\ngot:  %q\nwant: %q", policy.Name, model.ExtProcPolicyName())
 	}
 	if len(policy.Spec.TargetRefs) != 1 {
 		t.Fatalf("len(policy.Spec.TargetRefs): %d, want 1", len(policy.Spec.TargetRefs))

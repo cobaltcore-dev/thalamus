@@ -45,7 +45,7 @@ func newTestReconciler(t *testing.T, objs ...client.Object) (*ModelReconciler, c
 	s := testutil.NewScheme(t)
 	c := fake.NewClientBuilder().WithScheme(s).
 		WithObjects(objs...).
-		WithStatusSubresource(&v1alpha1.Model{}, &appsv1.Deployment{}, &gatewayv1.HTTPRoute{}).
+		WithStatusSubresource(&v1alpha1.Model{}, &appsv1.Deployment{}, &gatewayv1.HTTPRoute{}, &agentgatewayv1alpha1.AgentgatewayPolicy{}).
 		Build()
 	return &ModelReconciler{Client: c, Scheme: s}, c
 }
