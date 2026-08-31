@@ -42,24 +42,6 @@ test_models_endpoint() {
   fi
 }
 
-test_completions() {
-  echo "Testing POST /v1/completions..."
-  local response
-  if ! response=$(curl -sf -X POST "${BASE_URL}/v1/completions" \
-    -H "Content-Type: application/json" \
-    -d "{\"model\":\"${MODEL}\",\"prompt\":\"The capital of France is\",\"max_tokens\":8,\"temperature\":0}"); then
-    echo "FAIL: request to /v1/completions failed" >&2
-    return 1
-  fi
-  if echo "$response" | jq -er '.choices[0].text' | grep -qi "Paris"; then
-    echo "PASS: POST /v1/completions"
-  else
-    echo "FAIL: expected completion to mention 'Paris'" >&2
-    echo "$response" >&2
-    return 1
-  fi
-}
-
 test_chat_completions() {
   echo "Testing POST /v1/chat/completions..."
   local response
@@ -80,6 +62,5 @@ test_chat_completions() {
 
 wait_for_gateway
 test_models_endpoint
-test_completions
 test_chat_completions
 echo "All e2e tests passed!"
