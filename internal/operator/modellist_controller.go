@@ -122,20 +122,16 @@ func (r *ModelListReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&v1alpha1.Model{}, handler.EnqueueRequestsFromMapFunc(
 			func(_ context.Context, obj client.Object) []reconcile.Request {
 				return []reconcile.Request{{
-					NamespacedName: types.NamespacedName{
-						Name:      native.ModelListPolicyName,
-						Namespace: obj.GetNamespace(),
-					},
+					Name:      native.ModelListPolicyName,
+					Namespace: obj.GetNamespace(),
 				}}
 			}),
 			builder.WithPredicates(phaseChangedPredicate{})).
 		Watches(policyType, handler.EnqueueRequestsFromMapFunc(
 			func(_ context.Context, obj client.Object) []reconcile.Request {
 				return []reconcile.Request{{
-					NamespacedName: types.NamespacedName{
-						Name:      obj.GetName(),
-						Namespace: obj.GetNamespace(),
-					},
+					Name:      obj.GetName(),
+					Namespace: obj.GetNamespace(),
 				}}
 			}),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{})).

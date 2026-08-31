@@ -42,7 +42,7 @@ func newModelListPolicy() *unstructured.Unstructured {
 func reconcileModelListOnce(t *testing.T, r *ModelListReconciler) ctrl.Result {
 	t.Helper()
 	res, err := r.Reconcile(context.Background(), ctrl.Request{
-		NamespacedName: types.NamespacedName{Name: native.ModelListPolicyName, Namespace: testNamespace},
+		Name: native.ModelListPolicyName, Namespace: testNamespace,
 	})
 	if err != nil {
 		t.Fatalf("Reconcile returned error: %v", err)
@@ -96,7 +96,7 @@ func TestModelListReconcile_PolicyNotFound(t *testing.T) {
 	r := &ModelListReconciler{Client: c, Scheme: s}
 
 	_, err := r.Reconcile(context.Background(), ctrl.Request{
-		NamespacedName: types.NamespacedName{Name: native.ModelListPolicyName, Namespace: testNamespace},
+		Name: native.ModelListPolicyName, Namespace: testNamespace,
 	})
 	if err == nil {
 		t.Fatal("expected error when policy is not found")

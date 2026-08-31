@@ -29,7 +29,7 @@ const testNamespace = "default"
 func reconcileModelOnce(t *testing.T, r *ModelReconciler, name string) ctrl.Result {
 	t.Helper()
 	res, err := r.Reconcile(context.Background(), ctrl.Request{
-		NamespacedName: types.NamespacedName{Name: name, Namespace: testNamespace},
+		Name: name, Namespace: testNamespace,
 	})
 	if err != nil {
 		t.Fatalf("Reconcile returned error: %v", err)
@@ -187,24 +187,22 @@ func TestReconcile_ScaleToZero_KeepsForeignOwnedObject(t *testing.T) {
 	// A pre-existing engine deployment that is owned by something else.
 	controller := true
 	foreign := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "tiny-llm-engine",
-			Namespace: testNamespace,
-			OwnerReferences: []metav1.OwnerReference{{
-				APIVersion: "v1",
-				Kind:       "ConfigMap",
-				Name:       "foreign-owner",
-				UID:        "foreign-uid",
-				Controller: &controller,
-			}},
-		},
+		Name:      "tiny-llm-engine",
+		Namespace: testNamespace,
+		OwnerReferences: []metav1.OwnerReference{{
+			APIVersion: "v1",
+			Kind:       "ConfigMap",
+			Name:       "foreign-owner",
+			UID:        "foreign-uid",
+			Controller: &controller,
+		}},
 	}
 
 	c := fake.NewClientBuilder().WithScheme(s).WithObjects(model, foreign).WithStatusSubresource(model).Build()
 	r := &ModelReconciler{Client: c, Scheme: s}
 
 	_, err := r.Reconcile(context.Background(), ctrl.Request{
-		NamespacedName: types.NamespacedName{Name: "tiny-llm", Namespace: testNamespace},
+		Name: "tiny-llm", Namespace: testNamespace,
 	})
 	if err == nil {
 		t.Fatal("expected error for foreign-owned colliding resource, got nil")

@@ -39,20 +39,16 @@ var eppConfig string
 // BuildEPPServiceAccount returns the ServiceAccount for the EPP.
 func BuildEPPServiceAccount(model *v1alpha1.Model) *corev1.ServiceAccount {
 	return &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      model.EPPName(),
-			Namespace: model.Namespace,
-		},
+		Name:      model.EPPName(),
+		Namespace: model.Namespace,
 	}
 }
 
 // BuildEPPRole returns the Role granting the EPP the access it needs.
 func BuildEPPRole(model *v1alpha1.Model) *rbacv1.Role {
 	return &rbacv1.Role{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      model.EPPName(),
-			Namespace: model.Namespace,
-		},
+		Name:      model.EPPName(),
+		Namespace: model.Namespace,
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{""},
@@ -71,10 +67,8 @@ func BuildEPPRole(model *v1alpha1.Model) *rbacv1.Role {
 // BuildEPPRoleBinding binds the EPP Role to its ServiceAccount.
 func BuildEPPRoleBinding(model *v1alpha1.Model) *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      model.EPPName(),
-			Namespace: model.Namespace,
-		},
+		Name:      model.EPPName(),
+		Namespace: model.Namespace,
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "Role",
@@ -93,10 +87,8 @@ func BuildEPPRoleBinding(model *v1alpha1.Model) *rbacv1.RoleBinding {
 // BuildEPPConfigMap returns the ConfigMap carrying the EPP plugin configuration.
 func BuildEPPConfigMap(model *v1alpha1.Model) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      model.EPPName(),
-			Namespace: model.Namespace,
-		},
+		Name:      model.EPPName(),
+		Namespace: model.Namespace,
 		Data: map[string]string{
 			eppConfigKey: eppConfig,
 		},
@@ -146,16 +138,12 @@ func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 			{Name: "config", MountPath: "/config", ReadOnly: true},
 		},
 		LivenessProbe: &corev1.Probe{
-			ProbeHandler: corev1.ProbeHandler{
-				GRPC: &corev1.GRPCAction{Port: eppGRPCHealthPort, Service: &eppService},
-			},
+			GRPC:                &corev1.GRPCAction{Port: eppGRPCHealthPort, Service: &eppService},
 			InitialDelaySeconds: 5,
 			PeriodSeconds:       10,
 		},
 		ReadinessProbe: &corev1.Probe{
-			ProbeHandler: corev1.ProbeHandler{
-				GRPC: &corev1.GRPCAction{Port: eppGRPCHealthPort, Service: &eppService},
-			},
+			GRPC:          &corev1.GRPCAction{Port: eppGRPCHealthPort, Service: &eppService},
 			PeriodSeconds: 2,
 		},
 	}
@@ -166,10 +154,8 @@ func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 
 	recreate := appsv1.RecreateDeploymentStrategyType
 	return &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      model.EPPName(),
-			Namespace: model.Namespace,
-		},
+		Name:      model.EPPName(),
+		Namespace: model.Namespace,
 		Spec: appsv1.DeploymentSpec{
 			Replicas: new(int32(1)),
 			Strategy: appsv1.DeploymentStrategy{Type: recreate},
@@ -187,10 +173,8 @@ func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 					Volumes: []corev1.Volume{
 						{
 							Name: "config",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{Name: model.EPPName()},
-								},
+							ConfigMap: &corev1.ConfigMapVolumeSource{
+								Name: model.EPPName(),
 							},
 						},
 					},
@@ -203,11 +187,9 @@ func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 // BuildEPPService returns the Service exposing the EPP's gRPC and metrics ports.
 func BuildEPPService(model *v1alpha1.Model) *corev1.Service {
 	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      model.EPPName(),
-			Namespace: model.Namespace,
-			Labels:    map[string]string{"thalamus.cloud/epp": model.EPPName()},
-		},
+		Name:      model.EPPName(),
+		Namespace: model.Namespace,
+		Labels:    map[string]string{"thalamus.cloud/epp": model.EPPName()},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{"thalamus.cloud/epp": model.EPPName()},
 			Ports: []corev1.ServicePort{

@@ -49,11 +49,9 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 			{Name: "dshm", MountPath: "/dev/shm"},
 		},
 		StartupProbe: &corev1.Probe{
-			ProbeHandler: corev1.ProbeHandler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Path: "/v1/models",
-					Port: intstr.FromInt32(engineHTTPPort),
-				},
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/v1/models",
+				Port: intstr.FromInt32(engineHTTPPort),
 			},
 			InitialDelaySeconds: 60,
 			PeriodSeconds:       10,
@@ -61,22 +59,18 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 			FailureThreshold:    360,
 		},
 		LivenessProbe: &corev1.Probe{
-			ProbeHandler: corev1.ProbeHandler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Path: "/health",
-					Port: intstr.FromInt32(engineHTTPPort),
-				},
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/health",
+				Port: intstr.FromInt32(engineHTTPPort),
 			},
 			PeriodSeconds:    10,
 			TimeoutSeconds:   5,
 			FailureThreshold: 3,
 		},
 		ReadinessProbe: &corev1.Probe{
-			ProbeHandler: corev1.ProbeHandler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Path: "/v1/models",
-					Port: intstr.FromInt32(engineHTTPPort),
-				},
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/v1/models",
+				Port: intstr.FromInt32(engineHTTPPort),
 			},
 			PeriodSeconds:    5,
 			TimeoutSeconds:   2,
@@ -101,10 +95,8 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 				VolumeSource: cacheVolumeSource,
 			},
 			{
-				Name: "dshm",
-				VolumeSource: corev1.VolumeSource{
-					EmptyDir: &corev1.EmptyDirVolumeSource{Medium: corev1.StorageMediumMemory},
-				},
+				Name:     "dshm",
+				EmptyDir: &corev1.EmptyDirVolumeSource{Medium: corev1.StorageMediumMemory},
 			},
 		},
 	}
@@ -118,10 +110,8 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 	}
 
 	return &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      model.EngineName(),
-			Namespace: model.Namespace,
-		},
+		Name:      model.EngineName(),
+		Namespace: model.Namespace,
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &model.Spec.Replicas,
 			Selector: &metav1.LabelSelector{
@@ -138,10 +128,8 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 // BuildEngineService returns the Service for the vLLM engine.
 func BuildEngineService(model *v1alpha1.Model) *corev1.Service {
 	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      model.EngineName(),
-			Namespace: model.Namespace,
-		},
+		Name:      model.EngineName(),
+		Namespace: model.Namespace,
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{"thalamus.cloud/engine": model.EngineName()},
 			Ports: []corev1.ServicePort{

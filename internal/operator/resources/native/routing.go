@@ -4,7 +4,6 @@
 package native
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -33,11 +32,9 @@ func BuildInferencePool(model *v1alpha1.Model) *inferencev1.InferencePool {
 	}
 
 	return &inferencev1.InferencePool{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      model.EngineName(),
-			Namespace: model.Namespace,
-		},
-		Spec: spec,
+		Name:      model.EngineName(),
+		Namespace: model.Namespace,
+		Spec:      spec,
 	}
 }
 
@@ -54,10 +51,8 @@ func BuildHTTPRoute(model *v1alpha1.Model) *gatewayv1.HTTPRoute {
 	}
 
 	return &gatewayv1.HTTPRoute{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      model.EngineName(),
-			Namespace: model.Namespace,
-		},
+		Name:      model.EngineName(),
+		Namespace: model.Namespace,
 		Spec: gatewayv1.HTTPRouteSpec{
 			CommonRouteSpec: gatewayv1.CommonRouteSpec{
 				ParentRefs: []gatewayv1.ParentReference{
@@ -75,13 +70,9 @@ func BuildHTTPRoute(model *v1alpha1.Model) *gatewayv1.HTTPRoute {
 					},
 					BackendRefs: []gatewayv1.HTTPBackendRef{
 						{
-							BackendRef: gatewayv1.BackendRef{
-								BackendObjectReference: gatewayv1.BackendObjectReference{
-									Group: new(gatewayv1.Group("inference.networking.k8s.io")),
-									Kind:  new(gatewayv1.Kind("InferencePool")),
-									Name:  gatewayv1.ObjectName(model.EngineName()),
-								},
-							},
+							Group: new(gatewayv1.Group("inference.networking.k8s.io")),
+							Kind:  new(gatewayv1.Kind("InferencePool")),
+							Name:  gatewayv1.ObjectName(model.EngineName()),
 						},
 					},
 				},

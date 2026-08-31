@@ -6,7 +6,6 @@ package testutil
 import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 )
@@ -14,7 +13,7 @@ import (
 // NewModel returns a fully populated Model for use as a text fixture.
 func NewModel(name, namespace string) *v1alpha1.Model {
 	return &v1alpha1.Model{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+		Name: name, Namespace: namespace,
 		Spec: v1alpha1.ModelSpec{
 			Backend:  v1alpha1.BackendTypeNative,
 			Replicas: 1,

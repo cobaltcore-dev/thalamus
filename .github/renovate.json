@@ -9,7 +9,7 @@
   "assignees": ["Varsius"],
   "commitMessageAction": "Renovate: Update",
   "constraints": {
-    "go": "1.26"
+    "go": "1.27"
   },
   "dependencyDashboardOSVVulnerabilitySummary": "all",
   "osvVulnerabilityAlerts": true,
@@ -39,7 +39,7 @@
   "packageRules": [
     {
       "matchPackageNames": ["golang"],
-      "allowedVersions": "1.26.x"
+      "allowedVersions": "1.27.x"
     },
     {
       "matchPackageNames": ["cr.agentgateway.dev/charts/agentgateway", "cr.agentgateway.dev/charts/agentgateway-crds"],
