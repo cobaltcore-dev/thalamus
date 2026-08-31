@@ -5,13 +5,13 @@ package native
 
 import (
 	_ "embed"
+	"strconv"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 )
@@ -56,11 +56,6 @@ func BuildEPPRole(model *v1alpha1.Model) *rbacv1.Role {
 				Resources: []string{"pods"},
 				Verbs:     []string{"get", "watch", "list"},
 			},
-			{
-				APIGroups: []string{inferencev1.GroupName},
-				Resources: []string{"inferencepools"},
-				Verbs:     []string{"get", "watch", "list"},
-			},
 		},
 	}
 }
@@ -97,13 +92,14 @@ func BuildEPPConfigMap(model *v1alpha1.Model) *corev1.ConfigMap {
 }
 
 // BuildEPPDeployment returns the Deployment for the Endpoint Picker Proxy.
+// The EPP discovers the model's engine pods directly via a label selector,
+// following the llm-d router standalone mode (--endpoint-selector).
 func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 	epp := model.Spec.Serving.EPP
 
 	args := []string{
-		"--pool-name", model.EngineName(),
-		"--pool-namespace", model.Namespace,
-		"--pool-group", inferencev1.GroupName,
+		"--endpoint-selector", engineSelector(model),
+		"--endpoint-target-ports", strconv.Itoa(engineHTTPPort),
 		"--zap-encoder", "json",
 		"--config-file", "/config/" + eppConfigKey,
 		"--metrics-endpoint-auth=false",

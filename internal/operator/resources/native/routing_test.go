@@ -6,31 +6,37 @@ package native
 import (
 	"testing"
 
-	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	agentgatewayv1alpha1 "github.com/agentgateway/agentgateway/controller/api/v1alpha1/agentgateway"
 
-	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
 )
 
-func TestBuildInferencePool(t *testing.T) {
+func TestBuildEPPExtProcPolicy(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
-	model.Spec.Serving.EPP = &v1alpha1.EPPSpec{Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0"}
-	pool := BuildInferencePool(model)
+	policy := BuildEPPExtProcPolicy(model)
 
-	if pool.Name != model.EngineName() {
-		t.Errorf("Name:\ngot:  %q\nwant: %q", pool.Name, model.EngineName())
+	if policy.Name != model.Name+"-extproc" {
+		t.Errorf("Name:\ngot:  %q\nwant: %q", policy.Name, model.Name+"-extproc")
 	}
-	if len(pool.Spec.TargetPorts) != 1 || pool.Spec.TargetPorts[0].Number != engineHTTPPort {
-		t.Error("unexpected TargetPorts")
+	if len(policy.Spec.TargetRefs) != 1 {
+		t.Fatalf("len(policy.Spec.TargetRefs): %d, want 1", len(policy.Spec.TargetRefs))
 	}
-	if string(pool.Spec.EndpointPickerRef.Name) != model.EPPName() {
-		t.Errorf("EndpointPickerRef.Name:\ngot:  %q\nwant: %q", pool.Spec.EndpointPickerRef.Name, model.EPPName())
+	target := policy.Spec.TargetRefs[0]
+	if target.Group != gatewayv1.Group(gatewayv1.GroupName) || target.Kind != "HTTPRoute" || target.Name != gatewayv1.ObjectName(model.EngineName()) {
+		t.Errorf("unexpected targetRef: %+v", target)
 	}
-	if pool.Spec.EndpointPickerRef.Port == nil || pool.Spec.EndpointPickerRef.Port.Number != inferencev1.PortNumber(eppGRPCExtProcPort) {
-		t.Errorf("EndpointPickerRef.Port != %d", eppGRPCExtProcPort)
+
+	extProc := policy.Spec.Traffic.ExtProc
+	if extProc == nil || extProc.BackendRef == nil {
+		t.Fatal("traffic.extProc.backendRef not set")
+	}
+	if extProc.BackendRef.Name != gatewayv1.ObjectName(model.EPPName()) {
+		t.Errorf("backendRef.Name:\ngot:  %q\nwant: %q", extProc.BackendRef.Name, model.EPPName())
+	}
+	if extProc.BackendRef.Port == nil || *extProc.BackendRef.Port != eppGRPCExtProcPort {
+		t.Errorf("backendRef.Port: %+v, want %d", extProc.BackendRef.Port, eppGRPCExtProcPort)
 	}
 }
 
@@ -42,7 +48,7 @@ func TestBuildHTTPRoute(t *testing.T) {
 		t.Errorf("Name:\ngot:  %q\nwant: %q", route.Name, model.EngineName())
 	}
 	if len(route.Spec.ParentRefs) != 1 {
-		t.Errorf("len(route.Spec.ParentRefs): %d, want 1", len(route.Spec.ParentRefs))
+		t.Fatalf("len(route.Spec.ParentRefs): %d, want 1", len(route.Spec.ParentRefs))
 	}
 	parentRef := route.Spec.ParentRefs[0]
 	if name := parentRef.Name; name != defaultGatewayName {

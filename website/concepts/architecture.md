@@ -12,13 +12,13 @@ It requires an AI-enabled Kubernetes cluster, for example one provided by [Garde
 
 ## Inference API
 
-A single OpenAI-compatible HTTP endpoint serves all clients. Routing to the correct model and replica is handled inside the cluster by the Gateway API Inference Extension and the llm-d Endpoint Picker.
+A single OpenAI-compatible HTTP endpoint serves all clients. Routing to the correct model is handled by the agentgateway inference gateway; model-aware replica selection is performed by the llm-d Endpoint Picker, which the gateway consults via ext-proc.
 
 ## Kubernetes AI runtime
 
-### Gateway API Inference Extension
+### agentgateway
 
-Model-aware HTTP routing built on the Kubernetes Gateway API. Each model is served by an `InferencePool`; requests are routed to the right pool based on the requested model.
+The inference gateway runs on [agentgateway](https://agentgateway.dev/), a Kubernetes Gateway API implementation. Each model is served by an engine service; requests are routed to the right model based on the requested model, and the model's Endpoint Picker is attached to the route as an ext-proc service.
 
 ### llm-d + vLLM
 

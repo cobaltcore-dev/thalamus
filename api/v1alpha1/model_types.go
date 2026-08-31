@@ -40,8 +40,6 @@ const (
 	ModelReasonEPPNotReady               ModelReason = "EPPNotReady"
 	ModelReasonEPPDeploymentFailed       ModelReason = "EPPDeploymentFailed"
 	ModelReasonNoReplicasDesired         ModelReason = "NoReplicasDesired"
-	ModelReasonInferencePoolNotAccepted  ModelReason = "InferencePoolNotAccepted"
-	ModelReasonInferencePoolRejected     ModelReason = "InferencePoolRejected"
 	ModelReasonHTTPRouteNotAccepted      ModelReason = "HTTPRouteNotAccepted"
 	ModelReasonHTTPRouteRejected         ModelReason = "HTTPRouteRejected"
 	ModelReasonHTTPRoutePartiallyInvalid ModelReason = "HTTPRoutePartiallyInvalid"

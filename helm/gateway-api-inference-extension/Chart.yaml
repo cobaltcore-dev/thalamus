@@ -1,5 +1,0 @@
-apiVersion: v2
-name: gateway-api-inference-extension
-description: Vendored Gateway API Inference Extension CRDs.
-type: application
-version: 1.6.0

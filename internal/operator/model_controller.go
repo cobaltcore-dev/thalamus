@@ -21,7 +21,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	agentgatewayv1alpha1 "github.com/agentgateway/agentgateway/controller/api/v1alpha1/agentgateway"
@@ -75,7 +74,6 @@ func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.M
 	objs := []client.Object{
 		native.BuildEngineDeployment(model),
 		native.BuildEngineService(model),
-		native.BuildInferencePool(model),
 		native.BuildAIBackend(model),
 		native.BuildHTTPRoute(model),
 	}
@@ -88,6 +86,7 @@ func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.M
 		native.BuildEPPConfigMap(model),
 		native.BuildEPPDeployment(model),
 		native.BuildEPPService(model),
+		native.BuildEPPExtProcPolicy(model),
 	)
 
 	if model.Spec.Replicas == 0 {
@@ -214,9 +213,9 @@ func (r *ModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.ConfigMap{}).
 		Owns(&rbacv1.Role{}).
 		Owns(&rbacv1.RoleBinding{}).
-		Owns(&inferencev1.InferencePool{}).
 		Owns(&gatewayv1.HTTPRoute{}).
 		Owns(&agentgatewayv1alpha1.AgentgatewayBackend{}).
+		Owns(&agentgatewayv1alpha1.AgentgatewayPolicy{}).
 		Named("model").
 		Complete(r)
 }

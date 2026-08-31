@@ -131,8 +131,8 @@ jobs:
 
                 echo
               done
-          echo "=== Gateway / HTTPRoutes / InferencePools ==="
-          kubectl get gateway,httproutes,inferencepools -n thalamus -o yaml
+          echo "=== Gateway / HTTPRoutes / AgentgatewayPolicies ==="
+          kubectl get gateway,httproutes,agentgatewaypolicies -n thalamus -o yaml
           echo "=== Collecting complete Kind node logs ==="
           mkdir -p debug-logs
           docker exec thalamus-control-plane sh -c \

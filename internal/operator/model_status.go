@@ -14,15 +14,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 )
 
 // syncNativeStatus derives and updates the ready state of a model by checking:
-// engine Deployment, EPP Deployment, InferencePool acceptance,
-// and HTTPRoute acceptance.
+// engine Deployment, EPP Deployment, and HTTPRoute acceptance.
 func (r *ModelReconciler) syncNativeStatus(ctx context.Context, model *v1alpha1.Model) error {
 	if model.Spec.Replicas == 0 {
 		setModelStatus(model, v1alpha1.ModelPhaseInactive, v1alpha1.ModelReasonNoReplicasDesired, "model has no desired replicas")
@@ -35,7 +33,6 @@ func (r *ModelReconciler) syncNativeStatus(ctx context.Context, model *v1alpha1.
 	}{
 		{"engine", r.syncEngineCondition},
 		{"epp", r.syncEPPCondition},
-		{"inference pool", r.syncInferencePoolCondition},
 		{"http route", r.syncHTTPRouteCondition},
 	}
 
@@ -117,58 +114,6 @@ func deploymentReplicasReady(dep *appsv1.Deployment) bool {
 		desired = *dep.Spec.Replicas
 	}
 	return dep.Status.ReadyReplicas >= desired
-}
-
-// syncInferencePoolCondition checks the InferencePool status and updates the model status.
-func (r *ModelReconciler) syncInferencePoolCondition(ctx context.Context, model *v1alpha1.Model) (bool, error) {
-	pool := &inferencev1.InferencePool{}
-	if err := r.Get(ctx, types.NamespacedName{Name: model.EngineName(), Namespace: model.Namespace}, pool); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonInferencePoolNotAccepted, fmt.Sprintf("InferencePool %s not found", model.EngineName()))
-			return false, nil
-		}
-		return false, err
-	}
-
-	if len(pool.Status.Parents) == 0 {
-		setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonInferencePoolNotAccepted, fmt.Sprintf("InferencePool %s has no parent status yet", model.EngineName()))
-		return false, nil
-	}
-
-	allReady := true
-	var failedMessage string
-	for _, parent := range pool.Status.Parents {
-		pphase, pmessage := checkParentConditions(
-			parent.Conditions,
-			string(inferencev1.InferencePoolConditionAccepted),
-			string(inferencev1.InferencePoolConditionResolvedRefs),
-			func(condReason string) bool {
-				switch condReason {
-				case string(inferencev1.InferencePoolReasonNotRequested),
-					string(inferencev1.InferencePoolReasonHTTPRouteNotAccepted):
-					return true
-				}
-				return false
-			},
-			nil,
-		)
-		if pphase != v1alpha1.ModelPhaseReady {
-			allReady = false
-		}
-		if pphase == v1alpha1.ModelPhaseFailed {
-			failedMessage = pmessage
-		}
-	}
-
-	if failedMessage != "" {
-		setModelStatus(model, v1alpha1.ModelPhaseFailed, v1alpha1.ModelReasonInferencePoolRejected, failedMessage)
-		return false, nil
-	}
-	if allReady {
-		return true, nil
-	}
-	setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonInferencePoolNotAccepted, fmt.Sprintf("InferencePool %s not accepted by gateway", model.EngineName()))
-	return false, nil
 }
 
 // syncHTTPRouteCondition checks the HTTPRoute status and updates the model status.

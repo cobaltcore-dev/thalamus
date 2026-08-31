@@ -11,10 +11,6 @@ releases:
     namespace: default
     chart: ./gateway-api
 
-  - name: gateway-api-inference-extension-crds
-    namespace: default
-    chart: ./gateway-api-inference-extension
-
   - name: node-feature-discovery
     namespace: node-feature-discovery
     createNamespace: true
@@ -66,11 +62,8 @@ releases:
     installed: {{ dig "agentgateway" "enabled" true .Values }}
     needs:
       - default/gateway-api-crds
-      - default/gateway-api-inference-extension-crds
       - agentgateway-system/agentgateway-crds
     values:
-      - inferenceExtension:
-          enabled: true
       - {{ dig "agentgateway" dict .Values | toYaml | nindent 10 }}
 
   - name: external-dns

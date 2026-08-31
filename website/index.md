@@ -5,7 +5,7 @@ hero:
   name: Thalamus
   text: Sovereign AI Infrastructure
   tagline: >
-    A sovereign, vendor-neutral, and Kubernetes-native inference service based on vLLM, llm-d, the Gateway API inference extension, and Cortex.
+    A sovereign, vendor-neutral, and Kubernetes-native inference service based on vLLM, llm-d, agentgateway, and Cortex.
   image:
     src: https://raw.githubusercontent.com/cobaltcore-dev/thalamus/main/docs/assets/logo/Thalamus_Logo_black.svg
     alt: CobaltCore
@@ -39,7 +39,7 @@ features:
   - icon: 🏗️
     title: Architecture
     details: >
-      Built on vLLM, llm-d, the Gateway API inference extension, Open Component Model, and Cortex.
+      Built on vLLM, llm-d, agentgateway, Open Component Model, and Cortex.
       Learn how the components fit together.
     link: /concepts/architecture
     linkText: Architecture overview

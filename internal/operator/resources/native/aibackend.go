@@ -4,21 +4,20 @@
 package native
 
 import (
-	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
-
 	agentgatewayv1alpha1 "github.com/agentgateway/agentgateway/controller/api/v1alpha1/agentgateway"
 
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 )
 
 // BuildAIBackend returns the AgentgatewayBackend that routes the model's
-// InferencePool through the gateway's LLM pipeline for token-usage metrics.
+// engine Service through the gateway's LLM pipeline for token-usage metrics.
 func BuildAIBackend(model *v1alpha1.Model) *agentgatewayv1alpha1.AgentgatewayBackend {
 	settings := agentgatewayv1alpha1.CustomProviderSettings{
 		BackendRef: &agentgatewayv1alpha1.LocalBackendObjectReference{
-			Group: new(inferencev1.GroupName),
-			Kind:  new("InferencePool"),
+			Group: new(""),
+			Kind:  new("Service"),
 			Name:  model.EngineName(),
+			Port:  new(int32(engineHTTPPort)),
 		},
 		Formats: []agentgatewayv1alpha1.ProviderFormatConfig{
 			{Type: agentgatewayv1alpha1.ProviderFormatCompletions},

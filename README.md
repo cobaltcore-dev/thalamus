@@ -12,7 +12,7 @@ Thalamus
 
 Thalamus is a vendor-neutral, Kubernetes-native inference service for sovereign LLM deployments. Weights, prompts, and context are protected and stay in the deployment perimeter.
 
-Thalamus is built on [llm-d](https://llm-d.ai/), [vLLM](https://vllm.ai/), the [Gateway API inference extension](https://github.com/kubernetes-sigs/gateway-api-inference-extension), and [Cortex](https://github.com/cobaltcore-dev/cortex).
+Thalamus is built on [llm-d](https://llm-d.ai/), [vLLM](https://vllm.ai/), [agentgateway](https://agentgateway.dev/), and [Cortex](https://github.com/cobaltcore-dev/cortex).
 
 Supports **Nvidia**, **AMD**, and **Intel** infrastructure.
 
@@ -33,7 +33,7 @@ Thalamus integrates natively with [CobaltCore](https://cobaltcore-dev.github.io/
 
 - OpenAI-compatible inference API with streaming
 - Declarative model management via a Kubernetes Custom Resources including full lifecycle management
-- Model-aware routing through the Gateway API Inference Extension
+- Model-aware routing through the Gateway API and the llm-d Endpoint Picker
 - KV-cache aware load balancing via the llm-d Endpoint Picker
 - Autoscaling driven by time-to-first-token and queue-depth metrics
 - Multi-vendor GPU support (Nvidia, AMD, Intel)

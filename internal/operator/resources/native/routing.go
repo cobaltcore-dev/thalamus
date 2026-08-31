@@ -4,7 +4,6 @@
 package native
 
 import (
-	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	agentgatewayv1alpha1 "github.com/agentgateway/agentgateway/controller/api/v1alpha1/agentgateway"
@@ -18,25 +17,31 @@ const (
 	gatewayBaseModelHeaderName = "X-Gateway-Base-Model-Name"
 )
 
-// BuildInferencePool returns the InferencePool for the model.
-func BuildInferencePool(model *v1alpha1.Model) *inferencev1.InferencePool {
-	spec := inferencev1.InferencePoolSpec{
-		Selector: inferencev1.LabelSelector{
-			MatchLabels: map[inferencev1.LabelKey]inferencev1.LabelValue{
-				"thalamus.cloud/engine": inferencev1.LabelValue(model.EngineName()),
+// BuildEPPExtProcPolicy returns the AgentgatewayPolicy that wires the model's
+// HTTPRoute to the EPP as an ext-proc service, following the llm-d router
+// standalone mode where the proxy consults the EPP for endpoint selection.
+func BuildEPPExtProcPolicy(model *v1alpha1.Model) *agentgatewayv1alpha1.AgentgatewayPolicy {
+	port := eppGRPCExtProcPort
+	return &agentgatewayv1alpha1.AgentgatewayPolicy{
+		Name:      model.Name + "-extproc",
+		Namespace: model.Namespace,
+		Spec: agentgatewayv1alpha1.AgentgatewayPolicySpec{
+			TargetRefs: []agentgatewayv1alpha1.LocalPolicyTargetReferenceWithSectionName{
+				{
+					Group: gatewayv1.Group(gatewayv1.GroupName),
+					Kind:  gatewayv1.Kind("HTTPRoute"),
+					Name:  gatewayv1.ObjectName(model.EngineName()),
+				},
+			},
+			Traffic: &agentgatewayv1alpha1.Traffic{
+				ExtProc: &agentgatewayv1alpha1.ExtProcOrConditional{
+					BackendRef: &gatewayv1.BackendObjectReference{
+						Name: gatewayv1.ObjectName(model.EPPName()),
+						Port: &port,
+					},
+				},
 			},
 		},
-		TargetPorts: []inferencev1.Port{{Number: engineHTTPPort}},
-		EndpointPickerRef: &inferencev1.EndpointPickerRef{
-			Name: inferencev1.ObjectName(model.EPPName()),
-			Port: &inferencev1.Port{Number: inferencev1.PortNumber(eppGRPCExtProcPort)},
-		},
-	}
-
-	return &inferencev1.InferencePool{
-		Name:      model.EngineName(),
-		Namespace: model.Namespace,
-		Spec:      spec,
 	}
 }
 

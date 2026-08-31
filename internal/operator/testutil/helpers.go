@@ -15,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	agentgatewayv1alpha1 "github.com/agentgateway/agentgateway/controller/api/v1alpha1/agentgateway"
@@ -34,7 +33,6 @@ func NewScheme(t *testing.T) *runtime.Scheme {
 		corev1.AddToScheme,
 		rbacv1.AddToScheme,
 		gatewayv1.Install,
-		inferencev1.Install,
 		agentgatewayv1alpha1.Install,
 	} {
 		if err := add(s); err != nil {

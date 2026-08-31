@@ -5,7 +5,7 @@ title: Getting Started
 # Getting Started
 
 Thalamus is a vendor-neutral, Kubernetes-native inference service based on
-[llm-d](https://llm-d.ai/), the [Gateway API inference extension](https://github.com/kubernetes-sigs/gateway-api-inference-extension),
+[llm-d](https://llm-d.ai/), [agentgateway](https://agentgateway.dev/),
 and [Cortex](https://github.com/cobaltcore-dev/cortex).
 
 ## Prerequisites
@@ -84,7 +84,7 @@ open-webui:
 ## Step 3 — Deploy the stack
 
 The `helm/helmfile.yaml.gotmpl` manifest installs the full stack as a set of
-ordered helmfile releases: the Gateway API and Inference Extension CRDs, the
+ordered helmfile releases: the Gateway API CRDs, the
 Thalamus CRDs, the GPU operator and node feature discovery, the agentgateway
 with its CRDs, `kube-prometheus-stack` for observability, the `thalamus` chart
 (operator + gateway), and finally `open-webui`. Helmfile registers the required

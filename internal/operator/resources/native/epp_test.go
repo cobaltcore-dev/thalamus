@@ -28,8 +28,11 @@ func TestBuildEPPRole(t *testing.T) {
 	if role.Name != model.EPPName() {
 		t.Errorf("Name:\ngot:  %q\nwant: %q", role.Name, model.EPPName())
 	}
-	if len(role.Rules) != 2 {
-		t.Errorf("rules:\ngot:  %d\nwant: 2", len(role.Rules))
+	if len(role.Rules) != 1 {
+		t.Fatalf("rules:\ngot:  %d\nwant: 1", len(role.Rules))
+	}
+	if role.Rules[0].APIGroups[0] != "" || role.Rules[0].Resources[0] != "pods" {
+		t.Errorf("unexpected rule: %+v", role.Rules[0])
 	}
 }
 
@@ -78,6 +81,22 @@ func TestBuildEPPDeployment(t *testing.T) {
 	if c.LivenessProbe == nil || c.ReadinessProbe == nil {
 		t.Error("missing probes")
 	}
+	wantSelector := engineLabelKey + "=" + model.EngineName()
+	if !hasArgPair(c.Args, "--endpoint-selector", wantSelector) {
+		t.Errorf("missing --endpoint-selector %q in args: %v", wantSelector, c.Args)
+	}
+	if !hasArgPair(c.Args, "--endpoint-target-ports", "8000") {
+		t.Errorf("missing --endpoint-target-ports 8000 in args: %v", c.Args)
+	}
+}
+
+func hasArgPair(args []string, flag, value string) bool {
+	for i := 0; i+1 < len(args); i++ {
+		if args[i] == flag && args[i+1] == value {
+			return true
+		}
+	}
+	return false
 }
 
 func TestBuildEPPService(t *testing.T) {

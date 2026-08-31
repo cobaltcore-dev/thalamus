@@ -6,8 +6,6 @@ package native
 import (
 	"testing"
 
-	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
-
 	agentgatewayv1alpha1 "github.com/agentgateway/agentgateway/controller/api/v1alpha1/agentgateway"
 
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
@@ -32,9 +30,10 @@ func TestBuildAIBackend(t *testing.T) {
 	if custom.BackendRef == nil {
 		t.Fatal("spec.ai.provider.custom.backendRef not set")
 	}
-	if *custom.BackendRef.Group != inferencev1.GroupName ||
-		*custom.BackendRef.Kind != "InferencePool" ||
-		custom.BackendRef.Name != model.EngineName() {
+	if *custom.BackendRef.Group != "" ||
+		*custom.BackendRef.Kind != "Service" ||
+		custom.BackendRef.Name != model.EngineName() ||
+		custom.BackendRef.Port == nil || *custom.BackendRef.Port != engineHTTPPort {
 		t.Errorf("unexpected backendRef: %+v", custom.BackendRef)
 	}
 

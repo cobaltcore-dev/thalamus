@@ -15,7 +15,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	agentgatewayv1alpha1 "github.com/agentgateway/agentgateway/controller/api/v1alpha1/agentgateway"
@@ -46,7 +45,7 @@ func newTestReconciler(t *testing.T, objs ...client.Object) (*ModelReconciler, c
 	s := testutil.NewScheme(t)
 	c := fake.NewClientBuilder().WithScheme(s).
 		WithObjects(objs...).
-		WithStatusSubresource(&v1alpha1.Model{}, &appsv1.Deployment{}, &inferencev1.InferencePool{}, &gatewayv1.HTTPRoute{}).
+		WithStatusSubresource(&v1alpha1.Model{}, &appsv1.Deployment{}, &gatewayv1.HTTPRoute{}).
 		Build()
 	return &ModelReconciler{Client: c, Scheme: s}, c
 }
@@ -66,10 +65,10 @@ func TestReconcile_Native(t *testing.T) {
 	dep := &appsv1.Deployment{}
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, dep)
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, &corev1.Service{})
-	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, &inferencev1.InferencePool{})
 	backend := &agentgatewayv1alpha1.AgentgatewayBackend{}
 	testutil.MustGet(t, c, "tiny-llm", testNamespace, backend)
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, &gatewayv1.HTTPRoute{})
+	testutil.MustGet(t, c, "tiny-llm-extproc", testNamespace, &agentgatewayv1alpha1.AgentgatewayPolicy{})
 
 	if len(dep.OwnerReferences) == 0 || dep.OwnerReferences[0].Name != "tiny-llm" {
 		t.Error("Deployment missing owner reference to Model")
@@ -120,7 +119,7 @@ func TestReconcile_NativeMultipleReplicas(t *testing.T) {
 	}
 
 	// Singleton resources should still exist exactly once.
-	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, &inferencev1.InferencePool{})
+	testutil.MustGet(t, c, "tiny-llm-extproc", testNamespace, &agentgatewayv1alpha1.AgentgatewayPolicy{})
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, &gatewayv1.HTTPRoute{})
 	testutil.MustGet(t, c, "tiny-llm-epp", testNamespace, &appsv1.Deployment{})
 	testutil.MustGet(t, c, "tiny-llm-epp", testNamespace, &corev1.Service{})
@@ -138,9 +137,9 @@ func TestReconcile_ScaleToZero(t *testing.T) {
 	// All child resources should be deleted when scaled to zero.
 	testutil.MustNotGet(t, c, "tiny-llm-engine", testNamespace, &appsv1.Deployment{})
 	testutil.MustNotGet(t, c, "tiny-llm-engine", testNamespace, &corev1.Service{})
-	testutil.MustNotGet(t, c, "tiny-llm-engine", testNamespace, &inferencev1.InferencePool{})
 	testutil.MustNotGet(t, c, "tiny-llm", testNamespace, &agentgatewayv1alpha1.AgentgatewayBackend{})
 	testutil.MustNotGet(t, c, "tiny-llm-engine", testNamespace, &gatewayv1.HTTPRoute{})
+	testutil.MustNotGet(t, c, "tiny-llm-extproc", testNamespace, &agentgatewayv1alpha1.AgentgatewayPolicy{})
 	testutil.MustNotGet(t, c, "tiny-llm-epp", testNamespace, &corev1.ServiceAccount{})
 	testutil.MustNotGet(t, c, "tiny-llm-epp", testNamespace, &rbacv1.Role{})
 	testutil.MustNotGet(t, c, "tiny-llm-epp", testNamespace, &rbacv1.RoleBinding{})

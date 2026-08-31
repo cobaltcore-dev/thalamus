@@ -15,6 +15,15 @@ import (
 // engineHTTPPort is the TCP port the vLLM engine listens on.
 const engineHTTPPort = 8000
 
+// engineLabelKey labels the engine Deployment's pods with the engine name.
+// The EPP uses it as its endpoint selector.
+const engineLabelKey = "thalamus.cloud/engine"
+
+// engineSelector returns the label selector the EPP uses to discover the model's engine pods.
+func engineSelector(model *v1alpha1.Model) string {
+	return engineLabelKey + "=" + model.EngineName()
+}
+
 // BuildEngineDeployment returns the desired Deployment for the vLLM inference engine.
 func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 	engine := model.Spec.Serving.Engine
@@ -106,7 +115,7 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 	}
 
 	labels := map[string]string{
-		"thalamus.cloud/engine": model.EngineName(),
+		engineLabelKey: model.EngineName(),
 	}
 
 	return &appsv1.Deployment{
@@ -131,7 +140,7 @@ func BuildEngineService(model *v1alpha1.Model) *corev1.Service {
 		Name:      model.EngineName(),
 		Namespace: model.Namespace,
 		Spec: corev1.ServiceSpec{
-			Selector: map[string]string{"thalamus.cloud/engine": model.EngineName()},
+			Selector: map[string]string{engineLabelKey: model.EngineName()},
 			Ports: []corev1.ServicePort{
 				{
 					Name:       "vllm",

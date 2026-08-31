@@ -12,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
@@ -31,7 +30,6 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
-				markInferencePoolReady(t, c, m.EngineName())
 				markHTTPRouteReady(t, c, m.EngineName())
 			},
 			wantPhase:  v1alpha1.ModelPhaseReady,
@@ -41,7 +39,6 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			name: "creating when engine deployment not ready",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EPPName())
-				markInferencePoolReady(t, c, m.EngineName())
 				markHTTPRouteReady(t, c, m.EngineName())
 			},
 			wantPhase:  v1alpha1.ModelPhaseCreating,
@@ -51,28 +48,16 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			name: "creating when epp deployment not ready",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
-				markInferencePoolReady(t, c, m.EngineName())
 				markHTTPRouteReady(t, c, m.EngineName())
 			},
 			wantPhase:  v1alpha1.ModelPhaseCreating,
 			wantReason: v1alpha1.ModelReasonEPPNotReady,
 		},
 		{
-			name: "creating when inference pool not ready",
-			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
-				markDeploymentReady(t, c, m.EngineName())
-				markDeploymentReady(t, c, m.EPPName())
-				markHTTPRouteReady(t, c, m.EngineName())
-			},
-			wantPhase:  v1alpha1.ModelPhaseCreating,
-			wantReason: v1alpha1.ModelReasonInferencePoolNotAccepted,
-		},
-		{
 			name: "creating when http route not ready",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
-				markInferencePoolReady(t, c, m.EngineName())
 			},
 			wantPhase:  v1alpha1.ModelPhaseCreating,
 			wantReason: v1alpha1.ModelReasonHTTPRouteNotAccepted,
@@ -88,7 +73,6 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					t.Fatalf("update deployment status: %v", err)
 				}
 				markDeploymentReady(t, c, m.EPPName())
-				markInferencePoolReady(t, c, m.EngineName())
 				markHTTPRouteReady(t, c, m.EngineName())
 			},
 			wantPhase:  v1alpha1.ModelPhaseCreating,
@@ -99,7 +83,6 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
-				markInferencePoolReady(t, c, m.EngineName())
 				markHTTPRouteStatus(t, c, m.EngineName(), metav1.Condition{
 					Type:    string(gatewayv1.RouteConditionAccepted),
 					Status:  metav1.ConditionFalse,
@@ -109,21 +92,6 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			},
 			wantPhase:  v1alpha1.ModelPhaseCreating,
 			wantReason: v1alpha1.ModelReasonHTTPRouteNotAccepted,
-		},
-		{
-			name: "creating when inference pool is not requested",
-			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
-				markDeploymentReady(t, c, m.EngineName())
-				markDeploymentReady(t, c, m.EPPName())
-				markInferencePoolStatus(t, c, m.EngineName(), metav1.Condition{
-					Type:    string(inferencev1.InferencePoolConditionAccepted),
-					Status:  metav1.ConditionFalse,
-					Reason:  string(inferencev1.InferencePoolReasonNotRequested),
-					Message: "not requested",
-				})
-			},
-			wantPhase:  v1alpha1.ModelPhaseCreating,
-			wantReason: v1alpha1.ModelReasonInferencePoolNotAccepted,
 		},
 		{
 			name: "failed when engine deployment replica failure",
@@ -180,41 +148,10 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			wantReason: v1alpha1.ModelReasonEPPDeploymentFailed,
 		},
 		{
-			name: "failed when inference pool rejected",
-			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
-				markDeploymentReady(t, c, m.EngineName())
-				markDeploymentReady(t, c, m.EPPName())
-				markInferencePoolStatus(t, c, m.EngineName(), metav1.Condition{
-					Type:    string(inferencev1.InferencePoolConditionAccepted),
-					Status:  metav1.ConditionFalse,
-					Reason:  string(inferencev1.InferencePoolReasonNotSupportedByParent),
-					Message: "not supported",
-				})
-			},
-			wantPhase:  v1alpha1.ModelPhaseFailed,
-			wantReason: v1alpha1.ModelReasonInferencePoolRejected,
-		},
-		{
-			name: "failed when inference pool resolved refs rejected",
-			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
-				markDeploymentReady(t, c, m.EngineName())
-				markDeploymentReady(t, c, m.EPPName())
-				markInferencePoolStatus(t, c, m.EngineName(), metav1.Condition{
-					Type:    string(inferencev1.InferencePoolConditionResolvedRefs),
-					Status:  metav1.ConditionFalse,
-					Reason:  string(inferencev1.InferencePoolReasonInvalidExtensionRef),
-					Message: "invalid extension ref",
-				})
-			},
-			wantPhase:  v1alpha1.ModelPhaseFailed,
-			wantReason: v1alpha1.ModelReasonInferencePoolRejected,
-		},
-		{
 			name: "failed when http route rejected",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
-				markInferencePoolReady(t, c, m.EngineName())
 				markHTTPRouteStatus(t, c, m.EngineName(), metav1.Condition{
 					Type:    string(gatewayv1.RouteConditionAccepted),
 					Status:  metav1.ConditionFalse,
@@ -230,7 +167,6 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
-				markInferencePoolReady(t, c, m.EngineName())
 				markHTTPRouteStatus(t, c, m.EngineName(), metav1.Condition{
 					Type:    string(gatewayv1.RouteConditionAccepted),
 					Status:  metav1.ConditionFalse,
@@ -242,26 +178,10 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			wantReason: v1alpha1.ModelReasonHTTPRouteRejected,
 		},
 		{
-			name: "failed when inference pool is not supported",
-			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
-				markDeploymentReady(t, c, m.EngineName())
-				markDeploymentReady(t, c, m.EPPName())
-				markInferencePoolStatus(t, c, m.EngineName(), metav1.Condition{
-					Type:    string(inferencev1.InferencePoolConditionAccepted),
-					Status:  metav1.ConditionFalse,
-					Reason:  string(inferencev1.InferencePoolReasonNotSupported),
-					Message: "not supported",
-				})
-			},
-			wantPhase:  v1alpha1.ModelPhaseFailed,
-			wantReason: v1alpha1.ModelReasonInferencePoolRejected,
-		},
-		{
 			name: "failed when http route partially invalid",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
-				markInferencePoolReady(t, c, m.EngineName())
 				markHTTPRouteStatus(t, c, m.EngineName(),
 					metav1.Condition{Type: string(gatewayv1.RouteConditionAccepted), Status: metav1.ConditionTrue, Reason: string(gatewayv1.RouteReasonAccepted)},
 					metav1.Condition{Type: string(gatewayv1.RouteConditionResolvedRefs), Status: metav1.ConditionTrue, Reason: string(gatewayv1.RouteReasonResolvedRefs)},
@@ -276,7 +196,6 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
-				markInferencePoolReady(t, c, m.EngineName())
 				markHTTPRouteStatus(t, c, m.EngineName(), metav1.Condition{
 					Type:    string(gatewayv1.RouteConditionResolvedRefs),
 					Status:  metav1.ConditionFalse,
@@ -288,59 +207,10 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			wantReason: v1alpha1.ModelReasonHTTPRouteNotAccepted,
 		},
 		{
-			name: "failed when inference pool has one ready and one failed parent",
-			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
-				markDeploymentReady(t, c, m.EngineName())
-				markDeploymentReady(t, c, m.EPPName())
-				markInferencePoolParents(t, c, m.EngineName(),
-					inferencev1.ParentStatus{
-						ParentRef: inferencev1.ParentReference{Name: "gw"},
-						Conditions: []metav1.Condition{
-							{Type: string(inferencev1.InferencePoolConditionAccepted), Status: metav1.ConditionTrue, Reason: string(inferencev1.InferencePoolReasonAccepted)},
-							{Type: string(inferencev1.InferencePoolConditionResolvedRefs), Status: metav1.ConditionTrue, Reason: string(inferencev1.InferencePoolReasonResolvedRefs)},
-						},
-					},
-					inferencev1.ParentStatus{
-						ParentRef: inferencev1.ParentReference{Name: "gw2"},
-						Conditions: []metav1.Condition{
-							{Type: string(inferencev1.InferencePoolConditionAccepted), Status: metav1.ConditionFalse, Reason: string(inferencev1.InferencePoolReasonNotSupportedByParent), Message: "not supported"},
-						},
-					},
-				)
-			},
-			wantPhase:  v1alpha1.ModelPhaseFailed,
-			wantReason: v1alpha1.ModelReasonInferencePoolRejected,
-		},
-		{
-			name: "creating when inference pool has one ready and one pending parent",
-			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
-				markDeploymentReady(t, c, m.EngineName())
-				markDeploymentReady(t, c, m.EPPName())
-				markInferencePoolParents(t, c, m.EngineName(),
-					inferencev1.ParentStatus{
-						ParentRef: inferencev1.ParentReference{Name: "gw"},
-						Conditions: []metav1.Condition{
-							{Type: string(inferencev1.InferencePoolConditionAccepted), Status: metav1.ConditionTrue, Reason: string(inferencev1.InferencePoolReasonAccepted)},
-							{Type: string(inferencev1.InferencePoolConditionResolvedRefs), Status: metav1.ConditionTrue, Reason: string(inferencev1.InferencePoolReasonResolvedRefs)},
-						},
-					},
-					inferencev1.ParentStatus{
-						ParentRef: inferencev1.ParentReference{Name: "gw2"},
-						Conditions: []metav1.Condition{
-							{Type: string(inferencev1.InferencePoolConditionAccepted), Status: metav1.ConditionFalse, Reason: string(inferencev1.InferencePoolReasonNotRequested), Message: "not requested"},
-						},
-					},
-				)
-			},
-			wantPhase:  v1alpha1.ModelPhaseCreating,
-			wantReason: v1alpha1.ModelReasonInferencePoolNotAccepted,
-		},
-		{
 			name: "failed when http route has one ready and one failed parent",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
-				markInferencePoolReady(t, c, m.EngineName())
 				markHTTPRouteParents(t, c, m.EngineName(),
 					gatewayv1.RouteParentStatus{
 						ParentRef:      gatewayv1.ParentReference{Name: gatewayv1.ObjectName("gw")},
@@ -367,7 +237,6 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
-				markInferencePoolReady(t, c, m.EngineName())
 				markHTTPRouteParents(t, c, m.EngineName(),
 					gatewayv1.RouteParentStatus{
 						ParentRef:      gatewayv1.ParentReference{Name: gatewayv1.ObjectName("gw")},
@@ -446,27 +315,6 @@ func markDeploymentFailed(t *testing.T, c client.Client, name string, cond appsv
 	}
 }
 
-func markInferencePoolStatus(t *testing.T, c client.Client, name string, conds ...metav1.Condition) {
-	t.Helper()
-	pool := &inferencev1.InferencePool{}
-	testutil.MustGet(t, c, name, testNamespace, pool)
-	pool.Status.Parents = []inferencev1.ParentStatus{{
-		ParentRef:  inferencev1.ParentReference{Name: "gw"},
-		Conditions: conds,
-	}}
-	if err := c.Status().Update(context.Background(), pool); err != nil {
-		t.Fatalf("update inference pool status: %v", err)
-	}
-}
-
-func markInferencePoolReady(t *testing.T, c client.Client, name string) {
-	t.Helper()
-	markInferencePoolStatus(t, c, name,
-		metav1.Condition{Type: string(inferencev1.InferencePoolConditionAccepted), Status: metav1.ConditionTrue, Reason: string(inferencev1.InferencePoolReasonAccepted)},
-		metav1.Condition{Type: string(inferencev1.InferencePoolConditionResolvedRefs), Status: metav1.ConditionTrue, Reason: string(inferencev1.InferencePoolReasonResolvedRefs)},
-	)
-}
-
 func markHTTPRouteStatus(t *testing.T, c client.Client, name string, conds ...metav1.Condition) {
 	t.Helper()
 	route := &gatewayv1.HTTPRoute{}
@@ -487,16 +335,6 @@ func markHTTPRouteReady(t *testing.T, c client.Client, name string) {
 		metav1.Condition{Type: string(gatewayv1.RouteConditionAccepted), Status: metav1.ConditionTrue, Reason: string(gatewayv1.RouteReasonAccepted)},
 		metav1.Condition{Type: string(gatewayv1.RouteConditionResolvedRefs), Status: metav1.ConditionTrue, Reason: string(gatewayv1.RouteReasonResolvedRefs)},
 	)
-}
-
-func markInferencePoolParents(t *testing.T, c client.Client, name string, parents ...inferencev1.ParentStatus) {
-	t.Helper()
-	pool := &inferencev1.InferencePool{}
-	testutil.MustGet(t, c, name, testNamespace, pool)
-	pool.Status.Parents = parents
-	if err := c.Status().Update(context.Background(), pool); err != nil {
-		t.Fatalf("update inference pool status: %v", err)
-	}
 }
 
 func markHTTPRouteParents(t *testing.T, c client.Client, name string, parents ...gatewayv1.RouteParentStatus) {
