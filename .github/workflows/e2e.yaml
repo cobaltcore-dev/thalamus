@@ -81,7 +81,7 @@ jobs:
       - name: Apply Model CR
         if: matrix.name == 'model'
         run: |
-          kubectl apply -f ${{ github.workspace }}/test/e2e/model.cpu.yaml
+          kubectl apply -f ${{ github.workspace }}/examples/model-smollm2-cpu.yaml
 
       - name: Wait for model readiness
         if: matrix.name == 'model'
