@@ -11,6 +11,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 )
@@ -56,7 +57,7 @@ func BuildEPPRole(model *v1alpha1.Model) *rbacv1.Role {
 				Verbs:     []string{"get", "watch", "list"},
 			},
 			{
-				APIGroups: []string{"inference.networking.k8s.io"},
+				APIGroups: []string{inferencev1.GroupName},
 				Resources: []string{"inferencepools"},
 				Verbs:     []string{"get", "watch", "list"},
 			},
@@ -70,13 +71,13 @@ func BuildEPPRoleBinding(model *v1alpha1.Model) *rbacv1.RoleBinding {
 		Name:      model.EPPName(),
 		Namespace: model.Namespace,
 		RoleRef: rbacv1.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
+			APIGroup: rbacv1.GroupName,
 			Kind:     "Role",
 			Name:     model.EPPName(),
 		},
 		Subjects: []rbacv1.Subject{
 			{
-				Kind:      "ServiceAccount",
+				Kind:      rbacv1.ServiceAccountKind,
 				Name:      model.EPPName(),
 				Namespace: model.Namespace,
 			},
@@ -102,7 +103,7 @@ func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 	args := []string{
 		"--pool-name", model.EngineName(),
 		"--pool-namespace", model.Namespace,
-		"--pool-group", "inference.networking.k8s.io",
+		"--pool-group", inferencev1.GroupName,
 		"--zap-encoder", "json",
 		"--config-file", "/config/" + eppConfigKey,
 		"--metrics-endpoint-auth=false",

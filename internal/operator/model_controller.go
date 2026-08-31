@@ -24,6 +24,8 @@ import (
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	agentgatewayv1alpha1 "github.com/agentgateway/agentgateway/controller/api/v1alpha1/agentgateway"
+
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 	"github.com/cobaltcore-dev/thalamus/internal/operator/resources/native"
 )
@@ -74,6 +76,7 @@ func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.M
 		native.BuildEngineDeployment(model),
 		native.BuildEngineService(model),
 		native.BuildInferencePool(model),
+		native.BuildAIBackend(model),
 		native.BuildHTTPRoute(model),
 	}
 
@@ -213,6 +216,7 @@ func (r *ModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&rbacv1.RoleBinding{}).
 		Owns(&inferencev1.InferencePool{}).
 		Owns(&gatewayv1.HTTPRoute{}).
+		Owns(&agentgatewayv1alpha1.AgentgatewayBackend{}).
 		Named("model").
 		Complete(r)
 }

@@ -50,6 +50,9 @@ rules:
     resources: [httproutes]
     verbs: [get, list, watch, create, update, patch, delete]
   - apiGroups: [agentgateway.dev]
+    resources: [agentgatewaybackends]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [agentgateway.dev]
     resources: [agentgatewaypolicies]
     verbs: [get, list, watch, update, patch]
 ---

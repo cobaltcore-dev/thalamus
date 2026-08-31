@@ -7,6 +7,8 @@ import (
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	agentgatewayv1alpha1 "github.com/agentgateway/agentgateway/controller/api/v1alpha1/agentgateway"
+
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 )
 
@@ -38,7 +40,8 @@ func BuildInferencePool(model *v1alpha1.Model) *inferencev1.InferencePool {
 	}
 }
 
-// BuildHTTPRoute returns the HTTPRoute that routes requests to the model's InferencePool.
+// BuildHTTPRoute returns the HTTPRoute that routes requests to the model's
+// AgentgatewayBackend, so traffic is token-metered by the LLM pipeline.
 func BuildHTTPRoute(model *v1alpha1.Model) *gatewayv1.HTTPRoute {
 	modelName := ""
 	if model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && model.Spec.Weights.HF != nil {
@@ -70,9 +73,9 @@ func BuildHTTPRoute(model *v1alpha1.Model) *gatewayv1.HTTPRoute {
 					},
 					BackendRefs: []gatewayv1.HTTPBackendRef{
 						{
-							Group: new(gatewayv1.Group("inference.networking.k8s.io")),
-							Kind:  new(gatewayv1.Kind("InferencePool")),
-							Name:  gatewayv1.ObjectName(model.EngineName()),
+							Group: new(gatewayv1.Group(agentgatewayv1alpha1.GroupName)),
+							Kind:  new(gatewayv1.Kind("AgentgatewayBackend")),
+							Name:  gatewayv1.ObjectName(model.Name),
 						},
 					},
 				},

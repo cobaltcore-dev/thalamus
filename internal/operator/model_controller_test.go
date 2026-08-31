@@ -18,6 +18,8 @@ import (
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	agentgatewayv1alpha1 "github.com/agentgateway/agentgateway/controller/api/v1alpha1/agentgateway"
+
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
 )
@@ -65,10 +67,15 @@ func TestReconcile_Native(t *testing.T) {
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, dep)
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, &corev1.Service{})
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, &inferencev1.InferencePool{})
+	backend := &agentgatewayv1alpha1.AgentgatewayBackend{}
+	testutil.MustGet(t, c, "tiny-llm", testNamespace, backend)
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, &gatewayv1.HTTPRoute{})
 
 	if len(dep.OwnerReferences) == 0 || dep.OwnerReferences[0].Name != "tiny-llm" {
 		t.Error("Deployment missing owner reference to Model")
+	}
+	if len(backend.OwnerReferences) == 0 || backend.OwnerReferences[0].Name != "tiny-llm" {
+		t.Error("AgentgatewayBackend missing owner reference to Model")
 	}
 }
 
@@ -132,6 +139,7 @@ func TestReconcile_ScaleToZero(t *testing.T) {
 	testutil.MustNotGet(t, c, "tiny-llm-engine", testNamespace, &appsv1.Deployment{})
 	testutil.MustNotGet(t, c, "tiny-llm-engine", testNamespace, &corev1.Service{})
 	testutil.MustNotGet(t, c, "tiny-llm-engine", testNamespace, &inferencev1.InferencePool{})
+	testutil.MustNotGet(t, c, "tiny-llm", testNamespace, &agentgatewayv1alpha1.AgentgatewayBackend{})
 	testutil.MustNotGet(t, c, "tiny-llm-engine", testNamespace, &gatewayv1.HTTPRoute{})
 	testutil.MustNotGet(t, c, "tiny-llm-epp", testNamespace, &corev1.ServiceAccount{})
 	testutil.MustNotGet(t, c, "tiny-llm-epp", testNamespace, &rbacv1.Role{})
