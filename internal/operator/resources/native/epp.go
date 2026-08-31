@@ -94,12 +94,15 @@ func BuildEPPConfigMap(model *v1alpha1.Model) *corev1.ConfigMap {
 // BuildEPPDeployment returns the Deployment for the Endpoint Picker Proxy.
 // The EPP discovers the model's engine pods directly via a label selector,
 // following the llm-d router standalone mode (--endpoint-selector).
+// Secure serving is disabled because agentgateway's ext-proc policy has no
+// TLS option, matching the llm-d standalone chart's agentgateway preset.
 func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 	epp := model.Spec.Serving.EPP
 
 	args := []string{
 		"--endpoint-selector", engineSelector(model),
 		"--endpoint-target-ports", strconv.Itoa(engineHTTPPort),
+		"--secure-serving=false",
 		"--zap-encoder", "json",
 		"--config-file", "/config/" + eppConfigKey,
 		"--metrics-endpoint-auth=false",

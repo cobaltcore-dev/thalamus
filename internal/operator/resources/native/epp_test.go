@@ -4,6 +4,7 @@
 package native
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
@@ -87,6 +88,9 @@ func TestBuildEPPDeployment(t *testing.T) {
 	}
 	if !hasArgPair(c.Args, "--endpoint-target-ports", "8000") {
 		t.Errorf("missing --endpoint-target-ports 8000 in args: %v", c.Args)
+	}
+	if !slices.Contains(c.Args, "--secure-serving=false") {
+		t.Errorf("missing --secure-serving=false in args: %v", c.Args)
 	}
 }
 
