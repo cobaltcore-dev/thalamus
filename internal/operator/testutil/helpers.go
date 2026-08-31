@@ -18,6 +18,8 @@ import (
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	agentgatewayv1alpha1 "github.com/agentgateway/agentgateway/controller/api/v1alpha1/agentgateway"
+
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 )
 
@@ -33,6 +35,7 @@ func NewScheme(t *testing.T) *runtime.Scheme {
 		rbacv1.AddToScheme,
 		gatewayv1.Install,
 		inferencev1.Install,
+		agentgatewayv1alpha1.Install,
 	} {
 		if err := add(s); err != nil {
 			t.Fatalf("scheme registration: %v", err)

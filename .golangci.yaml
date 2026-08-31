@@ -116,6 +116,7 @@ linters:
       replace-allow-list:
         - github.com/mdlayher/arp
         - k8s.io/client-go
+        - github.com/agentgateway/agentgateway/api
       toolchain-forbidden: true
       go-version-pattern: 1\.\d+(\.0)?$
     gosec:

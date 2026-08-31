@@ -116,26 +116,35 @@ func (r *ModelReconciler) deleteOwned(ctx context.Context, owner *v1alpha1.Model
 	return client.IgnoreNotFound(r.Delete(ctx, desired))
 }
 
+// applyConfiguration converts a typed object into the unstructured apply configuration
+// that controller-runtime's Apply requires; these CRD types ship no generated ones.
+func applyConfiguration(scheme *runtime.Scheme, obj client.Object) (runtime.ApplyConfiguration, error) {
+	// SSA requires apiVersion/kind; set them from the scheme before converting.
+	gvks, _, err := scheme.ObjectKinds(obj)
+	if err != nil {
+		return nil, err
+	}
+	obj.GetObjectKind().SetGroupVersionKind(gvks[0])
+
+	m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		return nil, err
+	}
+	u := &unstructured.Unstructured{Object: m}
+	u.SetManagedFields(nil)
+	return client.ApplyConfigurationFromUnstructured(u), nil
+}
+
 // applyOwned sets an owner reference on obj then applies it via Server-Side Apply.
 func (r *ModelReconciler) applyOwned(ctx context.Context, model *v1alpha1.Model, desired client.Object) error {
 	if err := controllerutil.SetControllerReference(model, desired, r.Scheme); err != nil {
 		return err
 	}
-	// SSA requires apiVersion/kind; set them from the scheme before converting.
-	gvks, _, err := r.Scheme.ObjectKinds(desired)
+	ac, err := applyConfiguration(r.Scheme, desired)
 	if err != nil {
 		return err
 	}
-	desired.GetObjectKind().SetGroupVersionKind(gvks[0])
-
-	m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(desired)
-	if err != nil {
-		return err
-	}
-	u := &unstructured.Unstructured{Object: m}
-	u.SetManagedFields(nil)
-	return r.Apply(ctx,
-		client.ApplyConfigurationFromUnstructured(u),
+	return r.Apply(ctx, ac,
 		client.FieldOwner("thalamus-operator"),
 		client.ForceOwnership,
 	)

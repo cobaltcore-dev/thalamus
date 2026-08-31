@@ -18,6 +18,8 @@ import (
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	agentgatewayv1alpha1 "github.com/agentgateway/agentgateway/controller/api/v1alpha1/agentgateway"
+
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 	"github.com/cobaltcore-dev/thalamus/internal/operator"
 )
@@ -32,6 +34,7 @@ func init() {
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	utilruntime.Must(gatewayv1.Install(scheme))
 	utilruntime.Must(inferencev1.Install(scheme))
+	utilruntime.Must(agentgatewayv1alpha1.Install(scheme))
 }
 
 func main() {
