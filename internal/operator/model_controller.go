@@ -116,8 +116,8 @@ func (r *ModelReconciler) deleteOwned(ctx context.Context, owner *v1alpha1.Model
 	return client.IgnoreNotFound(r.Delete(ctx, desired))
 }
 
-// applyConfiguration converts a typed object into the unstructured apply configuration
-// that controller-runtime's Apply requires; these CRD types ship no generated ones.
+// applyConfiguration converts a typed object into an unstructured ApplyConfiguration for client.Apply,
+// since no typed apply-config is generated for these CRDs.
 func applyConfiguration(scheme *runtime.Scheme, obj client.Object) (runtime.ApplyConfiguration, error) {
 	// SSA requires apiVersion/kind; set them from the scheme before converting.
 	gvks, _, err := scheme.ObjectKinds(obj)
