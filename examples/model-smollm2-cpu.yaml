@@ -17,9 +17,9 @@ spec:
     engine:
       image: docker.io/vllm/vllm-openai-cpu:v0.22.1
       args:
-        - "--max-model-len=512"
-        - "--max-num-seqs=1"
-        - "--enforce-eager"
+        - --max-model-len=512
+        - --max-num-seqs=1
+        - --enforce-eager
       env:
         - name: VLLM_CPU_KVCACHE_SPACE
           value: "1"
