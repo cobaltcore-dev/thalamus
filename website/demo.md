@@ -33,7 +33,7 @@ operator create the child resources.
 
 Model startup includes pulling the engine image, downloading model weights,
 loading the model in VRAM, and getting the routing resources setup. Once all requirements are met for the `Model` to
-process requests, it's phase becomes `Ready`.
+process requests, its phase becomes `Ready`.
 
 Models can be queried through the OpenAI-compatible
 endpoint, while non-ready instances are not exposed to users:
