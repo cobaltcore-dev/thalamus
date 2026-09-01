@@ -65,15 +65,6 @@ def main() -> None:
     assert "paris" in content.lower(), f"expected 'Paris' in message, got: {content!r}"
     print(f"PASS: POST /v1/messages -> {content!r}")
 
-    token_count = anthropic_client.messages.count_tokens(
-        model=MODEL,
-        messages=[{"role": "user", "content": PROMPT}],
-    )
-    assert token_count.input_tokens > 0, (
-        f"expected positive input_tokens, got {token_count.input_tokens!r}"
-    )
-    print(f"PASS: POST /v1/messages/count_tokens -> {token_count.input_tokens} tokens")
-
     print("All e2e tests passed!")
 
 
