@@ -54,4 +54,27 @@ func TestBuildAIBackend(t *testing.T) {
 			t.Errorf("formats[%d]:\ngot:  %s\nwant: %s", i, custom.Formats[i].Type, want)
 		}
 	}
+
+	policies := backend.Spec.Policies
+	if policies == nil || policies.AI == nil {
+		t.Fatal("spec.policies.ai not set")
+	}
+	wantRoutes := map[string]agentgatewayv1alpha1.RouteType{
+		"/v1/chat/completions": agentgatewayv1alpha1.RouteTypeCompletions,
+		"/v1/messages":         agentgatewayv1alpha1.RouteTypeMessages,
+		"/v1/responses":        agentgatewayv1alpha1.RouteTypeResponses,
+		"/v1/embeddings":       agentgatewayv1alpha1.RouteTypeEmbeddings,
+		"/v1/rerank":           agentgatewayv1alpha1.RouteTypeRerank,
+		"/v2/rerank":           agentgatewayv1alpha1.RouteTypeRerank,
+		"/tokenize":            agentgatewayv1alpha1.RouteTypePassthrough,
+		"/detokenize":          agentgatewayv1alpha1.RouteTypePassthrough,
+	}
+	if len(policies.AI.Routes) != len(wantRoutes) {
+		t.Fatalf("routes:\ngot:  %+v\nwant: %d entries", policies.AI.Routes, len(wantRoutes))
+	}
+	for path, want := range wantRoutes {
+		if got := policies.AI.Routes[path]; got != want {
+			t.Errorf("routes[%q]:\ngot:  %s\nwant: %s", path, got, want)
+		}
+	}
 }

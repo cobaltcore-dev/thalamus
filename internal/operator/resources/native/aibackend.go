@@ -40,6 +40,22 @@ func BuildAIBackend(model *v1alpha1.Model) *agentgatewayv1alpha1.AgentgatewayBac
 					},
 				},
 			},
+			Policies: &agentgatewayv1alpha1.BackendFull{
+				AI: &agentgatewayv1alpha1.BackendAI{
+					// Explicit allow-list so clients can never reach vLLM's
+					// operational endpoints (model scaling, loading, ...).
+					Routes: map[string]agentgatewayv1alpha1.RouteType{
+						"/v1/chat/completions": agentgatewayv1alpha1.RouteTypeCompletions,
+						"/v1/messages":         agentgatewayv1alpha1.RouteTypeMessages,
+						"/v1/responses":        agentgatewayv1alpha1.RouteTypeResponses,
+						"/v1/embeddings":       agentgatewayv1alpha1.RouteTypeEmbeddings,
+						"/v1/rerank":           agentgatewayv1alpha1.RouteTypeRerank,
+						"/v2/rerank":           agentgatewayv1alpha1.RouteTypeRerank,
+						"/tokenize":            agentgatewayv1alpha1.RouteTypePassthrough,
+						"/detokenize":          agentgatewayv1alpha1.RouteTypePassthrough,
+					},
+				},
+			},
 		},
 	}
 }

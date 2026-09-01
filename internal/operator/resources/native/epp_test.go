@@ -6,6 +6,8 @@ package native
 import (
 	"testing"
 
+	"sigs.k8s.io/yaml"
+
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
 )
@@ -49,8 +51,32 @@ func TestBuildEPPConfigMap(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	model.Spec.Serving.EPP = &v1alpha1.EPPSpec{Image: testEPPImage}
 	cm := BuildEPPConfigMap(model)
-	if _, ok := cm.Data[eppConfigKey]; !ok {
-		t.Errorf("missing key %q in ConfigMap", eppConfigKey)
+	cfg, ok := cm.Data[eppConfigKey]
+	if !ok {
+		t.Fatalf("missing key %q in ConfigMap", eppConfigKey)
+	}
+
+	var parsed struct {
+		RequestHandler struct {
+			Parsers []struct {
+				PluginRef string `json:"pluginRef"`
+			} `json:"parsers"`
+		} `json:"requestHandler"`
+	}
+	if err := yaml.Unmarshal([]byte(cfg), &parsed); err != nil {
+		t.Fatalf("unmarshal EPP config: %v", err)
+	}
+
+	// Order matters: first match wins, and a parser with no paths (passthrough)
+	// must be last so it acts as the fallback for unclaimed paths.
+	want := []string{"openai-parser", "anthropic-parser", "vllmhttp-parser", "passthrough-parser"}
+	if len(parsed.RequestHandler.Parsers) != len(want) {
+		t.Fatalf("requestHandler.parsers:\ngot:  %+v\nwant: %d entries", parsed.RequestHandler.Parsers, len(want))
+	}
+	for i, w := range want {
+		if got := parsed.RequestHandler.Parsers[i].PluginRef; got != w {
+			t.Errorf("requestHandler.parsers[%d]:\ngot:  %s\nwant: %s", i, got, w)
+		}
 	}
 }
 

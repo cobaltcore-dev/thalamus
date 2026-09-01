@@ -9,6 +9,10 @@ plugins:
     scheme: "http"
     path: "/metrics"
     insecureSkipVerify: true
+- type: openai-parser
+- type: anthropic-parser
+- type: vllmhttp-parser
+- type: passthrough-parser
 schedulingProfiles:
 - name: default
   plugins:
@@ -18,3 +22,9 @@ schedulingProfiles:
     weight: 2
   - pluginRef: prefix-cache-scorer
     weight: 3
+requestHandler:
+  parsers:
+  - pluginRef: openai-parser
+  - pluginRef: anthropic-parser
+  - pluginRef: vllmhttp-parser
+  - pluginRef: passthrough-parser
