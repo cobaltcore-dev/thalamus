@@ -1,9 +1,7 @@
-# SPDX-FileCopyrightText: Copyright 2026 SAP SE or an SAP affiliate company and cobaltcore-dev contributors
-#
+# Copyright SAP SE
 # SPDX-License-Identifier: Apache-2.0
 
 # A small CPU-suitable Model for local development and the E2E validation suite.
-# This manifest is used by .github/workflows/e2e.yaml and test/e2e/validate.sh.
 ---
 apiVersion: thalamus.cloud/v1alpha1
 kind: Model
@@ -22,25 +20,25 @@ spec:
         - --enforce-eager
       env:
         - name: VLLM_CPU_KVCACHE_SPACE
-          value: "1"
+          value: 1
         - name: VLLM_CPU_OMP_THREADS_BIND
-          value: "nobind"
+          value: nobind
       resources:
         requests:
-          cpu: "2"
-          memory: "6Gi"
+          cpu: 2
+          memory: 6Gi
         limits:
-          cpu: "4"
-          memory: "6Gi"
+          cpu: 4
+          memory: 6Gi
     epp:
       image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0
       resources:
         requests:
-          cpu: "100m"
-          memory: "256Mi"
+          cpu: 100m
+          memory: 256Mi
         limits:
-          cpu: "200m"
-          memory: "512Mi"
+          cpu: 200m
+          memory: 512Mi
   weights:
     type: hf
     hf:

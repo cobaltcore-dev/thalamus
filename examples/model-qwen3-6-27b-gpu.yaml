@@ -1,5 +1,4 @@
-# SPDX-FileCopyrightText: Copyright 2026 SAP SE or an SAP affiliate company and cobaltcore-dev contributors
-#
+# Copyright SAP SE
 # SPDX-License-Identifier: Apache-2.0
 
 ---
@@ -29,17 +28,17 @@ spec:
         value: "1"
       resources:
         requests:
-          nvidia.com/gpu: "2"
+          nvidia.com/gpu: 2
         limits:
-          nvidia.com/gpu: "2"
+          nvidia.com/gpu: 2
     epp:
       image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0
       resources:
         requests:
-          cpu: "1"
-          memory: "1Gi"
+          cpu: 1
+          memory: 1Gi
         limits:
-          memory: "2Gi"
+          memory: 2Gi
   weights:
     type: hf
     hf:
