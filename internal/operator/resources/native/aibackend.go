@@ -11,8 +11,22 @@ import (
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 )
 
-// BuildAIBackend returns the AgentgatewayBackend that routes the model's
-// InferencePool through the gateway's LLM pipeline for token-usage metrics.
+// modelRoutes lists the paths a model exposes; anything else never reaches vLLM.
+var modelRoutes = []struct {
+	path  string
+	rType agentgatewayv1alpha1.RouteType
+}{
+	{path: "/v1/chat/completions", rType: agentgatewayv1alpha1.RouteTypeCompletions},
+	{path: "/v1/messages", rType: agentgatewayv1alpha1.RouteTypeMessages},
+	{path: "/v1/responses", rType: agentgatewayv1alpha1.RouteTypeResponses},
+	{path: "/v1/embeddings", rType: agentgatewayv1alpha1.RouteTypeEmbeddings},
+	{path: "/v1/rerank", rType: agentgatewayv1alpha1.RouteTypeRerank},
+	{path: "/v2/rerank", rType: agentgatewayv1alpha1.RouteTypeRerank},
+	{path: "/tokenize", rType: agentgatewayv1alpha1.RouteTypePassthrough},
+	{path: "/detokenize", rType: agentgatewayv1alpha1.RouteTypePassthrough},
+}
+
+// BuildAIBackend builds the AgentgatewayBackend for the model.
 func BuildAIBackend(model *v1alpha1.Model) *agentgatewayv1alpha1.AgentgatewayBackend {
 	settings := agentgatewayv1alpha1.CustomProviderSettings{
 		BackendRef: &agentgatewayv1alpha1.LocalBackendObjectReference{
@@ -29,6 +43,10 @@ func BuildAIBackend(model *v1alpha1.Model) *agentgatewayv1alpha1.AgentgatewayBac
 			{Type: agentgatewayv1alpha1.ProviderFormatAnthropicTokenCount},
 		},
 	}
+	routes := make(map[string]agentgatewayv1alpha1.RouteType, len(modelRoutes))
+	for _, r := range modelRoutes {
+		routes[r.path] = r.rType
+	}
 	return &agentgatewayv1alpha1.AgentgatewayBackend{
 		Name:      model.Name,
 		Namespace: model.Namespace,
@@ -42,18 +60,7 @@ func BuildAIBackend(model *v1alpha1.Model) *agentgatewayv1alpha1.AgentgatewayBac
 			},
 			Policies: &agentgatewayv1alpha1.BackendFull{
 				AI: &agentgatewayv1alpha1.BackendAI{
-					// Explicit allow-list so clients can never reach vLLM's
-					// operational endpoints (model scaling, loading, ...).
-					Routes: map[string]agentgatewayv1alpha1.RouteType{
-						"/v1/chat/completions": agentgatewayv1alpha1.RouteTypeCompletions,
-						"/v1/messages":         agentgatewayv1alpha1.RouteTypeMessages,
-						"/v1/responses":        agentgatewayv1alpha1.RouteTypeResponses,
-						"/v1/embeddings":       agentgatewayv1alpha1.RouteTypeEmbeddings,
-						"/v1/rerank":           agentgatewayv1alpha1.RouteTypeRerank,
-						"/v2/rerank":           agentgatewayv1alpha1.RouteTypeRerank,
-						"/tokenize":            agentgatewayv1alpha1.RouteTypePassthrough,
-						"/detokenize":          agentgatewayv1alpha1.RouteTypePassthrough,
-					},
+					Routes: routes,
 				},
 			},
 		},

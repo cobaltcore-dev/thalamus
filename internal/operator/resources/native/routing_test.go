@@ -52,8 +52,21 @@ func TestBuildHTTPRoute(t *testing.T) {
 		t.Errorf("parentRef.SectionName: got: %q, want %q", section, defaultGatewaySectionName)
 	}
 	rule := route.Spec.Rules[0]
-	if len(rule.Matches) != 1 || rule.Matches[0].Headers[0].Value != "arnir0/Tiny-LLM" {
-		t.Error("header match value mismatch")
+	if len(rule.Matches) != len(modelRoutes) {
+		t.Fatalf("len(rule.Matches): %d, want %d", len(rule.Matches), len(modelRoutes))
+	}
+	for i, want := range modelRoutes {
+		match := rule.Matches[i]
+		if match.Path == nil || match.Path.Type == nil || *match.Path.Type != gatewayv1.PathMatchExact {
+			t.Errorf("matches[%d].path: got %+v, want Exact match", i, match.Path)
+			continue
+		}
+		if *match.Path.Value != want.path {
+			t.Errorf("matches[%d].path.value:\ngot:  %q\nwant: %q", i, *match.Path.Value, want.path)
+		}
+		if len(match.Headers) != 1 || match.Headers[0].Name != gatewayBaseModelHeaderName || match.Headers[0].Value != "arnir0/Tiny-LLM" {
+			t.Errorf("matches[%d].headers: got %+v", i, match.Headers)
+		}
 	}
 
 	if len(rule.BackendRefs) != 1 {

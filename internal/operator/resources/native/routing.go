@@ -40,8 +40,8 @@ func BuildInferencePool(model *v1alpha1.Model) *inferencev1.InferencePool {
 	}
 }
 
-// BuildHTTPRoute returns the HTTPRoute that routes requests to the model's
-// AgentgatewayBackend, so traffic is token-metered by the LLM pipeline.
+// BuildHTTPRoute returns the HTTPRoute for the model's AgentgatewayBackend,
+// so traffic is token-metered by the LLM pipeline. Unmatched paths 404 at the gateway.
 func BuildHTTPRoute(model *v1alpha1.Model) *gatewayv1.HTTPRoute {
 	modelName := ""
 	if model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && model.Spec.Weights.HF != nil {
@@ -51,6 +51,17 @@ func BuildHTTPRoute(model *v1alpha1.Model) *gatewayv1.HTTPRoute {
 		Type:  new(gatewayv1.HeaderMatchExact),
 		Name:  gatewayBaseModelHeaderName,
 		Value: modelName,
+	}
+
+	matches := make([]gatewayv1.HTTPRouteMatch, 0, len(modelRoutes))
+	for _, r := range modelRoutes {
+		matches = append(matches, gatewayv1.HTTPRouteMatch{
+			Path: &gatewayv1.HTTPPathMatch{
+				Type:  new(gatewayv1.PathMatchExact),
+				Value: new(r.path),
+			},
+			Headers: []gatewayv1.HTTPHeaderMatch{headerValue},
+		})
 	}
 
 	return &gatewayv1.HTTPRoute{
@@ -68,9 +79,7 @@ func BuildHTTPRoute(model *v1alpha1.Model) *gatewayv1.HTTPRoute {
 			},
 			Rules: []gatewayv1.HTTPRouteRule{
 				{
-					Matches: []gatewayv1.HTTPRouteMatch{
-						{Headers: []gatewayv1.HTTPHeaderMatch{headerValue}},
-					},
+					Matches: matches,
 					BackendRefs: []gatewayv1.HTTPBackendRef{
 						{
 							Group: new(gatewayv1.Group(agentgatewayv1alpha1.GroupName)),
