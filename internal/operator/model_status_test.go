@@ -152,6 +152,17 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			wantReason: v1alpha1.ModelReasonEngineDeploymentFailed,
 		},
 		{
+			name: "ready when engine deployment progress deadline exceeded but still available",
+			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
+				markDeploymentAvailableButStalled(t, c, m.EngineName())
+				markDeploymentReady(t, c, m.EPPName())
+				markInferencePoolReady(t, c, m.EngineName())
+				markHTTPRouteReady(t, c, m.EngineName())
+			},
+			wantPhase:  v1alpha1.ModelPhaseReady,
+			wantReason: v1alpha1.ModelReasonReady,
+		},
+		{
 			name: "failed when epp deployment replica failure",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
@@ -178,6 +189,17 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			},
 			wantPhase:  v1alpha1.ModelPhaseFailed,
 			wantReason: v1alpha1.ModelReasonEPPDeploymentFailed,
+		},
+		{
+			name: "ready when epp deployment progress deadline exceeded but still available",
+			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
+				markDeploymentReady(t, c, m.EngineName())
+				markDeploymentAvailableButStalled(t, c, m.EPPName())
+				markInferencePoolReady(t, c, m.EngineName())
+				markHTTPRouteReady(t, c, m.EngineName())
+			},
+			wantPhase:  v1alpha1.ModelPhaseReady,
+			wantReason: v1alpha1.ModelReasonReady,
 		},
 		{
 			name: "failed when inference pool rejected",
@@ -446,6 +468,32 @@ func markDeploymentFailed(t *testing.T, c client.Client, name string, cond appsv
 	}
 }
 
+func markDeploymentAvailableButStalled(t *testing.T, c client.Client, name string) {
+	t.Helper()
+	dep := &appsv1.Deployment{}
+	testutil.MustGet(t, c, name, testNamespace, dep)
+	dep.Status.ReadyReplicas = 1
+	dep.Status.AvailableReplicas = 1
+	dep.Status.ObservedGeneration = dep.Generation
+	dep.Status.Conditions = append(dep.Status.Conditions,
+		appsv1.DeploymentCondition{
+			Type:    appsv1.DeploymentAvailable,
+			Status:  corev1.ConditionTrue,
+			Reason:  "MinimumReplicasAvailable",
+			Message: "Deployment has minimum availability.",
+		},
+		appsv1.DeploymentCondition{
+			Type:    appsv1.DeploymentProgressing,
+			Status:  corev1.ConditionFalse,
+			Reason:  "ProgressDeadlineExceeded",
+			Message: "progress deadline exceeded",
+		},
+	)
+	if err := c.Status().Update(context.Background(), dep); err != nil {
+		t.Fatalf("update deployment status: %v", err)
+	}
+}
+
 func markInferencePoolStatus(t *testing.T, c client.Client, name string, conds ...metav1.Condition) {
 	t.Helper()
 	pool := &inferencev1.InferencePool{}
@@ -506,6 +554,128 @@ func markHTTPRouteParents(t *testing.T, c client.Client, name string, parents ..
 	route.Status.Parents = parents
 	if err := c.Status().Update(context.Background(), route); err != nil {
 		t.Fatalf("update http route status: %v", err)
+	}
+}
+
+func TestReconcile_ModelStatus_AvailableButIncomplete(t *testing.T) {
+	model := testutil.NewModel("tiny-llm", testNamespace)
+	model.Spec.Replicas = 4
+	r, c := newTestReconciler(t, model)
+
+	reconcileModelOnce(t, r, "tiny-llm")
+
+	// Engine has minimum availability (3/4) but is not fully rolled out.
+	dep := &appsv1.Deployment{}
+	testutil.MustGet(t, c, model.EngineName(), testNamespace, dep)
+	dep.Status.ReadyReplicas = 3
+	dep.Status.AvailableReplicas = 3
+	dep.Status.ObservedGeneration = dep.Generation
+	dep.Status.Conditions = append(dep.Status.Conditions,
+		appsv1.DeploymentCondition{
+			Type:    appsv1.DeploymentAvailable,
+			Status:  corev1.ConditionTrue,
+			Reason:  "MinimumReplicasAvailable",
+			Message: "Deployment has minimum availability.",
+		},
+		appsv1.DeploymentCondition{
+			Type:    appsv1.DeploymentProgressing,
+			Status:  corev1.ConditionFalse,
+			Reason:  "ProgressDeadlineExceeded",
+			Message: "progress deadline exceeded",
+		},
+	)
+	if err := c.Status().Update(context.Background(), dep); err != nil {
+		t.Fatalf("update engine deployment status: %v", err)
+	}
+
+	markDeploymentReady(t, c, model.EPPName())
+	markInferencePoolReady(t, c, model.EngineName())
+	markHTTPRouteReady(t, c, model.EngineName())
+
+	reconcileModelOnce(t, r, "tiny-llm")
+
+	updated := &v1alpha1.Model{}
+	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
+
+	if updated.Status.Phase != v1alpha1.ModelPhaseCreating {
+		t.Errorf("Phase:\ngot:  %q\nwant: %q", updated.Status.Phase, v1alpha1.ModelPhaseCreating)
+	}
+	cond := meta.FindStatusCondition(updated.Status.Conditions, v1alpha1.ModelConditionReady)
+	if cond == nil {
+		t.Fatalf("Ready condition not found on model")
+	}
+	if cond.Status != metav1.ConditionFalse {
+		t.Errorf("Ready condition status:\ngot:  %q\nwant: %q", cond.Status, metav1.ConditionFalse)
+	}
+	if cond.Reason != string(v1alpha1.ModelReasonEngineNotReady) {
+		t.Errorf("Ready condition reason:\ngot:  %q\nwant: %q", cond.Reason, v1alpha1.ModelReasonEngineNotReady)
+	}
+}
+
+func TestDeploymentFailed(t *testing.T) {
+	cases := []struct {
+		name    string
+		conds   []appsv1.DeploymentCondition
+		want    bool
+		wantMsg string
+	}{
+		{
+			name: "not failed when available despite progress deadline exceeded",
+			conds: []appsv1.DeploymentCondition{
+				{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue, Reason: "MinimumReplicasAvailable"},
+				{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionFalse, Reason: "ProgressDeadlineExceeded", Message: "stalled"},
+			},
+			want:    false,
+			wantMsg: "",
+		},
+		{
+			name: "not failed when available despite replica failure",
+			conds: []appsv1.DeploymentCondition{
+				{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue, Reason: "MinimumReplicasAvailable"},
+				{Type: appsv1.DeploymentReplicaFailure, Status: corev1.ConditionTrue, Reason: "FailedCreate", Message: "quota exceeded"},
+			},
+			want:    false,
+			wantMsg: "",
+		},
+		{
+			name: "failed when unavailable and progress deadline exceeded",
+			conds: []appsv1.DeploymentCondition{
+				{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionFalse, Reason: "MinimumReplicasUnavailable"},
+				{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionFalse, Reason: "ProgressDeadlineExceeded", Message: "stalled"},
+			},
+			want:    true,
+			wantMsg: "progress deadline exceeded: stalled",
+		},
+		{
+			name: "failed when unavailable and replica failure",
+			conds: []appsv1.DeploymentCondition{
+				{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionFalse, Reason: "MinimumReplicasUnavailable"},
+				{Type: appsv1.DeploymentReplicaFailure, Status: corev1.ConditionTrue, Reason: "FailedCreate", Message: "quota exceeded"},
+			},
+			want:    true,
+			wantMsg: "replica failure: quota exceeded",
+		},
+		{
+			name: "failed when no available condition and progress deadline exceeded",
+			conds: []appsv1.DeploymentCondition{
+				{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionFalse, Reason: "ProgressDeadlineExceeded", Message: "stalled"},
+			},
+			want:    true,
+			wantMsg: "progress deadline exceeded: stalled",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dep := &appsv1.Deployment{Status: appsv1.DeploymentStatus{Conditions: tc.conds}}
+			got, gotMsg := deploymentFailed(dep)
+			if got != tc.want {
+				t.Errorf("deploymentFailed() = %v, want %v", got, tc.want)
+			}
+			if gotMsg != tc.wantMsg {
+				t.Errorf("deploymentFailed() message = %q, want %q", gotMsg, tc.wantMsg)
+			}
+		})
 	}
 }
 

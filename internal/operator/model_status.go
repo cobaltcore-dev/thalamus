@@ -96,13 +96,13 @@ func (r *ModelReconciler) syncDeploymentCondition(ctx context.Context, model *v1
 		return false, nil
 	}
 
+	if deploymentReplicasReady(dep) {
+		return true, nil
+	}
+
 	if failed, msg := deploymentFailed(dep); failed {
 		setModelStatus(model, v1alpha1.ModelPhaseFailed, failedReason, fmt.Sprintf("Deployment %s %s", name, msg))
 		return false, nil
-	}
-
-	if deploymentReplicasReady(dep) {
-		return true, nil
 	}
 
 	setModelStatus(model, v1alpha1.ModelPhaseCreating, notReadyReason, fmt.Sprintf("Deployment %s has insufficient ready replicas", name))
@@ -271,6 +271,12 @@ func checkParentConditions(
 // deploymentFailed reports whether a Deployment is in a terminal failure state
 // and returns a human-readable message.
 func deploymentFailed(dep *appsv1.Deployment) (failed bool, message string) {
+	for _, c := range dep.Status.Conditions {
+		if c.Type == appsv1.DeploymentAvailable && c.Status == corev1.ConditionTrue {
+			return false, ""
+		}
+	}
+
 	for _, c := range dep.Status.Conditions {
 		if c.Type == appsv1.DeploymentReplicaFailure && c.Status == corev1.ConditionTrue {
 			return true, "replica failure: " + c.Message
