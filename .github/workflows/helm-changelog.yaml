@@ -57,6 +57,7 @@ jobs:
           use_litellm: "true"
           litellm_model: "sap/anthropic--claude-4.6-opus"
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          allowed_bots: "renovate[bot]"
 
       - uses: ./.github/actions/stop-litellm-proxy
         if: always()
