@@ -1,0 +1,62 @@
+# SPDX-FileCopyrightText: Copyright 2026 SAP SE or an SAP affiliate company and cobaltcore-dev contributors
+# SPDX-License-Identifier: Apache-2.0
+
+name: Helm Chart Changelog Commenter
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+      - 'helm/**'
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to analyze'
+        required: true
+
+concurrency:
+  group: helm-changelog-${{ github.event.pull_request.number || inputs.pr_number }}
+  cancel-in-progress: true
+
+jobs:
+  helm-changelog:
+    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.user.login == 'renovate[bot]' && startsWith(github.head_ref, 'renovate/'))
+    runs-on: ubuntu-latest
+    environment: claude
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-claude-code-action
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.17.3
+
+      - uses: ./.github/actions/start-litellm-proxy
+        env:
+          AICORE_RESOURCE_GROUP: ${{ secrets.AICORE_RESOURCE_GROUP }}
+          AICORE_BASE_URL: ${{ secrets.AICORE_BASE_URL }}
+          AICORE_AUTH_URL: ${{ secrets.AICORE_AUTH_URL }}
+          AICORE_CLIENT_ID: ${{ secrets.AICORE_CLIENT_ID }}
+          AICORE_CLIENT_SECRET: ${{ secrets.AICORE_CLIENT_SECRET }}
+
+      - uses: ./.claude-code-action
+        with:
+          prompt: "/helm-changelog PR #${{ github.event.pull_request.number || inputs.pr_number }}"
+          claude_args: |
+            --max-turns 50
+            --permission-mode auto
+            --allowedTools "Read,Write,Bash(helm repo add *),Bash(helm repo update),Bash(helm show chart *),Bash(gh pr comment:*),Bash(gh pr view:*),Bash(gh pr diff:*),WebFetch"
+          use_litellm: "true"
+          litellm_model: "sap/anthropic--claude-4.6-opus"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: ./.github/actions/stop-litellm-proxy
+        if: always()

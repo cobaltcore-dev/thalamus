@@ -1,4 +1,6 @@
-.claude
+.claude/*
+!.claude/agents/
+!.claude/commands/
 
 bin/
 
