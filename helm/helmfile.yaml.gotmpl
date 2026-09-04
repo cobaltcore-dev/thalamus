@@ -1,6 +1,4 @@
 repositories:
-  - name: nvidia
-    url: https://helm.ngc.nvidia.com/nvidia
   - name: open-webui
     url: https://helm.openwebui.com/
   - name: external-dns
@@ -27,8 +25,8 @@ releases:
   - name: gpu-operator
     namespace: gpu-operator
     createNamespace: true
-    chart: nvidia/gpu-operator
-    version: "v26.3.3"
+    chart: oci://nvcr.io/nvidia/cloud-native-charts/gpu-operator
+    version: "v26.7.0"
     installed: {{ dig "gpu-operator" "enabled" true .Values }}
     needs:
       - node-feature-discovery/node-feature-discovery
