@@ -16,7 +16,7 @@ releases:
   - name: node-feature-discovery
     namespace: node-feature-discovery
     createNamespace: true
-    chart: oci://registry.k8s.io/nfd/charts/node-feature-discovery
+    chart: {{ dig "chartSources" "node-feature-discovery" "oci://registry.k8s.io/nfd/charts/node-feature-discovery" .Values | quote }}
     version: "0.19.0"
     installed: {{ dig "node-feature-discovery" "enabled" true .Values }}
     values:
@@ -25,7 +25,7 @@ releases:
   - name: gpu-operator
     namespace: gpu-operator
     createNamespace: true
-    chart: oci://nvcr.io/nvidia/cloud-native-charts/gpu-operator
+    chart: {{ dig "chartSources" "gpu-operator" "oci://nvcr.io/nvidia/cloud-native-charts/gpu-operator" .Values | quote }}
     version: "v26.7.0"
     installed: {{ dig "gpu-operator" "enabled" true .Values }}
     needs:
@@ -38,7 +38,7 @@ releases:
   - name: kube-prometheus-stack
     namespace: monitoring
     createNamespace: true
-    chart: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
+    chart: {{ dig "chartSources" "kube-prometheus-stack" "oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack" .Values | quote }}
     version: "88.6.5"
     installed: {{ dig "kube-prometheus-stack" "enabled" true .Values }}
     values:
@@ -51,7 +51,7 @@ releases:
   - name: agentgateway-crds
     namespace: agentgateway-system
     createNamespace: true
-    chart: oci://cr.agentgateway.dev/charts/agentgateway-crds
+    chart: {{ dig "chartSources" "agentgateway-crds" "oci://cr.agentgateway.dev/charts/agentgateway-crds" .Values | quote }}
     version: "v1.5.0"
     installed: {{ dig "agentgateway-crds" "enabled" true .Values }}
     values:
@@ -59,7 +59,7 @@ releases:
 
   - name: agentgateway
     namespace: agentgateway-system
-    chart: oci://cr.agentgateway.dev/charts/agentgateway
+    chart: {{ dig "chartSources" "agentgateway" "oci://cr.agentgateway.dev/charts/agentgateway" .Values | quote }}
     version: "v1.5.0"
     installed: {{ dig "agentgateway" "enabled" true .Values }}
     needs:
@@ -88,7 +88,7 @@ releases:
   - name: lws
     namespace: lws-system
     createNamespace: true
-    chart: oci://registry.k8s.io/lws/charts/lws
+    chart: {{ dig "chartSources" "lws" "oci://registry.k8s.io/lws/charts/lws" .Values | quote }}
     version: "0.10.0"
     installed: {{ dig "lws" "enabled" false .Values }}
     values:
