@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: Copyright 2026 SAP SE or an SAP affiliate company and cobaltcore-dev contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Bootstrap: minimum needed to deliver the Thalamus RGD into the cluster.
+# The RGD then creates the full deployment pipeline and adopts these
+# objects to manage itself. Prerequisite: namespace "thalamus".
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Repository
+metadata:
+  name: thalamus-repository
+  namespace: thalamus
+spec:
+  repositorySpec:
+    baseUrl: ghcr.io/skarlso/thalamus-transferred
+    type: OCIRegistry
+  interval: 10m
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Component
+metadata:
+  name: thalamus-component
+  namespace: thalamus
+spec:
+  component: github.com/cobaltcore-dev/thalamus
+  repositoryRef:
+    name: thalamus-repository
+  semver: "0.1.0"
+  interval: 1m
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Resource
+metadata:
+  name: thalamus-resource-rgd
+  namespace: thalamus
+spec:
+  componentRef:
+    name: thalamus-component
+  resource:
+    byReference:
+      resource:
+        name: thalamus-rgd
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Deployer
+metadata:
+  name: thalamus-deployer
+  namespace: thalamus
+spec:
+  resourceRef:
+    name: thalamus-resource-rgd
+    namespace: thalamus

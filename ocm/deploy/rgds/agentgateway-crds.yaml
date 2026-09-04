@@ -1,0 +1,113 @@
+# SPDX-FileCopyrightText: Copyright 2026 SAP SE or an SAP affiliate company and cobaltcore-dev contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: kro.run/v1alpha1
+kind: ResourceGraphDefinition
+metadata:
+  name: thalamus-agentgateway-crds
+spec:
+  schema:
+    apiVersion: v1alpha1
+    kind: ThalamusAgentgatewayCrds
+    scope: Namespaced
+    spec:
+      version: string | default="v1.3.1"
+      prefix: string | default="thalamus-agentgateway-crds"
+      myNamespace: string | default="agentgateway-system"
+      repository: object
+      insecureRegistry: boolean | default=false
+    status:
+      ready: ${helmRelease.status.conditions.exists(c, c.type == "Ready" && c.status == "True")}
+  resources:
+    - id: myNamespace
+      template:
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: ${schema.spec.myNamespace}
+
+    - id: repository
+      readyWhen:
+        - ${repository.status.conditions.exists(c, c.type == "Ready" && c.status == "True")}
+      template:
+        apiVersion: delivery.ocm.software/v1alpha1
+        kind: Repository
+        metadata:
+          name: ${schema.spec.prefix}-repository
+          namespace: ${myNamespace.metadata.name}
+        spec:
+          repositorySpec: ${schema.spec.repository}
+          interval: 10m
+
+    - id: component
+      readyWhen:
+        - ${component.status.conditions.exists(c, c.type == "Ready" && c.status == "True")}
+      template:
+        apiVersion: delivery.ocm.software/v1alpha1
+        kind: Component
+        metadata:
+          name: ${schema.spec.prefix}-component
+          namespace: ${myNamespace.metadata.name}
+        spec:
+          component: github.com/cobaltcore-dev/thalamus/agentgateway-crds
+          repositoryRef:
+            name: ${repository.metadata.name}
+          semver: ${schema.spec.version}
+          interval: 1m
+
+    - id: chartResource
+      readyWhen:
+        - ${chartResource.status.conditions.exists(c, c.type == "Ready" && c.status == "True")}
+      template:
+        apiVersion: delivery.ocm.software/v1alpha1
+        kind: Resource
+        metadata:
+          name: ${schema.spec.prefix}-resource-chart
+          namespace: ${myNamespace.metadata.name}
+        spec:
+          componentRef:
+            name: ${component.metadata.name}
+          resource:
+            byReference:
+              resource:
+                name: agentgateway-crds-chart
+          additionalStatusFields:
+            oci: resource.access.toOCI()
+
+    - id: ociRepository
+      readyWhen:
+        - ${ociRepository.status.conditions.exists(c, c.type == "Ready" && c.status == "True")}
+      template:
+        apiVersion: source.toolkit.fluxcd.io/v1
+        kind: OCIRepository
+        metadata:
+          name: ${schema.spec.prefix}-oci-repository
+          namespace: ${myNamespace.metadata.name}
+        spec:
+          interval: 1m0s
+          insecure: ${schema.spec.insecureRegistry}
+          layerSelector:
+            mediaType: "application/vnd.cncf.helm.chart.content.v1.tar+gzip"
+            operation: copy
+          url: oci://${chartResource.status.additional.oci.registry}/${chartResource.status.additional.oci.repository}
+          ref:
+            digest: ${chartResource.status.additional.oci.digest}
+
+    - id: helmRelease
+      readyWhen:
+        - ${helmRelease.status.conditions.exists(c, c.type == "Ready" && c.status == "True")}
+      template:
+        apiVersion: helm.toolkit.fluxcd.io/v2
+        kind: HelmRelease
+        metadata:
+          name: agentgateway-crds
+          namespace: ${myNamespace.metadata.name}
+        spec:
+          releaseName: agentgateway-crds
+          targetNamespace: ${myNamespace.metadata.name}
+          interval: 1m
+          timeout: 5m
+          chartRef:
+            kind: OCIRepository
+            name: ${ociRepository.metadata.name}
