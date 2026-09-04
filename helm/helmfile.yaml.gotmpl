@@ -28,7 +28,7 @@ releases:
     namespace: gpu-operator
     createNamespace: true
     chart: nvidia/gpu-operator
-    version: "v26.3.3"
+    version: "v26.7.0"
     installed: {{ dig "gpu-operator" "enabled" true .Values }}
     needs:
       - node-feature-discovery/node-feature-discovery

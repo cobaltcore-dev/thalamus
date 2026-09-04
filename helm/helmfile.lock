@@ -5,9 +5,9 @@ dependencies:
     version: 1.21.1
   - name: gpu-operator
     repository: https://helm.ngc.nvidia.com/nvidia
-    version: v26.3.3
+    version: v26.7.0
   - name: open-webui
     repository: https://helm.openwebui.com/
     version: 16.1.0
-digest: sha256:b2b988369c5f91f6dc7ca5faef482b01383077c0e1b48ba3e7de3ed3944ae662
-generated: "2026-08-28T03:13:49.342769985Z"
+digest: sha256:4c389142e366b4396242dfca93f0afd89b55b078831886c722630cb2538240a9
+generated: "2026-09-04T12:38:59.95936549Z"
