@@ -4,6 +4,3 @@
 # Enable components that are disabled by default
 lws:
   enabled: true
-
-external-dns:
-  enabled: true

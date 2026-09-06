@@ -1,8 +1,6 @@
 repositories:
   - name: open-webui
     url: https://helm.openwebui.com/
-  - name: external-dns
-    url: https://kubernetes-sigs.github.io/external-dns/
 
 releases:
   - name: gateway-api-crds
@@ -70,20 +68,6 @@ releases:
       - inferenceExtension:
           enabled: true
       - {{ dig "agentgateway" dict .Values | toYaml | nindent 10 }}
-
-  - name: external-dns
-    namespace: external-dns
-    createNamespace: true
-    chart: external-dns/external-dns
-    version: "1.21.1"
-    installed: {{ dig "external-dns" "enabled" false .Values }}
-    needs:
-      - default/gateway-api-crds
-    values:
-      - sources:
-          - gateway-httproute
-          - gateway-grpcroute
-      - {{ dig "external-dns" dict .Values | toYaml | nindent 10 }}
 
   - name: lws
     namespace: lws-system
