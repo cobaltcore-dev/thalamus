@@ -8,7 +8,7 @@ Many `Model`s share the same configuration: the engine image and always-on args 
 
 * **D1: Shared, not per-`Model`.** The base is supplied once and applies to many `Model`s; it is not written into each `Model`.
 * **D2: Simple to reason about.** The composed value is derivable at a glance, and the origin of any value can be determined without running the operator.
-* **D3: Platform data, not code.** The base is changeable per cluster and git-versioned, without an operator build or redeploy.
+* **D3: Platform data, not code.** The base is changeable per cluster without an operator build or redeploy.
 
 ## Considered Options
 
@@ -29,13 +29,13 @@ Chosen: **Flat** + **ConfigMap.**
 
 The sharing observed is bimodal. A flag is either on for every `Model`, in which case it belongs in the base, or shared by only a few `Model`s of one family (e.g. the `--reasoning-parser` value used by every Qwen3 model), in which case the arg is written inline in each `Model` of that family. The duplication is small and self-describing. With no shared middle layer to express, iterative or recursive merging adds complexity (D2) for a requirement that does not exist yet.
 
-A ConfigMap keeps the base as git-versioned cluster data and applies changes without a redeploy (D3). Operator args fail D3, because a default change requires an operator redeploy. The structural validation a Defaults CRD would add is not yet justified by the cost of maintaining a second schema.
+A ConfigMap keeps the base as cluster data and applies changes without a redeploy (D3). Operator args fail D3, because a default change requires an operator redeploy. The structural validation a Defaults CRD would add is not yet justified by the cost of maintaining a second schema.
 
 The base composes flat, with precedence `base < Model < computed`, from a `ConfigMap` with one key per serving component (`engine.yaml` for `spec.serving.engine`, `epp.yaml` for `spec.serving.epp`). Each base entry is merged with the `Model` spec using strategic-merge-patch, and the result is applied only to the corresponding engine and EPP Deployments. The base defaults are never reflected in the deployed `Model` CR, to avoid conflicting with GitOps reconcilers such as Flux or Argo CD. The `Model`'s args are appended after the base args, and since vLLM gives precedence to the last occurrence of an arg, no per-flag merge is needed. The base is validated on load, and on failure the operator keeps the last known good base (fail-closed). The base is additive: a `Model` can pin a value to override a base default.
 
 ### Consequences
 
-* A `Model` stays a few lines long, because the image and always-on args come from the base, and the source of each default is visible in git.
+* A `Model` stays a few lines long, because the image and always-on args come from the base.
 * The base is not schema-validated, so structural errors are detected when the operator loads the base, not when the edit is made.
 * The base lives in a single ConfigMap, so a change to it is a fleet-wide change.
 
@@ -85,5 +85,5 @@ The base composes flat, with precedence `base < Model < computed`, from a `Confi
   * Bad, because the schema must track the engine config it validates, which adds a second schema to maintain.
 * **ConfigMap:** one ConfigMap in the operator namespace, rendered from Helm values and watched by the operator.
   * Good, because (D1) one map applies to every `Model`.
-  * Good, because (D3) it is git-versioned via Helm, editable per cluster, and applied without a redeploy.
+  * Good, because (D3) it is editable per cluster and applied without a redeploy.
   * Bad, because the base is not schema-validated at admission. A malformed base is detected only when the operator loads it, not when the edit is made.
