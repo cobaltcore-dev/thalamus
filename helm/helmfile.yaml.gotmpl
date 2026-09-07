@@ -69,15 +69,6 @@ releases:
           enabled: true
       - {{ dig "agentgateway" dict .Values | toYaml | nindent 10 }}
 
-  - name: lws
-    namespace: lws-system
-    createNamespace: true
-    chart: oci://registry.k8s.io/lws/charts/lws
-    version: "0.10.0"
-    installed: {{ dig "lws" "enabled" false .Values }}
-    values:
-      - {{ dig "lws" dict .Values | toYaml | nindent 10 }}
-
   - name: open-webui
     namespace: open-webui
     createNamespace: true

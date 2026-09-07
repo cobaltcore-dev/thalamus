@@ -72,7 +72,7 @@ jobs:
             --skip-diff-on-install \
             --wait=true \
             --timeout=600 \
-            --state-values-file ${{ github.workspace }}/test/e2e/values.${{ matrix.name }}.yaml \
+            ${{ matrix.name == 'model' && format('--state-values-file {0}', github.workspace + '/test/e2e/values.yaml') }} \
             --state-values-set thalamus.operator.image.tag=pr
 
       - name: Wait for gateway
