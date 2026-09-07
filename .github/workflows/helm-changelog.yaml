@@ -37,7 +37,7 @@ jobs:
       - name: Setup Helm
         uses: azure/setup-helm@v4
         with:
-          version: v3.17.3
+          version: v3.21.4
 
       - uses: ./.github/actions/start-litellm-proxy
         env:
