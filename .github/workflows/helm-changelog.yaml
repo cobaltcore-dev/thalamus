@@ -5,7 +5,7 @@ name: Helm Chart Changelog Commenter
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    types: [opened]
     paths:
       - 'helm/**'
   workflow_dispatch:
