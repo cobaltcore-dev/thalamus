@@ -1,4 +1,4 @@
-# 0001. Engine defaults are a flat ConfigMap base
+# 0001. Model defaults are a flat ConfigMap
 
 ## Context and Problem Statement
 
