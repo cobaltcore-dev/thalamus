@@ -8,7 +8,7 @@ Many `Model`s share the same configuration: the engine image and always-on args 
 
 * **D1: Reduction of duplication.** The base is supplied once and applies to many `Model`s; it is not written into each `Model`.
 * **D2: Predictable outcomes.** The composed value is derivable at a glance, and the origin of any value can be determined without running the operator.
-* **D3: Platform data, not code.** The base is changeable per cluster without an operator build or redeploy.
+* **D3: Per-cluster mutability.** The base is changeable per cluster without an operator build or redeploy.
 
 ## Considered Options
 
@@ -86,4 +86,4 @@ The base composes flat, with precedence `base < Model < computed`, from a `Confi
 |---|---|---|---|
 | D1 Shared | 🟢 | 🟢 | 🟢 |
 | D2 Predictable | 🟢 | 🟢 | 🟢 |
-| D3 Platform data | 🔴 | 🟢 | 🟢 |
+| D3 Mutable | 🔴 | 🟢 | 🟢 |
