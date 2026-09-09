@@ -69,7 +69,7 @@ jobs:
         working-directory: helm
         run: |
           helmfile --file helmfile.yaml.gotmpl apply \
-            --skip-diff-on-install \
+            --skip-diff-validation-on-install \
             --wait=true \
             --timeout=600 \
             ${{ matrix.name == 'model' && format('--state-values-file {0}/test/e2e/values.yaml', github.workspace) || '' }} \

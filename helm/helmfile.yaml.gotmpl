@@ -1,7 +1,3 @@
-repositories:
-  - name: open-webui
-    url: https://helm.openwebui.com/
-
 releases:
   - name: gateway-api-crds
     namespace: default
@@ -72,7 +68,7 @@ releases:
   - name: open-webui
     namespace: open-webui
     createNamespace: true
-    chart: open-webui/open-webui
+    chart: oci://ghcr.io/open-webui/helm-charts/open-webui
     version: "16.1.0"
     installed: {{ dig "open-webui" "enabled" true .Values }}
     needs:

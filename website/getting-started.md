@@ -19,6 +19,7 @@ picker, routing, and service resources.
 - [kubectl](https://kubernetes.io/docs/tasks/tools/) — Kubernetes CLI
 - [helm](https://helm.sh/docs/intro/install/) — Kubernetes package manager (v3.x)
 - [helmfile](https://helmfile.readthedocs.io/en/latest/#installation) — declarative wrapper around helm (v1.x)
+- [helm-diff](https://github.com/databus23/helm-diff) — helm plugin required by `helmfile apply`
 - A Kubernetes cluster with GPU nodes (NVIDIA), or [minikube](https://minikube.sigs.k8s.io/docs/start/) / any other local cluster for development
 
 ### Accounts
@@ -97,8 +98,11 @@ helm repositories and applies the releases in dependency order.
 Deploy with chart defaults:
 
 ```bash
-helmfile --file helm/helmfile.yaml.gotmpl apply
+helmfile --file helm/helmfile.yaml.gotmpl apply --skip-diff-validation-on-install
 ```
+
+> [!NOTE]
+> The flag `--skip-diff-validation-on-install` is only required when bootstrapping Thalamus and can be omitted for subsequent `apply` commands
 
 To customize values for your cluster, write a release-keyed values file and
 pass it via `--state-values-file`. The top-level keys are helmfile release
@@ -114,7 +118,7 @@ helmfile --file helm/helmfile.yaml.gotmpl apply \
 To disable optional components (e.g. on a local cluster without GPUs):
 
 ```bash
-helmfile --file helm/helmfile.yaml.gotmpl apply \
+helmfile --file helm/helmfile.yaml.gotmpl apply --skip-diff-validation-on-install \
   --state-values-set node-feature-discovery.enabled=false \
   --state-values-set gpu-operator.enabled=false
 ```
@@ -197,7 +201,7 @@ For a lightweight local setup without a GPU, disable the GPU-specific components
 and apply the CPU model example:
 
 ```bash
-helmfile --file helm/helmfile.yaml.gotmpl apply \
+helmfile --file helm/helmfile.yaml.gotmpl apply --skip-diff-validation-on-install \
   --state-values-set node-feature-discovery.enabled=false \
   --state-values-set gpu-operator.enabled=false
 
