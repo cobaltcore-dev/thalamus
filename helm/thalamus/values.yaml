@@ -1,3 +1,11 @@
+crds:
+  enabled: true
+
+agentgateway:
+  enabled: true
+  inferenceExtension:
+    enabled: true
+
 operator:
   replicas: 1
   image:

@@ -18,9 +18,20 @@ picker, routing, and service resources.
 
 - [kubectl](https://kubernetes.io/docs/tasks/tools/) — Kubernetes CLI
 - [helm](https://helm.sh/docs/intro/install/) — Kubernetes package manager (v3.x)
-- [helmfile](https://helmfile.readthedocs.io/en/latest/#installation) — declarative wrapper around helm (v1.x)
-- [helm-diff](https://github.com/databus23/helm-diff) — helm plugin required by `helmfile apply`
-- A Kubernetes cluster with GPU nodes (NVIDIA), or [minikube](https://minikube.sigs.k8s.io/docs/start/) / any other local cluster for development
+- A Kubernetes cluster, or [minikube](https://minikube.sigs.k8s.io/docs/start/) / any other local cluster for development
+
+### Cluster requirements
+
+Thalamus is vendor-neutral and does not install platform infrastructure. The
+following are expected to already be present in the cluster:
+
+- **GPU workloads:** a GPU driver/operator and node feature discovery for your
+  hardware vendor (e.g. the [NVIDIA GPU Operator](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/latest/) for NVIDIA).
+- **Observability (optional):** a monitoring stack such as
+  [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts) if you want Thalamus metrics scraped.
+
+The Gateway API and Gateway API inference extension CRDs are applied as part of
+the install (Step 3).
 
 ### Accounts
 
@@ -78,52 +89,37 @@ kubectl create secret generic apikey-<name> \
 kubectl label secret apikey-<name> --namespace thalamus thalamus-apikey=true
 ```
 
-Open WebUI connects to the inference API internally and also requires a token. Set the following in your cluster values to point Open WebUI at the secret:
-
-```yaml
-open-webui:
-  openaiApiKeyExistingSecret: apikey-openwebui
-  openaiApiKeyExistingSecretKey: api-key
-```
-
 ## Step 3 — Deploy the stack
 
-The `helm/helmfile.yaml.gotmpl` manifest installs the full stack as a set of
-ordered helmfile releases: the Gateway API and Inference Extension CRDs, the
-Thalamus CRDs, the GPU operator and node feature discovery, the agentgateway
-with its CRDs, `kube-prometheus-stack` for observability, the `thalamus` chart
-(operator + gateway), and finally `open-webui`. Helmfile registers the required
-helm repositories and applies the releases in dependency order.
-
-Deploy with chart defaults:
+Thalamus builds on the [Gateway API](https://gateway-api.sigs.k8s.io/) and the
+[Gateway API inference extension](https://github.com/kubernetes-sigs/gateway-api-inference-extension).
+Apply their CRDs first (pinned versions):
 
 ```bash
-helmfile --file helm/helmfile.yaml.gotmpl apply --skip-diff-validation-on-install
+kubectl apply -f \
+  "https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.2/standard-install.yaml"
+kubectl apply -f \
+  "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/v1.6.0/v1-manifests.yaml"
 ```
 
-> [!NOTE]
-> The flag `--skip-diff-validation-on-install` is only required when bootstrapping Thalamus and can be omitted for subsequent `apply` commands
-
-To customize values for your cluster, write a release-keyed values file and
-pass it via `--state-values-file`. The top-level keys are helmfile release
-names (e.g. `thalamus`, `open-webui`, `gpu-operator`, `kube-prometheus-stack`,
-`agentgateway`); everything underneath is forwarded to that release as chart
-values.
+Then install the Thalamus chart. By default it installs the Thalamus CRDs and
+the agentgateway data plane ; everything is enabled, no extra flags needed:
 
 ```bash
-helmfile --file helm/helmfile.yaml.gotmpl apply \
-  --state-values-file my-cluster.yaml
+helm install thalamus oci://ghcr.io/cobaltcore-dev/charts/thalamus \
+  --namespace thalamus --create-namespace
 ```
 
-To disable optional components (e.g. on a local cluster without GPUs):
+To pin a release or override values, add `--version` / `--set` (or a values file):
 
 ```bash
-helmfile --file helm/helmfile.yaml.gotmpl apply --skip-diff-validation-on-install \
-  --state-values-set node-feature-discovery.enabled=false \
-  --state-values-set gpu-operator.enabled=false
+helm install thalamus oci://ghcr.io/cobaltcore-dev/charts/thalamus \
+  --namespace thalamus --version 2.0.0 \
+  --set operator.image.tag=2.0.0
 ```
 
-To preview changes before applying, use `helmfile diff` in place of `apply`.
+If you instead run the CRDs or agentgateway as separate releases, set
+`--set crds.enabled=false` and/or `--set agentgateway.enabled=false`.
 
 ## Step 4 — Deploy a model
 
@@ -185,26 +181,13 @@ For local clusters without a `LoadBalancer`, use port-forward:
 ```bash
 # OpenAI-compatible API
 kubectl port-forward svc/inference-gateway 8080:80 -n thalamus
-# Open WebUI (browser)
-kubectl port-forward svc/inference-gateway 3000:8080 -n thalamus
 ```
-
-### Open WebUI
-
-`thalamus` includes [Open WebUI](https://github.com/open-webui/open-webui),
-a browser-based chat interface. It is reachable via the hostname configured in
-your `open-webui.route.hostnames` value, or via the port-forward above for local access. Open `http://localhost:3000` in your browser.
 
 ## Local development (CPU-only)
 
-For a lightweight local setup without a GPU, disable the GPU-specific components
-and apply the CPU model example:
+On a local cluster without GPUs apply the CPU model example:
 
 ```bash
-helmfile --file helm/helmfile.yaml.gotmpl apply --skip-diff-validation-on-install \
-  --state-values-set node-feature-discovery.enabled=false \
-  --state-values-set gpu-operator.enabled=false
-
 kubectl apply -f examples/model-smollm2-cpu.yaml
 ```
 

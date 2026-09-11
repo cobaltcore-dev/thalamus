@@ -39,7 +39,9 @@ jobs:
           version: v3.21.4
 
       - name: Lint
-        run: helm lint helm/${{ matrix.chart }}
+        run: |
+          helm dependency update helm/${{ matrix.chart }}
+          helm lint helm/${{ matrix.chart }}
 
   publish:
     name: Publish (${{ matrix.chart }})
@@ -91,6 +93,7 @@ jobs:
             else
               version="0.0.0-${tag}"
             fi
+            helm dependency update helm/${{ matrix.chart }}
             helm package "helm/${{ matrix.chart }}" -d "${dist}" \
               --version "${version}" --app-version "${tag}"
             helm push "${dist}/${{ matrix.chart }}-${version}.tgz" \
