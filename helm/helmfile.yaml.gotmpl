@@ -93,10 +93,12 @@ releases:
   - name: thalamus-crds
     namespace: thalamus
     createNamespace: true
-    chart: ./thalamus-crds
+    chart: {{ dig "thalamus-crds" "chart" "oci://ghcr.io/cobaltcore-dev/charts/thalamus-crds" .Values }}
+    version: {{ dig "thalamus-crds" "version" "0.0.0-latest" .Values | quote }}
 
   - name: thalamus
-    chart: ./thalamus
+    chart: {{ dig "thalamus" "chart" "oci://ghcr.io/cobaltcore-dev/charts/thalamus" .Values }}
+    version: {{ dig "thalamus" "version" "0.0.0-latest" .Values | quote }}
     namespace: thalamus
     createNamespace: true
     needs:

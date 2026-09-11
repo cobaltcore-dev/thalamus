@@ -73,7 +73,9 @@ jobs:
             --wait=true \
             --timeout=600 \
             ${{ matrix.name == 'model' && format('--state-values-file {0}/test/e2e/values.yaml', github.workspace) || '' }} \
-            --state-values-set thalamus.operator.image.tag=pr
+            --state-values-set thalamus.operator.image.tag=pr \
+            --state-values-set thalamus.chart=./thalamus \
+            --state-values-set thalamus-crds.chart=./thalamus-crds
 
       - name: Wait for gateway
         run: |
