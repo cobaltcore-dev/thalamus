@@ -90,8 +90,7 @@ kind: Model
 metadata:
   name: llama-3-70b
 spec:
-  backend: native
-  replicas: 1
+  backend: kserve  # backends={native, kserve, kaito, ..}. Cluster-wide default if omitted.
   weights:
     type: hf
     hf:
@@ -111,11 +110,17 @@ spec:
       resources:
         limits:
           nvidia.com/gpu: "4"
-    epp:
-      image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0
   scheduling:
     nodeSelector:
       gpu.nvidia.com/class: H100
+status:
+  phase: Ready
+  conditions:
+  - type: Ready
+    status: "True"
+    reason: BackendReady
+    message: KServe InferenceService llama-3-70b is ready
+    lastTransitionTime: "2026-01-01T00:00:00Z"
 ```
 
 
