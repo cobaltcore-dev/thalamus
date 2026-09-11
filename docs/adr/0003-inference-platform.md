@@ -59,7 +59,7 @@ Backend-specific adapters translate the Model CRD into backend-specific resource
 * (D2) Neutral, because the CRD is alpha, low-cost initially, but might get more complex over time
 * (D2) Bad, because every backend needs a maintained and fully validated translation and test coverage
 * (D2) Bad, because not all backends have feature parity. Features missing from a backend would need to be rebuilt or integrated manually in the controller
-* (D1) Bad, because it is not obvious to users which backend supports what features. If only features shared by all backends are supported, the benefit of supporting multiple backends is little
+* (D1) Bad, because it is not obvious to users which backend supports what features. If only features shared by all backends are supported, there is little benefit to supporting multiple backends
 
 
 ```
