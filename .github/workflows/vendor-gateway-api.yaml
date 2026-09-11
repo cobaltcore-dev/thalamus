@@ -1,0 +1,66 @@
+# SPDX-FileCopyrightText: Copyright 2026 SAP SE or an SAP affiliate company and cobaltcore-dev contributors
+# SPDX-License-Identifier: Apache-2.0
+
+name: Vendor Gateway API CRDs
+
+on:
+  pull_request:
+    types: [opened]
+    paths:
+      - 'helm/Makefile'
+      - 'helm/gateway-api/**'
+      - 'helm/gateway-api-inference-extension/**'
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to update'
+        required: true
+
+concurrency:
+  group: vendor-gateway-api-${{ github.event.pull_request.number || inputs.pr_number }}
+  cancel-in-progress: true
+
+jobs:
+  vendor:
+    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.user.login == 'renovate[bot]' && contains(github.head_ref, 'gateway-api'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - name: Determine target branch
+        id: meta
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            branch=$(gh pr view "${{ inputs.pr_number }}" --repo "${{ github.repository }}" --json headRefName -q .headRefName)
+          else
+            branch="${{ github.head_ref }}"
+          fi
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.meta.outputs.branch }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Sync vendored Gateway API CRDs
+        run: |
+          make -C helm vendor-crds
+          go mod tidy
+          if git diff --quiet && [ -z "$(git status --porcelain)" ]; then
+            echo "Nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: sync vendored gateway-api CRDs"
+          git push origin HEAD

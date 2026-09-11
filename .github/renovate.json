@@ -48,6 +48,24 @@
     {
       "matchPackageNames": ["/.*/"],
       "automerge": true
+    },
+    {
+      "matchPackageNames": [
+        "sigs.k8s.io/gateway-api",
+        "kubernetes-sigs/gateway-api"
+      ],
+      "groupName": "gateway-api",
+      "automerge": false,
+      "rebaseWhen": "never"
+    },
+    {
+      "matchPackageNames": [
+        "sigs.k8s.io/gateway-api-inference-extension",
+        "kubernetes-sigs/gateway-api-inference-extension"
+      ],
+      "groupName": "gateway-api-inference-extension",
+      "automerge": false,
+      "rebaseWhen": "never"
     }
   ],
   "prHourlyLimit": 0,
