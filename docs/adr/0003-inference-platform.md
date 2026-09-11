@@ -1,5 +1,5 @@
+---
 status: accepted
-
 ---
 # Thalamus: Abstraction over Inference Platforms
 
@@ -90,7 +90,7 @@ kind: Model
 metadata:
   name: llama-3-70b
 spec:
-  backend: kserve  # backends={native, kserve, kaito, ..}. Cluster-wide default if omitted.
+  backend: kserve  # Supported backends: native, kserve, kaito. Defaults to native if omitted.
   weights:
     type: hf
     hf:

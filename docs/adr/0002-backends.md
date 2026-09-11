@@ -1,5 +1,5 @@
+---
 status: accepted
-
 ---
 # Thalamus: Kubernetes-native LLM inference stack comparison
 

@@ -1,5 +1,5 @@
+---
 status: accepted
-
 ---
 # Inference Gateway: Agentgateway vs. Envoy AI Gateway
 
