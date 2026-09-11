@@ -75,12 +75,12 @@ jobs:
             type=sha,format=short
             type=raw,value=latest,enable={{is_default_branch}}
 
+      - name: Helm login to ghcr.io
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.repository_owner }} --password-stdin
+
       # Tags that are not valid semver (branch, latest, SHA) are published as
       # 0.0.0-<tag> so they remain selectable via --version.
       - name: Package and push chart
-        env:
-          HELM_REPOSITORY_USERNAME: ${{ github.actor }}
-          HELM_REPOSITORY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           dist="$(mktemp -d)"
