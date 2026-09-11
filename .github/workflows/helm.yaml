@@ -62,12 +62,7 @@ jobs:
         with:
           version: v3.22.0
 
-      # oras instead of helm push, which can't tag by branch/SHA/latest.
-      - name: Set up oras
-        uses: oras-project/setup-oras@v1
-        with:
-          version: 1.3.0
-
+      # Same tag strategy as the Docker workflow, so chart tags match image tags.
       - name: Compute image tags
         id: meta
         uses: docker/metadata-action@v5
@@ -81,27 +76,25 @@ jobs:
             type=sha,format=short
             type=raw,value=latest,enable={{is_default_branch}}
 
-      # appVersion = tag, so chart tag T deploys image tag T.
+      # Tags that are not valid semver (branch, latest, SHA) are published as
+      # 0.0.0-<tag> so they remain selectable via --version.
       - name: Package and push chart
         env:
-          CHART: ${{ matrix.chart }}
-          CHART_DIR: helm/${{ matrix.chart }}
-          IMAGE: ghcr.io/${{ github.repository }}/charts/${{ matrix.chart }}
-          TAGS: ${{ steps.meta.outputs.tags }}
-          META_VERSION: ${{ steps.meta.outputs.version }}
+          HELM_REPOSITORY_USERNAME: ${{ github.actor }}
+          HELM_REPOSITORY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          version="${META_VERSION:-$(awk '/^version:/{print $2; exit}' "${CHART_DIR}/Chart.yaml")}"
-          printf '{}' > chart-config.json
-          IFS=',' read -r -a tag_list <<< "${TAGS}"
-          for tag in "${tag_list[@]}"; do
-            helm package "${CHART_DIR}" -d dist \
-              --version "${version}" \
-              --app-version "${tag}"
-            printf '%s' "${GITHUB_TOKEN}" | oras push \
-              "${IMAGE}:${tag}" \
-              "dist/${CHART}-${version}.tgz:application/vnd.cncf.helm.chart.content.v1.tar+gzip" \
-              --config "chart-config.json:application/vnd.cncf.helm.config.v1+json" \
-              --username "${GITHUB_ACTOR}" --password -
-            echo "Pushed oci://${IMAGE}:${tag} (chart version ${version}, appVersion ${tag})"
-          done
+          dist="$(mktemp -d)"
+          trap 'rm -rf "${dist}"' EXIT
+          while IFS= read -r tag; do
+            if [[ "${tag}" =~ ^v?[0-9]+(\.[0-9]+){0,2}([+-][0-9A-Za-z.-]+)?$ ]]; then
+              version="${tag}"
+            else
+              version="0.0.0-${tag}"
+            fi
+            helm package "helm/${{ matrix.chart }}" -d "${dist}" \
+              --version "${version}" --app-version "${tag}"
+            helm push "${dist}/${{ matrix.chart }}-${version}.tgz" \
+              "oci://ghcr.io/${{ github.repository }}/charts"
+            echo "Pushed oci://ghcr.io/${{ github.repository }}/charts/${{ matrix.chart }}:${version} (appVersion ${tag})"
+          done < <(jq -r '."tag-names"[]' <<< "${{ steps.meta.outputs.json }}")
