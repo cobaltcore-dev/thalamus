@@ -67,7 +67,6 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}/charts/${{ matrix.chart }}
           tags: |
             type=ref,event=branch
             type=ref,event=tag
@@ -95,6 +94,6 @@ jobs:
             helm package "helm/${{ matrix.chart }}" -d "${dist}" \
               --version "${version}" --app-version "${tag}"
             helm push "${dist}/${{ matrix.chart }}-${version}.tgz" \
-              "oci://ghcr.io/${{ github.repository }}/charts"
-            echo "Pushed oci://ghcr.io/${{ github.repository }}/charts/${{ matrix.chart }}:${version} (appVersion ${tag})"
+              "oci://ghcr.io/${{ github.repository_owner }}/charts"
+            echo "Pushed oci://ghcr.io/${{ github.repository_owner }}/charts/${{ matrix.chart }}:${version} (appVersion ${tag})"
           done <<< "${{ steps.meta.outputs.tag-names }}"
