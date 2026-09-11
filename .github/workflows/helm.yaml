@@ -96,4 +96,4 @@ jobs:
             helm push "${dist}/${{ matrix.chart }}-${version}.tgz" \
               "oci://ghcr.io/${{ github.repository_owner }}/charts"
             echo "Pushed oci://ghcr.io/${{ github.repository_owner }}/charts/${{ matrix.chart }}:${version} (appVersion ${tag})"
-          done <<< "${{ steps.meta.outputs.tag-names }}"
+          done <<< "${{ steps.meta.outputs.tags }}"
