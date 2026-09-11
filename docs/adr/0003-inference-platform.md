@@ -156,6 +156,6 @@ To ensure an objective and transparent comparison, the following table evaluates
 
 | Decision Driver                  | Model CRD | Direct backend exposure | Model CRD with single backend |
 |----------------------------------|-----------|-------------------------|-------------------------------|
-| D1 Platform and stack independence  | 🟢        | 🔴                      | 🟢                            |
+| D1 Platform and stack independence  | 🟢        | 🔴                      | 🟡                            |
 | D2 Operational consistency          | 🟡        | 🔴                      | 🟢                            |
 | D3 Extensibility                    | 🟢        | 🟢                      | 🟡                            |
