@@ -7,7 +7,7 @@ status: accepted
 
 Thalamus needs a single gateway entry point for all inference traffic: TLS termination, authentication, rate limiting, and model-aware routing to the correct InferencePool. 
 
-Thalamus currently uses **Agentgateway**; SAP AI-Core uses **Envoy AI Gateway**.
+Thalamus currently uses **Agentgateway**; another SAP internal team uses **Envoy AI Gateway**.
 
 ## Decision Drivers
 
@@ -24,8 +24,8 @@ Thalamus currently uses **Agentgateway**; SAP AI-Core uses **Envoy AI Gateway**.
 **D. Token quota enforcement**
 - Whether hard per-user daily token quotas (exact counts from response bodies) are a near-term requirement
 
-**E. Team alignment**
-- Shared stack with AI-Core only delivers value if there is a concrete shared maintenance or roadmap commitment — using the same component alone is not sufficient justification
+**E. Cross-team alignment**
+- A shared stack with the other team only delivers value if there is a concrete shared maintenance or roadmap commitment — using the same component alone is not sufficient justification
 
 ## Considered Options
 
@@ -60,28 +60,16 @@ Agentgateway meets all current requirements with significantly lower operational
 
 **This decision should be revisited if:**
 1. Hard per-user daily token quotas (exact response-body counts) become a confirmed near-term requirement
-2. There is a concrete shared maintenance or roadmap with AI-Core that justifies the migration cost
+2. There is a concrete shared maintenance or roadmap with the other team that justifies the migration cost
 
 ### Consequences
 
 * Good, because significantly lower operational complexity — single process, no stateful dependencies
 * Good, because stronger LLM observability and auth out of the box
-* Bad, because diverges from AI-Core's gateway stack
+* Bad, because it diverges from the other team's gateway stack
 * Bad, because no published large-scale production case study
 
 ## Pros and Cons of the Options
-
-### Decision Matrix
-
-| Decision Driver | Option 1: Agentgateway | Option 2: Envoy AI Gateway |
-|---|---|---|
-| A. Operational simplicity | ✅ single process, no deps | ❌ sidecar + webhook + Redis |
-| B. Gateway API conformance | ✅ full (v1.5.0) | ⚠️ partial (2 optional features missing) |
-| C. Observability and auth | ✅ LLM telemetry, OIDC, CEL RBAC | ⚠️ token counts for rate limiting only |
-| D. Token quota enforcement | ⚠️ exact counts require remote rate limiter | ✅ exact (from response body, built-in) |
-| E. Team alignment | ⚠️ no concrete shared commitment yet | ✅ same stack as AI-Core |
-
-Legend: ✅ = fully addressed, ⚠️ = partially addressed / conditional, ❌ = not addressed / major drawback
 
 ### Option 1: Agentgateway
 
@@ -92,17 +80,27 @@ Legend: ✅ = fully addressed, ⚠️ = partially addressed / conditional, ❌ =
 - Good, because MCP and A2A protocol support available if Thalamus expands to hosting its own agentic endpoints
 - Neutral, because upfront token estimation is approximate — exact hard quotas require additional remote rate limiter deployment
 - Bad, because no large-scale production case study publicly documented
-- Bad, because diverges from AI-Core's stack
+- Bad, because it diverges from the other team's stack
 
 ### Option 2: Envoy AI Gateway
 
-- Good, because exact token quota enforcement built-in — no additional components required for hard per-user daily budgets
+- Good, because exact token quota enforcement is built-in — no separate remote rate-limiting service is required for hard per-user daily budgets
 - Good, because Envoy Gateway base is production-proven at scale
-- Good, because aligns with AI-Core's gateway stack
+- Good, because it aligns with the other team's gateway stack
 - Neutral, because v0.7.0 pre-GA (created October 2024) — production maturity of the AI Gateway layer specifically is unproven
 - Bad, because `ai-gateway-extproc` sidecar injected via mutating webhook — sidecar can crash independently of the proxy; webhook must be healthy for pods to start
 - Bad, because Redis is a required stateful dependency with no in-process fallback
 - Bad, because partial Gateway API conformance
 - Bad, because no LLM-specific cost/telemetry metrics — token counts surface only for rate limiting purposes
 
-## Additional Information
+### Decision Matrix
+
+| Decision Driver | Option 1: Agentgateway | Option 2: Envoy AI Gateway |
+|---|---|---|
+| A. Operational simplicity | ✅ single process, no deps | ❌ sidecar + webhook + Redis |
+| B. Gateway API conformance | ✅ full (v1.5.0) | ⚠️ partial (2 optional features missing) |
+| C. Observability and auth | ✅ LLM telemetry, OIDC, CEL RBAC | ⚠️ token counts for rate limiting only |
+| D. Token quota enforcement | ⚠️ exact counts require remote rate limiter | ✅ exact (from response body, built-in) |
+| E. Cross-team alignment | ⚠️ no concrete shared commitment yet | ✅ same stack as the other team |
+
+Legend: ✅ = fully addressed, ⚠️ = partially addressed / conditional, ❌ = not addressed / major drawback
