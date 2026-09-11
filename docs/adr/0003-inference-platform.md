@@ -156,4 +156,4 @@ To ensure an objective and transparent comparison, the following table evaluates
 |----------------------------------|-----------|-------------------------|-------------------------------|
 | D1 Platform and stack independence  | 🟢        | 🔴                      | 🟡                            |
 | D2 Operational consistency          | 🟡        | 🔴                      | 🟢                            |
-| D3 Extensibility                    | 🟢        | 🟢                      | 🟡                            |
+| D3 Extensibility                    | 🟢        | 🔴                      | 🟡                            |
