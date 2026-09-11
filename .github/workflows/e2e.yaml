@@ -40,13 +40,10 @@ jobs:
           cluster_name: thalamus
           node_image: kindest/node:v1.31.12
 
-      - name: Install helmfile
-        uses: helmfile/helmfile-action@v2.4.7
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
         with:
-          helmfile-version: v1.7.4
-          helm-version: v3.17.3
-          helm-plugins: >
-            https://github.com/databus23/helm-diff@v3.9.14
+          version: v3.17.3
 
       - name: Install uv
         if: matrix.name == 'model'
@@ -65,15 +62,23 @@ jobs:
           kind load docker-image ghcr.io/cobaltcore-dev/thalamus:pr \
             --name thalamus
 
-      - name: Deploy Thalamus
-        working-directory: helm
+      - name: Apply Gateway API CRDs
         run: |
-          helmfile --file helmfile.yaml.gotmpl apply \
-            --skip-diff-validation-on-install \
-            --wait=true \
-            --timeout=600 \
-            ${{ matrix.name == 'model' && format('--state-values-file {0}/test/e2e/values.yaml', github.workspace) || '' }} \
-            --state-values-set thalamus.operator.image.tag=pr
+          kubectl apply -f \
+            "https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.2/standard-install.yaml"
+          kubectl apply -f \
+            "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/v1.6.0/v1-manifests.yaml"
+          kubectl wait --for=condition=Established --timeout=120s \
+            crd/gateways.gateway.networking.k8s.io \
+            crd/inferencepools.inference.networking.k8s.io
+
+      - name: Install Thalamus
+        run: |
+          helm dependency update helm/thalamus
+          helm install thalamus helm/thalamus \
+            --namespace thalamus \
+            --set operator.image.tag=pr \
+            --wait --timeout 600s
 
       - name: Wait for gateway
         run: |
