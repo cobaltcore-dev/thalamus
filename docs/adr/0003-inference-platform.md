@@ -85,44 +85,37 @@ InferencePool  Inference   Workspace
 
 
 ```yaml
-apiVersion: thalamus.dev/v1alpha1
+apiVersion: thalamus.cloud/v1alpha1
 kind: Model
 metadata:
   name: llama-3-70b
 spec:
+  backend: native
+  replicas: 1
   weights:
-    type: huggingFace  # types={huggingFace, s3, ceph, ..}
-    huggingFace:
-      repoID: meta-llama/Llama-3.3-70B-Instruct
-      tokenSecretRef:
+    type: hf
+    hf:
+      repoId: meta-llama/Llama-3.3-70B-Instruct
+      tokenSecret:
         name: hf-token-secret
         key: token
   serving:
-    backend: kserve  # backends={llm-d, kserve, kaito, ..}. Cluster-wide default if omitted.
     engine:
       image: vllm/vllm-openai:v0.25.0
       args:
-        tensor-parallel-size: 4
-        max-model-len: 16384
+        - --tensor-parallel-size=4
+        - --max-model-len=16384
       env:
-        NIM_LOW_MEMORY_MODE: "1"
+        - name: NIM_LOW_MEMORY_MODE
+          value: "1"
       resources:
         limits:
           nvidia.com/gpu: "4"
+    epp:
+      image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0
   scheduling:
     nodeSelector:
       gpu.nvidia.com/class: H100
-  accessPolicies:  # Who may call this model
-    namespaceSelector:
-    - teamA
-status:
-  phase: Ready
-  conditions:
-  - type: Ready
-    status: "True"
-    reason: BackendReady
-    message: KServe InferenceService llama-3-70b is ready
-    timestamp: "<timestamp>"
 ```
 
 
