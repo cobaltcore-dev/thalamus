@@ -77,4 +77,6 @@ require (
 	sigs.k8s.io/structured-merge-diff/v6 v6.4.2 // indirect
 )
 
+// Pinned to the agentgateway release commit (agentgateway requires api at
+// v0.0.0 with a relative replace that does not apply downstream).
 replace github.com/agentgateway/agentgateway/api => github.com/agentgateway/agentgateway/api v0.0.0-20260827171613-fe6732474a96

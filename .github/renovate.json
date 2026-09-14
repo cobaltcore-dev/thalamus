@@ -46,6 +46,11 @@
       "allowedVersions": "/^v1\\./"
     },
     {
+      "description": "Pinned to the agentgateway release commit; synced by .github/workflows/vendor-agentgateway-api.yaml on agentgateway updates.",
+      "matchPackageNames": ["github.com/agentgateway/agentgateway/api"],
+      "enabled": false
+    },
+    {
       "matchPackageNames": ["/.*/"],
       "automerge": true
     },
