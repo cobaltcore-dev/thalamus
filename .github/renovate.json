@@ -46,6 +46,19 @@
       "allowedVersions": "/^v1\\./"
     },
     {
+      "description": "Pinned to the agentgateway release commit; synced by hack/sync-agentgateway-api.sh on agentgateway updates.",
+      "matchPackageNames": ["github.com/agentgateway/agentgateway/api"],
+      "enabled": false
+    },
+    {
+      "description": "Sync agentgateway/api replace pin to the agentgateway release commit.",
+      "matchPackageNames": ["github.com/agentgateway/agentgateway"],
+      "postUpgradeTasks": {
+        "commands": ["sh hack/sync-agentgateway-api.sh"],
+        "fileFilters": ["go.mod", "go.sum"]
+      }
+    },
+    {
       "matchPackageNames": ["/.*/"],
       "automerge": true
     },
