@@ -29,19 +29,6 @@ releases:
           enabled: false
       - {{ dig "gpu-operator" dict .Values | toYaml | nindent 10 }}
 
-  - name: kube-prometheus-stack
-    namespace: monitoring
-    createNamespace: true
-    chart: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack
-    version: "88.6.5"
-    installed: {{ dig "kube-prometheus-stack" "enabled" true .Values }}
-    values:
-      - nodeExporter:
-          enabled: false
-        grafana:
-          enabled: false
-      - {{ dig "kube-prometheus-stack" dict .Values | toYaml | nindent 10 }}
-
   - name: agentgateway-crds
     namespace: agentgateway-system
     createNamespace: true

@@ -22,7 +22,7 @@ Helm chart repositories usually publish only packaging release notes, so your jo
    - `gh pr diff <PR>`
 3. Identify external Helm chart version bumps in `helm/helmfile.yaml.gotmpl`. For each changed release, capture:
    - release name
-   - chart reference (e.g. `open-webui/open-webui` or `oci://.../kube-prometheus-stack`)
+   - chart reference (e.g. `open-webui/open-webui` or `oci://.../gpu-operator`)
    - repository URL
    - old version
    - new version

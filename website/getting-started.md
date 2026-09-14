@@ -91,8 +91,8 @@ open-webui:
 The `helm/helmfile.yaml.gotmpl` manifest installs the full stack as a set of
 ordered helmfile releases: the Gateway API and Inference Extension CRDs, the
 Thalamus CRDs, the GPU operator and node feature discovery, the agentgateway
-with its CRDs, `kube-prometheus-stack` for observability, the `thalamus` chart
-(operator + gateway), and finally `open-webui`. Helmfile registers the required
+with its CRDs, the `thalamus` chart (operator + gateway), and finally
+`open-webui`. Helmfile registers the required
 helm repositories and applies the releases in dependency order.
 
 Deploy with chart defaults:
@@ -106,8 +106,8 @@ helmfile --file helm/helmfile.yaml.gotmpl apply --skip-diff-validation-on-instal
 
 To customize values for your cluster, write a release-keyed values file and
 pass it via `--state-values-file`. The top-level keys are helmfile release
-names (e.g. `thalamus`, `open-webui`, `gpu-operator`, `kube-prometheus-stack`,
-`agentgateway`); everything underneath is forwarded to that release as chart
+names (e.g. `thalamus`, `open-webui`, `gpu-operator`, `agentgateway`);
+everything underneath is forwarded to that release as chart
 values.
 
 ```bash
