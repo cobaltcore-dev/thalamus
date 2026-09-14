@@ -105,6 +105,7 @@ Open-source control plane for AI inference launched by Upbound in March 2026 (cu
 Open-source distributed inference serving framework led by NVIDIA. It coordinates inference engines (TensorRT-LLM, vLLM, SGLang) into a multi-node LLM serving system with disaggregated prefill/decode, KV-aware routing, and SLA-driven GPU autoscaling. It provides Kubernetes operator/CRDs.
 
 * (D1.1) Good, because lifecycle management is fully abstracted via the Kubernetes operator and CRDs.
+* (D2.2) Good, because it supports multiple engines like TensorRT-LLM, vLLM, and SGLang
 * (D1.3) Neutral, because it has no native model catalogue.
 * (D3.2) Neutral, because although it is actively developed and past its 1.0 release (v1.3+), it is led by a single vendor.
 * (D2.1) Bad, because only NVIDIA GPUs are currently supported, although project materials describe it as "vendor-agnostic."
@@ -123,7 +124,7 @@ drivers.
 | D1.2 Operational simplicity                   | 🔴     | 🟡               | 🟢    | 🟡         | 🟢            |
 | D1.3 Model catalogue (optional)               | 🟡     | 🟡               | 🟢    | 🟡         | 🟡            |
 | D2.1 Heterogeneous hardware accelerators      | 🟢     | 🟢               | 🔴    | 🟢         | 🔴            |
-| D2.2 Engine-agnostic                          | 🟢     | 🟢               | 🔴    | 🟢         | 🔴            |
+| D2.2 Engine-agnostic                          | 🟢     | 🟢               | 🔴    | 🟢         | 🟢            |
 | D3.1 Neutral foundation governance (blocking) | 🟢     | 🟡               | 🟡    | 🔴         | 🔴            |
 | D3.2 Project and community maturity           | 🟡     | 🟡               | 🟡    | 🔴         | 🟢            |
 | D3.3 Multi-vendor contribution base (blocking)| 🔴     | 🟢               | 🟡    | 🔴         | 🔴            |
