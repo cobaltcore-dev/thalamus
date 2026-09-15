@@ -1,4 +1,4 @@
-# 0001. Model defaults are a flat ConfigMap
+# 0004. Model defaults are a flat ConfigMap
 
 ## Context and Problem Statement
 
