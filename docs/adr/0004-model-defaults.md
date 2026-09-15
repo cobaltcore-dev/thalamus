@@ -2,7 +2,7 @@
 
 ## Context and Problem Statement
 
-Many `Model`s share the same configuration: the engine image and always-on args (`--enable-auto-tool-choice`, `--enable-prefix-caching`, …). They differ mostly in parsers and hardware settings (`--tensor-parallel-size`). Thalamus supplies a base of defaults so that a `Model` stays a few lines long. This ADR decides two independent questions: how the base composes with a `Model`, and where the base lives.
+Many `Model`s share the same configuration: the engine image and always-on args (`--enable-auto-tool-choice`, `--enable-prefix-caching`, …). They differ mostly in parsers and hardware settings (`--tensor-parallel-size`). Thalamus supplies a base of defaults so that a `Model` stays a few lines long. This ADR decides two independent questions: how the base composes with a `Model`, and where the base lives. Scope: `native` backend only, same namespace as the operator.
 
 ## Decision Drivers
 
@@ -57,20 +57,22 @@ Two independent choices:
 
 ## Decision Outcome
 
-Chosen: **Flat** + **ConfigMap.** Sharing is bimodal: either on for every `Model` (belongs in the base) or shared by one family (e.g. Qwen3 `--reasoning-parser`, written inline per `Model`). We accept Flat's partial D1 to avoid Iterative/Recursive complexity (D2). A ConfigMap keeps the base as cluster data without a redeploy (D3); we accept missing admission validation (D4) and mitigate by validating on load, failing closed to the last known good base. No versioned API is introduced, so changing the ConfigMap layout later is not a breaking change (unlike a Defaults CRD).
+Chosen: **Flat** + **ConfigMap.** Sharing is bimodal: either on for every `Model` (belongs in the base) or shared by one family (e.g. Qwen3 `--reasoning-parser`, written inline per `Model`). We accept Flat's partial D1 to avoid Iterative/Recursive complexity (D2). A ConfigMap keeps the base as cluster data without a redeploy (D3); we accept missing admission validation (D4) and mitigate by validating on load, keeping the in-memory last known good base (a restart with a bad CM blocks reconciles until the CM is fixed). No versioned API is introduced, so changing the ConfigMap layout later is not a breaking change (unlike a Defaults CRD).
 
 Three layers, precedence `base < Model < computed` (`computed` = operator-hardcoded `--port`, `kv-events-config`, ...). One ConfigMap key per component (`engine.yaml`, `epp.yaml`). Everything merges with Kubernetes strategic-merge semantics, evaluated locally in the operator (`Env` gets `patchStrategy:merge patchMergeKey:name` in the CR), except:
 * `args`: concatenated `base + Model + computed`, computed last so it cannot be overridden (vLLM last-wins, no per-flag merge).
 * `cache` (`VolumeSource` union): replaced when set, not merged.
 * `image`: empty means inherit from base.
-The base is additive-only (no single-key deletion); full opt-out via annotation applies the `Model` spec as-is. The result goes only into the engine/EPP Deployments, never back into the `Model` CR (GitOps-safe).
+* `env`: merged by `name`; a colliding entry is replaced wholesale (no field-wise merge of `value`/`valueFrom`).
+The base is additive-only (no single-key deletion); opt-out via annotation skips the base only, `computed` always applies. The result goes only into the engine/EPP Deployments, never back into the `Model` CR (GitOps-safe). Status and type detection use the effective merged spec.
 
 ### Consequences
 
 * A `Model` stays a few lines long, because the image and always-on args come from the base.
-* Args shared by a family of Model are written into each member, which creates some repetition.
+* Args shared by a family of Models are written into each member, which creates some repetition.
 * The base is not schema-validated, so structural errors are detected when the operator loads the base, not when the edit is made.
-* The base lives in a single ConfigMap, so a change to it is a fleet-wide change.
+* The base lives in a single ConfigMap, so a change to it affects all `Model`s in scope.
+* Requires follow-ups: `image` fields optional, builders reordered computed-last, explicit CM watch re-reconciling the fleet.
 
 ## Pros and Cons of the Options
 
