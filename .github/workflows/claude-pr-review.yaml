@@ -1,0 +1,93 @@
+# SPDX-FileCopyrightText: Copyright 2026 SAP SE or an SAP affiliate company and cobaltcore-dev contributors
+# SPDX-License-Identifier: Apache-2.0
+
+name: Claude PR Review
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  check-allowlist:
+    runs-on: ubuntu-latest
+    outputs:
+      allowed: ${{ steps.check.outputs.allowed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      - name: Check sender against allowlist
+        id: check
+        run: |
+          if grep -qxF "${{ github.event.comment.user.login }}" \
+            <(grep -v '^#' .github/claude-allowed-users | sed '/^[[:space:]]*$/d'); then
+            echo "allowed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "allowed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  review:
+    needs: check-allowlist
+    if: needs.check-allowlist.outputs.allowed == 'true' && github.event.issue.pull_request && contains(github.event.comment.body, '/review')
+    runs-on: ubuntu-latest
+    environment: claude
+    permissions:
+      contents: read
+      pull-requests: write
+    concurrency:
+      group: claude-pr-review-${{ github.event.issue.number }}
+      cancel-in-progress: true
+    steps:
+      - name: Determine PR head branch
+        id: meta
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          branch=$(gh pr view "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --json headRefName -q .headRefName)
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout PR branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.meta.outputs.branch }}
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-claude-code-action
+
+      - uses: ./.github/actions/start-litellm-proxy
+        env:
+          AICORE_RESOURCE_GROUP: ${{ secrets.AICORE_RESOURCE_GROUP }}
+          AICORE_BASE_URL: ${{ secrets.AICORE_BASE_URL }}
+          AICORE_AUTH_URL: ${{ secrets.AICORE_AUTH_URL }}
+          AICORE_CLIENT_ID: ${{ secrets.AICORE_CLIENT_ID }}
+          AICORE_CLIENT_SECRET: ${{ secrets.AICORE_CLIENT_SECRET }}
+
+      - uses: ./.claude-code-action
+        with:
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.issue.number }}
+
+            Please review this pull request with a focus on:
+            - Code quality and best practices
+            - Potential bugs or issues
+            - Security implications
+            - Performance considerations
+
+            Note: The PR branch is already checked out in the current working directory.
+
+            Use `gh pr comment` for top-level feedback.
+            Use `mcp__github_inline_comment__create_inline_comment` (with `confirmed: true`) to highlight specific code issues.
+            Only post GitHub comments - don't submit review text as messages.
+          claude_args: |
+            --max-turns 50
+            --permission-mode auto
+            --allowedTools "Read,mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
+          use_litellm: "true"
+          litellm_model: "sap/anthropic--claude-4.6-opus"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: ./.github/actions/stop-litellm-proxy
+        if: always()
