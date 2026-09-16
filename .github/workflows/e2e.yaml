@@ -27,8 +27,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: model
-          - name: components
+          - name: helmfile
+          - name: helm
 
     steps:
       - name: Check out code
@@ -49,7 +49,6 @@ jobs:
             https://github.com/databus23/helm-diff@v3.9.14
 
       - name: Install uv
-        if: matrix.name == 'model'
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
 
       - name: Create namespace
@@ -68,12 +67,25 @@ jobs:
       - name: Deploy Thalamus
         working-directory: helm
         run: |
-          helmfile --file helmfile.yaml.gotmpl apply \
-            --skip-diff-validation-on-install \
-            --wait=true \
-            --timeout=600 \
-            ${{ matrix.name == 'model' && format('--state-values-file {0}/test/e2e/values.yaml', github.workspace) || '' }} \
-            --state-values-set thalamus.operator.image.tag=pr
+          if [ "${{ matrix.name }}" = "helm" ]; then
+            helm dependency build thalamus-crds
+            helm dependency build thalamus
+            helm install thalamus-crds ./thalamus-crds \
+              --namespace thalamus \
+              --wait \
+              --timeout=600s
+            helm install thalamus ./thalamus \
+              --namespace thalamus \
+              --wait \
+              --timeout=600s \
+              --set operator.image.tag=pr
+          else
+            helmfile --file helmfile.yaml.gotmpl apply \
+              --skip-diff-validation-on-install \
+              --wait=true \
+              --timeout=600 \
+              --state-values-set thalamus.operator.image.tag=pr
+          fi
 
       - name: Wait for gateway
         run: |
@@ -83,12 +95,10 @@ jobs:
             --timeout=120s
 
       - name: Apply Model CR
-        if: matrix.name == 'model'
         run: |
           kubectl apply -f ${{ github.workspace }}/examples/model-smollm2-cpu.yaml
 
       - name: Wait for model readiness
-        if: matrix.name == 'model'
         run: |
           kubectl wait model/smollm2-135m \
             --namespace thalamus \
@@ -96,14 +106,12 @@ jobs:
             --timeout=600s
 
       - name: Port-forward gateway
-        if: matrix.name == 'model'
         run: |
           kubectl port-forward svc/inference-gateway \
             8080:80 --namespace thalamus &
           sleep 3
 
       - name: Run e2e validation
-        if: matrix.name == 'model'
         env:
           GATEWAY_HOST: localhost
           GATEWAY_PORT: "8080"

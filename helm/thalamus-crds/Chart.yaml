@@ -1,5 +1,18 @@
 apiVersion: v2
 name: thalamus-crds
-description: CRDs owned by the Thalamus project.
+description: CRDs required by the Thalamus project (Gateway API, Gateway API Inference Extension, agentgateway, Thalamus).
 type: application
 version: 0.1.0
+dependencies:
+  - name: gateway-api
+    version: 1.6.2
+    repository: file://../gateway-api
+    condition: gateway-api.enabled
+  - name: gateway-api-inference-extension
+    version: 1.6.1
+    repository: file://../gateway-api-inference-extension
+    condition: gateway-api-inference-extension.enabled
+  - name: agentgateway-crds
+    version: v1.5.0
+    repository: oci://cr.agentgateway.dev/charts
+    condition: agentgateway-crds.enabled

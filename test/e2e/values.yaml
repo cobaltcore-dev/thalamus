@@ -1,9 +1,0 @@
-# SPDX-FileCopyrightText: Copyright 2026 SAP SE or an SAP affiliate company and cobaltcore-dev contributors
-# SPDX-License-Identifier: Apache-2.0
-
-open-webui:
-  enabled: false
-node-feature-discovery:
-  enabled: false
-gpu-operator:
-  enabled: false
