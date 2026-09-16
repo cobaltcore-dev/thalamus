@@ -7,28 +7,6 @@ releases:
     namespace: default
     chart: ./gateway-api-inference-extension
 
-  - name: node-feature-discovery
-    namespace: node-feature-discovery
-    createNamespace: true
-    chart: oci://registry.k8s.io/nfd/charts/node-feature-discovery
-    version: "0.19.0"
-    installed: {{ dig "node-feature-discovery" "enabled" true .Values }}
-    values:
-      - {{ dig "node-feature-discovery" dict .Values | toYaml | nindent 10 }}
-
-  - name: gpu-operator
-    namespace: gpu-operator
-    createNamespace: true
-    chart: oci://nvcr.io/nvidia/cloud-native-charts/gpu-operator
-    version: "v26.7.0"
-    installed: {{ dig "gpu-operator" "enabled" true .Values }}
-    needs:
-      - node-feature-discovery/node-feature-discovery
-    values:
-      - nfd:
-          enabled: false
-      - {{ dig "gpu-operator" dict .Values | toYaml | nindent 10 }}
-
   - name: agentgateway-crds
     namespace: agentgateway-system
     createNamespace: true
@@ -81,6 +59,15 @@ releases:
     namespace: thalamus
     createNamespace: true
     chart: ./thalamus-crds
+    values:
+      - gateway-api:
+          enabled: false
+        gateway-api-inference-extension:
+          enabled: false
+        agentgateway-crds:
+          enabled: false
+      - {{ dig "thalamus-crds" dict .Values | toYaml | nindent 10 }}
+
 
   - name: thalamus
     chart: ./thalamus
@@ -90,6 +77,8 @@ releases:
       - thalamus/thalamus-crds
       - agentgateway-system/agentgateway
     values:
+      - agentgateway:
+          enabled: false
       {{- if (dig "open-webui" "enabled" true .Values) }}
       - gateway:
           listeners:
