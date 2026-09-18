@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: Copyright 2026 SAP SE or an SAP affiliate company and cobaltcore-dev contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+apiVersion: kro.run/v1alpha1
+kind: Thalamus
+metadata:
+  name: thalamus
+  namespace: thalamus
+spec:
+  prefix: thalamus
+  repository:
+    baseUrl: ghcr.io/skarlso/thalamus
+    type: OCIRegistry
+  nodeFeatureDiscovery:
+    enabled: true
+  gpuOperator:
+    enabled: true
+  kubePrometheusStack:
+    enabled: true
+  agentgateway:
+    enabled: true
+  externalDns:
+    enabled: false
+  openWebui:
+    enabled: true

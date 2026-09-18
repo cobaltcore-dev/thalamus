@@ -1,0 +1,157 @@
+# SPDX-FileCopyrightText: Copyright 2026 SAP SE or an SAP affiliate company and cobaltcore-dev contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: kro.run/v1alpha1
+kind: ResourceGraphDefinition
+metadata:
+  name: thalamus-agentgateway
+spec:
+  schema:
+    apiVersion: v1alpha1
+    kind: ThalamusAgentgateway
+    scope: Namespaced
+    spec:
+      version: string | default="v1.3.1"
+      prefix: string | default="thalamus-agentgateway"
+      namespace: string | default="agentgateway-system"
+      repository: object
+      insecureRegistry: boolean | default=false
+    status:
+      ready: ${helmRelease.status.conditions.exists(c, c.type == "Ready" && c.status == "True")}
+  resources:
+    - id: repository
+      readyWhen:
+        - ${repository.status.conditions.exists(c, c.type == "Ready" && c.status == "True")}
+      template:
+        apiVersion: delivery.ocm.software/v1alpha1
+        kind: Repository
+        metadata:
+          name: ${schema.spec.prefix}-repository
+          namespace: ${schema.spec.namespace}
+        spec:
+          repositorySpec: ${schema.spec.repository}
+          interval: 10m
+
+    - id: component
+      readyWhen:
+        - ${component.status.conditions.exists(c, c.type == "Ready" && c.status == "True")}
+      template:
+        apiVersion: delivery.ocm.software/v1alpha1
+        kind: Component
+        metadata:
+          name: ${schema.spec.prefix}-component
+          namespace: ${schema.spec.namespace}
+        spec:
+          component: github.com/cobaltcore-dev/thalamus/agentgateway
+          repositoryRef:
+            name: ${repository.metadata.name}
+          semver: ${schema.spec.version}
+          interval: 1m
+
+    - id: chartResource
+      readyWhen:
+        - ${chartResource.status.conditions.exists(c, c.type == "Ready" && c.status == "True")}
+      template:
+        apiVersion: delivery.ocm.software/v1alpha1
+        kind: Resource
+        metadata:
+          name: ${schema.spec.prefix}-resource-chart
+          namespace: ${schema.spec.namespace}
+        spec:
+          componentRef:
+            name: ${component.metadata.name}
+          resource:
+            byReference:
+              resource:
+                name: agentgateway-chart
+          additionalStatusFields:
+            oci: resource.access.toOCI()
+
+    - id: controllerImage
+      readyWhen:
+        - ${controllerImage.status.conditions.exists(c, c.type == "Ready" && c.status == "True")}
+      template:
+        apiVersion: delivery.ocm.software/v1alpha1
+        kind: Resource
+        metadata:
+          name: ${schema.spec.prefix}-image-controller
+          namespace: ${schema.spec.namespace}
+        spec:
+          componentRef:
+            name: ${component.metadata.name}
+          resource:
+            byReference:
+              resource:
+                name: controller-image
+          additionalStatusFields:
+            oci: resource.access.toOCI()
+
+    - id: proxyImage
+      readyWhen:
+        - ${proxyImage.status.conditions.exists(c, c.type == "Ready" && c.status == "True")}
+      template:
+        apiVersion: delivery.ocm.software/v1alpha1
+        kind: Resource
+        metadata:
+          name: ${schema.spec.prefix}-image-proxy
+          namespace: ${schema.spec.namespace}
+        spec:
+          componentRef:
+            name: ${component.metadata.name}
+          resource:
+            byReference:
+              resource:
+                name: proxy-image
+          additionalStatusFields:
+            oci: resource.access.toOCI()
+
+    - id: ociRepository
+      readyWhen:
+        - ${ociRepository.status.conditions.exists(c, c.type == "Ready" && c.status == "True")}
+      template:
+        apiVersion: source.toolkit.fluxcd.io/v1
+        kind: OCIRepository
+        metadata:
+          name: ${schema.spec.prefix}-oci-repository
+          namespace: ${schema.spec.namespace}
+        spec:
+          interval: 1m0s
+          insecure: ${schema.spec.insecureRegistry}
+          layerSelector:
+            mediaType: "application/vnd.cncf.helm.chart.content.v1.tar+gzip"
+            operation: copy
+          url: oci://${chartResource.status.additional.oci.registry}/${chartResource.status.additional.oci.repository}
+          ref:
+            digest: ${chartResource.status.additional.oci.digest}
+
+    - id: helmRelease
+      readyWhen:
+        - ${helmRelease.status.conditions.exists(c, c.type == "Ready" && c.status == "True")}
+      template:
+        apiVersion: helm.toolkit.fluxcd.io/v2
+        kind: HelmRelease
+        metadata:
+          name: agentgateway
+          namespace: ${schema.spec.namespace}
+        spec:
+          releaseName: agentgateway
+          targetNamespace: ${schema.spec.namespace}
+          interval: 1m
+          timeout: 5m
+          chartRef:
+            kind: OCIRepository
+            name: ${ociRepository.metadata.name}
+          values:
+            inferenceExtension:
+              enabled: true
+            controller:
+              image:
+                registry: ${controllerImage.status.additional.oci.registry}
+                repository: ${controllerImage.status.additional.oci.repository}
+                tag: v1.3.1@${controllerImage.status.additional.oci.digest}
+            proxy:
+              image:
+                registry: ${proxyImage.status.additional.oci.registry}
+                repository: ${proxyImage.status.additional.oci.repository}
+                tag: v1.3.1@${proxyImage.status.additional.oci.digest}
