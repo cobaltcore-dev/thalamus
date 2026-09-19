@@ -1,0 +1,6 @@
+gateway-api:
+  enabled: true
+gateway-api-inference-extension:
+  enabled: true
+agentgateway-crds:
+  enabled: true
