@@ -56,6 +56,20 @@ export default withMermaid({
         ],
       },
       {
+        text: 'Backends',
+        collapsed: false,
+        items: [
+          {
+            text: 'Native',
+            collapsed: false,
+            items: [
+              { text: 'Overview', link: '/concepts/backends/native/' },
+              { text: 'Request flow', link: '/concepts/backends/native/request-flow' },
+            ],
+          },
+        ],
+      },
+      {
         text: 'Reference',
         collapsed: false,
         items: [

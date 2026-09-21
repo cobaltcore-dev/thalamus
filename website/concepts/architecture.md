@@ -12,7 +12,7 @@ It requires an AI-enabled Kubernetes cluster, for example one provided by [Garde
 
 ## Inference API
 
-A single OpenAI-compatible HTTP endpoint serves all clients. Routing to the correct model and replica is handled inside the cluster by the Gateway API Inference Extension and the llm-d Endpoint Picker.
+A single OpenAI-compatible HTTP endpoint serves all clients. Routing to the correct model and replica is handled inside the cluster by the Gateway API Inference Extension and the llm-d Endpoint Picker. See [Request flow](/concepts/backends/native/request-flow) for a step-by-step walkthrough.
 
 ## Kubernetes AI runtime
 
@@ -83,5 +83,7 @@ The same stack runs in two topologies:
 
 ## Related
 
+- [Native Backend](/concepts/backends/native/)
+- [Native Backend Request flow](/concepts/backends/native/request-flow)
 - [Model CRD API Reference](/reference/model-crd-api)
 - [Getting Started](/getting-started)
