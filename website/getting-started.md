@@ -39,28 +39,25 @@ bundled with the install (Step 1).
 
 ## Step 1 — Deploy the stack
 
-Thalamus installs as two Helm charts: `thalamus-crds` (the Thalamus, Gateway
-API, inference extension, and agentgateway CRDs) and `thalamus` (the operator
-and agentgateway data plane). Everything is enabled by default:
+Thalamus installs as a single Helm chart bundling the operator, the
+Thalamus, Gateway API, inference extension, and agentgateway CRDs, and the
+agentgateway data plane. Everything is enabled by default:
 
 ```bash
-helm upgrade --install thalamus-crds oci://ghcr.io/cobaltcore-dev/charts/thalamus-crds \
-  --namespace thalamus --create-namespace --wait \
-  --version @@CHART_VERSION@@
 helm upgrade --install thalamus oci://ghcr.io/cobaltcore-dev/charts/thalamus \
-  --namespace thalamus --wait \
+  --namespace thalamus --create-namespace --wait \
   --version @@CHART_VERSION@@
 ```
 
 > **Caution:** the CRDs are installed as ordinary release resources, not via
-> Helm's protected `crds/` mechanism. `helm uninstall thalamus-crds` therefore
+> Helm's protected `crds/` mechanism. `helm uninstall thalamus` therefore
 > deletes every CRD and cascades into deleting all custom resources they own —
 > including every `Model` and its inference workloads. Only uninstall it when
 > you intend to tear down Thalamus.
 
 ### Already have some of these components?
 
-If your cluster already provides some of the CRDs bundled in `thalamus-crds`,
+If your cluster already provides some of the bundled CRDs,
 disable the matching dependencies:
 
 - `gateway-api` — skip with `--set gateway-api.enabled=false` (common on
@@ -69,15 +66,15 @@ disable the matching dependencies:
   Thalamus needs; disable only if your cluster already provides it
 
 ```bash
-helm upgrade --install thalamus-crds oci://ghcr.io/cobaltcore-dev/charts/thalamus-crds \
+helm upgrade --install thalamus oci://ghcr.io/cobaltcore-dev/charts/thalamus \
   --namespace thalamus --create-namespace --wait \
   --version @@CHART_VERSION@@ \
   --set gateway-api.enabled=false
 ```
 
 Likewise, if you run agentgateway as separate releases, disable its bundled CRDs
-on the `thalamus-crds` release with `--set agentgateway-crds.enabled=false`, and
-disable its bundled controller on the `thalamus` release with `--set agentgateway.enabled=false`.
+with `--set agentgateway-crds.enabled=false`, and
+disable its bundled controller with `--set agentgateway.enabled=false`.
 
 ## Step 2 — Create the Hugging Face secret
 
@@ -91,7 +88,46 @@ kubectl create secret generic hf-token \
   --namespace thalamus
 ```
 
-## Step 3 — Deploy a model
+## Step 4 — Create the inference gateway
+
+The Gateway is not part of the helm release; you create and own it. The
+operator attaches all of its routes — per-model traffic and the
+OpenAI-compatible `/v1/models` endpoint — to the Gateway you point it at.
+
+A Gateway is a `gateway.networking.k8s.io` resource using the `agentgateway`
+GatewayClass that the stack deploys. The operator expects:
+
+- the Gateway to live in the same namespace as the operator (`thalamus`),
+- an HTTP listener that routes from all namespaces.
+
+The operator finds the Gateway and listener by name via the chart's
+`gateway.name` and `gateway.listener` values (defaults `inference-gateway`
+and `api`); set them if yours differ.
+
+Apply the example gateway:
+
+```bash
+kubectl apply -f examples/gateway.yaml
+```
+
+Wait for it to become programmed:
+
+```bash
+kubectl wait gateway/inference-gateway \
+  --namespace thalamus \
+  --for=condition=Programmed=True \
+  --timeout=120s
+```
+
+The example also shows how to configure the data plane through an
+`AgentgatewayParameters` resource, e.g. to expose the gateway via a
+`LoadBalancer` instead of the default `ClusterIP`.
+
+::: details Gateway example manifest
+<<< ../examples/gateway.yaml{yml}
+:::
+
+## Step 4 — Deploy a model
 
 Models are declared as `thalamus.cloud/v1alpha1 Model` resources and applied
 independently of the helm release. See [`examples/model-qwen3-6-27b-gpu.yaml`](https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/model-qwen3-6-27b-gpu.yaml)
@@ -128,7 +164,7 @@ kubectl wait model/smollm2-135m --namespace thalamus --for=condition=Ready --tim
 <<< ../examples/model-smollm2-cpu.yaml{yml}
 :::
 
-## Step 4 — Access the stack
+## Step 5 — Access the stack
 
 Once the pods are running, the inference gateway exposes an OpenAI-compatible
 API. Use the `LoadBalancer`

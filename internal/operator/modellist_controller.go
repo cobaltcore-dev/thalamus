@@ -25,8 +25,11 @@ import (
 // ModelListReconciler keeps the /v1/models route and policy in sync, listing the namespace's Ready Models.
 type ModelListReconciler struct {
 	client.Client
-	Scheme      *runtime.Scheme
+	Scheme *runtime.Scheme
+	// GatewayName is the name of the gateway the route and policy attach to.
 	GatewayName string
+	// ListenerName is the gateway listener the route attaches to.
+	ListenerName string
 }
 
 func (r *ModelListReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -48,7 +51,7 @@ func (r *ModelListReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
-	if err := applyOwnedNonBlocking(ctx, r.Client, r.Scheme, gateway, native.BuildModelListRoute(gateway)); err != nil {
+	if err := applyOwnedNonBlocking(ctx, r.Client, r.Scheme, gateway, native.BuildModelListRoute(gateway, r.ListenerName)); err != nil {
 		return ctrl.Result{}, err
 	}
 	if err := applyOwnedNonBlocking(ctx, r.Client, r.Scheme, gateway, native.BuildModelListPolicy(req.Namespace, body)); err != nil {
