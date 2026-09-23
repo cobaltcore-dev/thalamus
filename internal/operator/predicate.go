@@ -17,7 +17,9 @@ func namedPredicate(name string) predicate.Predicate {
 	return predicate.And(nameMatch, predicate.GenerationChangedPredicate{})
 }
 
-// ownedByPredicate fires only for events on objects controlled by the named owner.
+// ownedByPredicate fires only for objects controlled by the named owner.
+//
+//nolint:unparam // kind is a parameter for future non-Gateway owners.
 func ownedByPredicate(kind, name string) predicate.Predicate {
 	return predicate.NewPredicateFuncs(func(obj client.Object) bool {
 		ref := metav1.GetControllerOf(obj)

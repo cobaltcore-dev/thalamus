@@ -12,7 +12,7 @@ import (
 )
 
 func TestOwnedByPredicate(t *testing.T) {
-	withOwner := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{
+	withOwner := &corev1.ConfigMap{
 		Name:      "child",
 		Namespace: testNamespace,
 		OwnerReferences: []metav1.OwnerReference{{
@@ -20,13 +20,12 @@ func TestOwnedByPredicate(t *testing.T) {
 			Kind:       "Gateway",
 			Name:       testGatewayName,
 			Controller: func() *bool { b := true; return &b }(),
-		}},
-	}}
+		}}}
 	foreignOwned := withOwner.DeepCopy()
 	foreignOwned.OwnerReferences[0].Name = "other-gateway"
 	wrongKind := withOwner.DeepCopy()
 	wrongKind.OwnerReferences[0].Kind = "Model"
-	unowned := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "child", Namespace: testNamespace}}
+	unowned := &corev1.ConfigMap{Name: "child", Namespace: testNamespace}
 
 	p := ownedByPredicate("Gateway", testGatewayName)
 	for _, tc := range []struct {
