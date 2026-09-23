@@ -1,0 +1,44 @@
+# Inference gateway the Thalamus operator attaches its routes to; not managed
+# by the helm chart. Point the chart at it via gateway.name and
+# gateway.listener, and create it in the operator's namespace.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: inference-gateway
+  namespace: thalamus
+spec:
+  gatewayClassName: agentgateway
+  listeners:
+    # The listener the operator attaches its routes to (gateway.listener).
+    - name: api
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: All
+    # Optional listener for additional consumers, e.g. open-webui.
+    - name: frontend
+      port: 8080
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: All
+  # Optional: configure the data plane agentgateway deploys for this Gateway,
+  # e.g. expose it via a LoadBalancer instead of the default ClusterIP.
+  infrastructure:
+    parametersRef:
+      group: agentgateway.dev
+      kind: AgentgatewayParameters
+      name: inference-gateway
+---
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayParameters
+metadata:
+  name: inference-gateway
+  namespace: thalamus
+spec:
+  service:
+    spec:
+      type: ClusterIP
+      # type: LoadBalancer
+      # loadBalancerIP: ""

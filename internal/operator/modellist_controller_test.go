@@ -94,7 +94,7 @@ func mustAssertOwnedByGateway(t *testing.T, obj client.Object, gateway *gatewayv
 func TestModelListReconcile_NoGateway(t *testing.T) {
 	s := testutil.NewScheme(t)
 	c := fake.NewClientBuilder().WithScheme(s).Build()
-	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName}
+	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
 
 	reconcileModelListOnce(t, r)
 
@@ -106,7 +106,7 @@ func TestModelListReconcile_NoModels(t *testing.T) {
 	s := testutil.NewScheme(t)
 	gateway := newGateway()
 	c := fake.NewClientBuilder().WithScheme(s).WithObjects(gateway).Build()
-	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName}
+	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
 
 	reconcileModelListOnce(t, r)
 
@@ -127,7 +127,7 @@ func TestModelListReconcile_OneReadyModel(t *testing.T) {
 		WithObjects(gateway).
 		WithObjects(model).WithStatusSubresource(model).
 		Build()
-	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName}
+	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
 
 	reconcileModelListOnce(t, r)
 
@@ -151,7 +151,7 @@ func TestModelListReconcile_OnlyReadyModelsListed(t *testing.T) {
 		WithObjects(gateway).
 		WithObjects(ready, creating).WithStatusSubresource(ready, creating).
 		Build()
-	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName}
+	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
 
 	reconcileModelListOnce(t, r)
 
@@ -168,7 +168,7 @@ func TestModelListReconcile_ReappliesModifiedPolicy(t *testing.T) {
 	policy := newModelListPolicy()
 	policy.Spec.Traffic.DirectResponse.Headers = nil
 	c := fake.NewClientBuilder().WithScheme(s).WithObjects(gateway, policy).Build()
-	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName}
+	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
 
 	reconcileModelListOnce(t, r)
 
@@ -195,7 +195,7 @@ func TestModelListReconcile_RecreatesDeletedRoute(t *testing.T) {
 	s := testutil.NewScheme(t)
 	gateway := newGateway()
 	c := fake.NewClientBuilder().WithScheme(s).WithObjects(gateway).Build()
-	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName}
+	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
 
 	reconcileModelListOnce(t, r)
 	if err := r.Delete(context.Background(), mustGetRoute(t, r)); err != nil {

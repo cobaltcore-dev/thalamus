@@ -15,7 +15,7 @@ import (
 func TestBuildModelListRoute(t *testing.T) {
 	gateway := &gatewayv1.Gateway{Name: testGatewayName, Namespace: "thalamus"}
 
-	route := BuildModelListRoute(gateway)
+	route := BuildModelListRoute(gateway, "custom-listener")
 
 	if route.Name != ModelListRouteName {
 		t.Errorf("route.Name:\ngot:  %q\nwant: %q", route.Name, ModelListRouteName)
@@ -30,8 +30,8 @@ func TestBuildModelListRoute(t *testing.T) {
 	if parentRef.Name != testGatewayName {
 		t.Errorf("parentRef.Name:\ngot:  %q\nwant: %q", parentRef.Name, testGatewayName)
 	}
-	if parentRef.SectionName == nil || *parentRef.SectionName != defaultGatewaySectionName {
-		t.Errorf("parentRef.SectionName:\ngot:  %v\nwant: %q", parentRef.SectionName, defaultGatewaySectionName)
+	if parentRef.SectionName == nil || *parentRef.SectionName != "custom-listener" {
+		t.Errorf("parentRef.SectionName:\ngot:  %v\nwant: %q", parentRef.SectionName, "custom-listener")
 	}
 	if len(route.Spec.Rules) != 1 || len(route.Spec.Rules[0].Matches) != 1 {
 		t.Fatal("expected exactly one route rule with one match")

@@ -5,14 +5,6 @@
 {{- $version := dig "thalamus" "version" (printf "0.0.0-sha-%s" $sha) .Values }}
 
 releases:
-  - name: gateway-api-crds
-    namespace: default
-    chart: ../helm/gateway-api
-
-  - name: gateway-api-inference-extension-crds
-    namespace: default
-    chart: ../helm/gateway-api-inference-extension
-
   - name: node-feature-discovery
     namespace: node-feature-discovery
     createNamespace: true
@@ -34,29 +26,6 @@ releases:
       - nfd:
           enabled: false
       - {{ dig "gpu-operator" dict .Values | toYaml | nindent 10 }}
-
-  - name: agentgateway-crds
-    namespace: agentgateway-system
-    createNamespace: true
-    chart: oci://cr.agentgateway.dev/charts/agentgateway-crds
-    version: "v1.5.0"
-    installed: {{ dig "agentgateway-crds" "enabled" true .Values }}
-    values:
-      - {{ dig "agentgateway-crds" dict .Values | toYaml | nindent 10 }}
-
-  - name: agentgateway
-    namespace: agentgateway-system
-    chart: oci://cr.agentgateway.dev/charts/agentgateway
-    version: "v1.5.0"
-    installed: {{ dig "agentgateway" "enabled" true .Values }}
-    needs:
-      - default/gateway-api-crds
-      - default/gateway-api-inference-extension-crds
-      - agentgateway-system/agentgateway-crds
-    values:
-      - inferenceExtension:
-          enabled: true
-      - {{ dig "agentgateway" dict .Values | toYaml | nindent 10 }}
 
   - name: open-webui
     namespace: open-webui
@@ -83,40 +52,10 @@ releases:
               sectionName: frontend
       - {{ dig "open-webui" dict .Values | toYaml | nindent 10 }}
 
-  - name: thalamus-crds
-    namespace: thalamus
-    createNamespace: true
-    chart: oci://ghcr.io/cobaltcore-dev/charts/thalamus-crds
-    version: "{{ $version }}"
-    values:
-      - gateway-api:
-          enabled: false
-        gateway-api-inference-extension:
-          enabled: false
-        agentgateway-crds:
-          enabled: false
-      - {{ dig "thalamus-crds" dict .Values | toYaml | nindent 10 }}
-
-
   - name: thalamus
     chart: oci://ghcr.io/cobaltcore-dev/charts/thalamus
     version: "{{ $version }}"
     namespace: thalamus
     createNamespace: true
-    needs:
-      - thalamus/thalamus-crds
-      - agentgateway-system/agentgateway
     values:
-      - agentgateway:
-          enabled: false
-      {{- if (dig "open-webui" "enabled" true .Values) }}
-      - gateway:
-          listeners:
-            frontend:
-              port: 8080
-              protocol: HTTP
-              allowedRoutes:
-                namespaces:
-                  from: All
-      {{- end }}
       - {{ dig "thalamus" dict .Values | toYaml | nindent 10 }}

@@ -1,10 +1,22 @@
 apiVersion: v2
 name: thalamus
-description: Thalamus operator and LLM inference workloads (vLLM model servers, inference gateway, routing). Requires thalamus-crds to be installed first.
+description: Thalamus operator and LLM inference workloads (vLLM model servers, inference gateway, routing).
 type: application
 version: 0.1.0
 appVersion: latest
 dependencies:
+  - name: gateway-api
+    version: v1.6.2
+    repository: file://../gateway-api
+    condition: gateway-api.enabled
+  - name: gateway-api-inference-extension
+    version: v1.6.2
+    repository: file://../gateway-api-inference-extension
+    condition: gateway-api-inference-extension.enabled
+  - name: agentgateway-crds
+    version: v1.5.0
+    repository: oci://cr.agentgateway.dev/charts
+    condition: agentgateway-crds.enabled
   - name: agentgateway
     version: v1.5.0
     repository: oci://cr.agentgateway.dev/charts

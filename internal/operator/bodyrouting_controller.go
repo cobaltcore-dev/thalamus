@@ -25,6 +25,8 @@ type BodyRoutingReconciler struct {
 	Scheme *runtime.Scheme
 	// GatewayName is the name of the gateway the policy attaches to.
 	GatewayName string
+	// ListenerName is the gateway listener the policy attaches to.
+	ListenerName string
 }
 
 func (r *BodyRoutingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -36,7 +38,7 @@ func (r *BodyRoutingReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	if err := applyOwnedNonBlocking(ctx, r.Client, r.Scheme, gateway, native.BuildBodyBasedRoutingPolicy(gateway)); err != nil {
+	if err := applyOwnedNonBlocking(ctx, r.Client, r.Scheme, gateway, native.BuildBodyBasedRoutingPolicy(gateway, r.ListenerName)); err != nil {
 		return ctrl.Result{}, err
 	}
 

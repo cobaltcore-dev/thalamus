@@ -13,7 +13,6 @@ import (
 )
 
 const (
-	defaultGatewaySectionName     = "api"
 	gatewayBaseModelHeaderName    = "X-Gateway-Base-Model-Name"
 	BodyBasedRoutingPolicyName    = "body-based-routing"
 	bodyBasedRoutingCELExpression = "json(request.body).model"
@@ -43,7 +42,7 @@ func BuildInferencePool(model *v1alpha1.Model) *inferencev1.InferencePool {
 
 // BuildHTTPRoute returns the HTTPRoute for the model's AgentgatewayBackend,
 // so traffic is token-metered by the LLM pipeline. Unmatched paths 404 at the gateway.
-func BuildHTTPRoute(model *v1alpha1.Model, gatewayName string) *gatewayv1.HTTPRoute {
+func BuildHTTPRoute(model *v1alpha1.Model, gatewayName, listenerName string) *gatewayv1.HTTPRoute {
 	modelName := ""
 	if model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && model.Spec.Weights.HF != nil {
 		modelName = model.Spec.Weights.HF.RepoID
@@ -74,7 +73,7 @@ func BuildHTTPRoute(model *v1alpha1.Model, gatewayName string) *gatewayv1.HTTPRo
 					{
 						Name:        gatewayv1.ObjectName(gatewayName),
 						Namespace:   new(gatewayv1.Namespace(model.Namespace)),
-						SectionName: new(gatewayv1.SectionName(defaultGatewaySectionName)),
+						SectionName: new(gatewayv1.SectionName(listenerName)),
 					},
 				},
 			},
@@ -95,7 +94,7 @@ func BuildHTTPRoute(model *v1alpha1.Model, gatewayName string) *gatewayv1.HTTPRo
 }
 
 // BuildBodyBasedRoutingPolicy returns the policy setting the header the per-model routes match on.
-func BuildBodyBasedRoutingPolicy(gateway *gatewayv1.Gateway) *agentgatewayv1alpha1.AgentgatewayPolicy {
+func BuildBodyBasedRoutingPolicy(gateway *gatewayv1.Gateway, listenerName string) *agentgatewayv1alpha1.AgentgatewayPolicy {
 	return &agentgatewayv1alpha1.AgentgatewayPolicy{
 		Name:      BodyBasedRoutingPolicyName,
 		Namespace: gateway.Namespace,
@@ -105,7 +104,7 @@ func BuildBodyBasedRoutingPolicy(gateway *gatewayv1.Gateway) *agentgatewayv1alph
 					Group:       gatewayv1.GroupName,
 					Kind:        "Gateway",
 					Name:        gatewayv1.ObjectName(gateway.Name),
-					SectionName: new(gatewayv1.SectionName(defaultGatewaySectionName)),
+					SectionName: new(gatewayv1.SectionName(listenerName)),
 				},
 			},
 			Traffic: &agentgatewayv1alpha1.Traffic{
