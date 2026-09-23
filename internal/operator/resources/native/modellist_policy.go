@@ -71,7 +71,7 @@ func BuildModelListResponse(models []v1alpha1.Model) (string, error) {
 }
 
 // BuildModelListRoute returns the HTTPRoute exposing /v1/models on the gateway's API listener.
-func BuildModelListRoute(gateway *gatewayv1.Gateway) *gatewayv1.HTTPRoute {
+func BuildModelListRoute(gateway *gatewayv1.Gateway, listenerName string) *gatewayv1.HTTPRoute {
 	return &gatewayv1.HTTPRoute{
 		Name:      ModelListRouteName,
 		Namespace: gateway.Namespace,
@@ -81,7 +81,7 @@ func BuildModelListRoute(gateway *gatewayv1.Gateway) *gatewayv1.HTTPRoute {
 					{
 						Name:        gatewayv1.ObjectName(gateway.Name),
 						Namespace:   new(gatewayv1.Namespace(gateway.Namespace)),
-						SectionName: new(gatewayv1.SectionName(defaultGatewaySectionName)),
+						SectionName: new(gatewayv1.SectionName(listenerName)),
 					},
 				},
 			},

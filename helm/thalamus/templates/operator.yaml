@@ -123,6 +123,7 @@ spec:
             - --health-probe-bind-address=:8081
             - --namespace={{ .Release.Namespace }}
             - --gateway-name={{ .Values.gateway.name }}
+            - --gateway-listener={{ .Values.gateway.listener }}
             {{- if $metricsEnabled }}
             - --metrics-bind-address=:8080
             {{- end }}

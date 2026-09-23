@@ -1,9 +1,18 @@
 dependencies:
+- name: gateway-api
+  repository: file://../gateway-api
+  version: v1.6.2
+- name: gateway-api-inference-extension
+  repository: file://../gateway-api-inference-extension
+  version: v1.6.2
+- name: agentgateway-crds
+  repository: oci://cr.agentgateway.dev/charts
+  version: v1.5.0
 - name: agentgateway
   repository: oci://cr.agentgateway.dev/charts
   version: v1.5.0
 - name: open-webui
   repository: oci://ghcr.io/open-webui/helm-charts
   version: 16.5.0
-digest: sha256:0974bcca1fd31a6c424f93c8536d91d53315899dca00f54b35aa3434f2ab5559
-generated: "2026-09-25T15:07:06.001978+02:00"
+digest: sha256:1f96c1b1221c078486a3dd402d6007f3c158539004e61d3d034778901ba639d4
+generated: "2026-09-26T14:57:54.211783+02:00"
