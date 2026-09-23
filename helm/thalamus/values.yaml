@@ -3,6 +3,15 @@ agentgateway:
   inferenceExtension:
     enabled: true
 
+agentgateway-crds:
+  enabled: true
+
+gateway-api:
+  enabled: true
+
+gateway-api-inference-extension:
+  enabled: true
+
 open-webui:
   # Disabled by default; enable with --set open-webui.enabled=true
   enabled: false
@@ -90,26 +99,11 @@ monitoring:
     # scrapeTimeout: 10s
     # additionalLabels: {}
 
+# Gateway the operator attaches its routes to; see examples/gateway.yaml.
 gateway:
   # Renaming requires updating open-webui.openaiBaseApiUrl + open-webui.route.parentRefs
   name: inference-gateway
-  annotations: {}
-    # cert-manager.io/issuer: my-issuer
-  listeners:
-    # All OpenAI-compatible routes (per-model and model-list) attach to this listener by default.
-    api:
-      port: 80
-      protocol: HTTP
-      allowedRoutes:
-        namespaces:
-          from: All
-
-  parameters:
-    service:
-      spec:
-        type: ClusterIP
-        # type: LoadBalancer
-        # loadBalancerIP: ""
+  listener: api
 
 extraDeploy: []
   # List of extra manifests (structured objects or templated strings).
@@ -129,4 +123,3 @@ extraDeploy: []
   #     namespace: "{{ .Release.Namespace }}"
   #   data:
   #     example-key: example-value
-

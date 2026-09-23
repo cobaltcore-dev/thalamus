@@ -23,12 +23,8 @@ concurrency:
 
 jobs:
   lint:
-    name: Lint (${{ matrix.chart }})
+    name: Lint
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        chart: [thalamus, thalamus-crds]
     steps:
       - name: Check out code
         uses: actions/checkout@v7
@@ -38,23 +34,20 @@ jobs:
         with:
           version: v3.22.0
 
+      - name: Build dependencies
+        run: helm dependency build helm/thalamus
+
       - name: Lint
-        run: |
-          helm dependency build helm/${{ matrix.chart }}
-          helm lint helm/${{ matrix.chart }}
+        run: helm lint helm/thalamus
 
   publish:
-    name: Publish (${{ matrix.chart }})
+    name: Publish
     if: github.event_name != 'pull_request'
     needs: lint
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-    strategy:
-      fail-fast: false
-      matrix:
-        chart: [thalamus, thalamus-crds]
     steps:
       - name: Check out code
         uses: actions/checkout@v7
@@ -63,6 +56,9 @@ jobs:
         uses: azure/setup-helm@v5
         with:
           version: v3.22.0
+
+      - name: Build dependencies
+        run: helm dependency build helm/thalamus
 
       # Same tag strategy as the Docker workflow, so chart tags match image tags.
       - name: Compute image tags
@@ -87,16 +83,16 @@ jobs:
           set -euo pipefail
           dist="$(mktemp -d)"
           trap 'rm -rf "${dist}"' EXIT
-          helm dependency build helm/${{ matrix.chart }}
+          helm dependency build helm/thalamus
           while IFS= read -r tag; do
             if [[ "${tag}" =~ ^v?[0-9]+(\.[0-9]+){0,2}([+-][0-9A-Za-z.-]+)?$ ]]; then
               version="${tag}"
             else
               version="0.0.0-${tag}"
             fi
-            helm package "helm/${{ matrix.chart }}" -d "${dist}" \
+            helm package "helm/thalamus" -d "${dist}" \
               --version "${version}" --app-version "${tag}"
-            helm push "${dist}/${{ matrix.chart }}-${version}.tgz" \
+            helm push "${dist}/thalamus-${version}.tgz" \
               "oci://ghcr.io/${{ github.repository_owner }}/charts"
-            echo "Pushed oci://ghcr.io/${{ github.repository_owner }}/charts/${{ matrix.chart }}:${version} (appVersion ${tag})"
+            echo "Pushed oci://ghcr.io/${{ github.repository_owner }}/charts/thalamus:${version} (appVersion ${tag})"
           done <<< "${{ steps.meta.outputs.tags }}"
