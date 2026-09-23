@@ -62,9 +62,9 @@ func (r *ModelListReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 func (r *ModelListReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&gatewayv1.Gateway{}, builder.WithPredicates(gatewayPredicate(r.GatewayName))).
-		Owns(&gatewayv1.HTTPRoute{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Owns(&agentgatewayv1alpha1.AgentgatewayPolicy{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		For(&gatewayv1.Gateway{}, builder.WithPredicates(namedPredicate(r.GatewayName))).
+		Owns(&gatewayv1.HTTPRoute{}, builder.WithPredicates(namedPredicate(native.ModelListPolicyName))).
+		Owns(&agentgatewayv1alpha1.AgentgatewayPolicy{}, builder.WithPredicates(namedPredicate(native.ModelListPolicyName))).
 		// Models are not owned by the gateway, so map their events onto it.
 		Watches(&v1alpha1.Model{}, handler.EnqueueRequestsFromMapFunc(
 			func(_ context.Context, obj client.Object) []reconcile.Request {

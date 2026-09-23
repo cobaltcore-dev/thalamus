@@ -4,41 +4,70 @@
 package operator
 
 import (
+	"context"
 	"testing"
 
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
 )
 
-func namedGateway(name string) *gatewayv1.Gateway {
-	gateway := &gatewayv1.Gateway{Spec: gatewayv1.GatewaySpec{GatewayClassName: "agentgateway"}}
-	gateway.Name = name
-	return gateway
-}
+func TestGetGateway(t *testing.T) {
+	s := testutil.NewScheme(t)
+	nn := types.NamespacedName{Name: testGatewayName, Namespace: testNamespace}
 
-func TestGatewayPredicate(t *testing.T) {
-	pred := gatewayPredicate(testGatewayName)
+	t.Run("returns the gateway", func(t *testing.T) {
+		c := fake.NewClientBuilder().WithScheme(s).WithObjects(newGateway()).Build()
 
-	if !pred.Create(event.CreateEvent{Object: namedGateway(testGatewayName)}) {
-		t.Error("create of the inference gateway should fire")
-	}
-	if pred.Create(event.CreateEvent{Object: namedGateway("other-gateway")}) {
-		t.Error("create of another gateway should not fire")
-	}
-	if !pred.Delete(event.DeleteEvent{Object: namedGateway(testGatewayName)}) {
-		t.Error("delete of the inference gateway should fire")
-	}
-	if pred.Generic(event.GenericEvent{Object: namedGateway("other-gateway")}) {
-		t.Error("generic event of another gateway should not fire")
-	}
+		got, err := getGateway(context.Background(), c, nn)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got == nil || got.Name != testGatewayName {
+			t.Fatalf("expected gateway %q, got %v", testGatewayName, got)
+		}
+	})
 
-	old := namedGateway(testGatewayName)
-	cur := namedGateway(testGatewayName)
-	if pred.Update(event.UpdateEvent{ObjectOld: old, ObjectNew: cur}) {
-		t.Error("status-only update should not fire")
-	}
-	cur.Generation = 2
-	if !pred.Update(event.UpdateEvent{ObjectOld: old, ObjectNew: cur}) {
-		t.Error("spec update should fire")
-	}
+	t.Run("nil when missing", func(t *testing.T) {
+		c := fake.NewClientBuilder().WithScheme(s).Build()
+
+		got, err := getGateway(context.Background(), c, nn)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != nil {
+			t.Fatalf("expected nil gateway, got %v", got)
+		}
+	})
+
+	t.Run("nil when deleting", func(t *testing.T) {
+		gateway := newGateway()
+		now := metav1.Now()
+		gateway.DeletionTimestamp = &now
+		gateway.Finalizers = []string{"example.com/test"}
+		c := fake.NewClientBuilder().WithScheme(s).WithObjects(gateway).Build()
+
+		got, err := getGateway(context.Background(), c, nn)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != nil {
+			t.Fatalf("expected nil gateway, got %v", got)
+		}
+	})
+
+	t.Run("errors are passed through", func(t *testing.T) {
+		c := fake.NewClientBuilder().WithScheme(runtime.NewScheme()).Build()
+
+		got, err := getGateway(context.Background(), c, nn)
+		if err == nil {
+			t.Fatal("expected error for unregistered type")
+		}
+		if got != nil {
+			t.Fatalf("expected nil gateway, got %v", got)
+		}
+	})
 }

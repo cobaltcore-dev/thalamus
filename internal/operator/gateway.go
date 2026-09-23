@@ -9,7 +9,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -27,12 +26,4 @@ func getGateway(ctx context.Context, c client.Client, nn types.NamespacedName) (
 		return nil, nil
 	}
 	return gateway, nil
-}
-
-// gatewayPredicate fires only for events on the named gateway, ignoring status-only updates.
-func gatewayPredicate(name string) predicate.Predicate {
-	nameMatch := predicate.NewPredicateFuncs(func(obj client.Object) bool {
-		return obj.GetName() == name
-	})
-	return predicate.And(nameMatch, predicate.GenerationChangedPredicate{})
 }
