@@ -11,6 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	agentgatewayv1alpha1 "github.com/agentgateway/agentgateway/controller/api/v1alpha1/agentgateway"
@@ -46,7 +47,10 @@ func (r *BodyRoutingReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 func (r *BodyRoutingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&gatewayv1.Gateway{}, builder.WithPredicates(namedPredicate(r.GatewayName))).
-		Owns(&agentgatewayv1alpha1.AgentgatewayPolicy{}, builder.WithPredicates(namedPredicate(native.BodyBasedRoutingPolicyName))).
+		Owns(&agentgatewayv1alpha1.AgentgatewayPolicy{}, builder.WithPredicates(predicate.And(
+			namedPredicate(native.BodyBasedRoutingPolicyName),
+			ownedByPredicate("Gateway", r.GatewayName),
+		))).
 		Named("body-routing").
 		Complete(r)
 }
