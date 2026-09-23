@@ -41,18 +41,23 @@ func main() {
 	var metricsAddr string
 	var probeAddr string
 	var watchNamespace string
-	var enableModelListPolicySync bool
+	var gatewayName string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. Use :8080 for HTTP or 0 to disable.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.StringVar(&watchNamespace, "namespace", "", "Namespace to watch. Must match the namespace the operator is deployed in.")
-	flag.BoolVar(&enableModelListPolicySync, "enable-model-list-policy-sync", true, "Enable reconciliation of the model-list AgentgatewayPolicy.")
+	flag.StringVar(&gatewayName, "gateway-name", "", "Name of the gateway the operator attaches its routes to. Required.")
 	// TODO: set to false before GA
 	opts := zap.Options{Development: true}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
+	if gatewayName == "" {
+		setupLog.Error(nil, "--gateway-name must be set")
+		os.Exit(1)
+	}
 
 	cacheOpts := cache.Options{}
 	if watchNamespace != "" {
@@ -71,21 +76,30 @@ func main() {
 	}
 
 	if err := (&operator.ModelReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		GatewayName: gatewayName,
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Model")
+		setupLog.Error(err, "unable to create controller", "controller", "model")
 		os.Exit(1)
 	}
 
-	if enableModelListPolicySync {
-		if err := (&operator.ModelListReconciler{
-			Client: mgr.GetClient(),
-			Scheme: mgr.GetScheme(),
-		}).SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "ModelList")
-			os.Exit(1)
-		}
+	if err := (&operator.ModelListReconciler{
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		GatewayName: gatewayName,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "model-list")
+		os.Exit(1)
+	}
+
+	if err := (&operator.BodyRoutingReconciler{
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		GatewayName: gatewayName,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "body-routing")
+		os.Exit(1)
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

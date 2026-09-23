@@ -14,12 +14,10 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -33,7 +31,8 @@ import (
 // ModelReconciler reconciles Model objects.
 type ModelReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme      *runtime.Scheme
+	GatewayName string
 }
 
 func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -77,7 +76,7 @@ func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.M
 		native.BuildEngineService(model),
 		native.BuildInferencePool(model),
 		native.BuildAIBackend(model),
-		native.BuildHTTPRoute(model),
+		native.BuildHTTPRoute(model, r.GatewayName),
 	}
 
 	// EPP stack.
@@ -101,7 +100,7 @@ func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.M
 	}
 
 	for _, obj := range objs {
-		if err := r.applyOwned(ctx, model, obj); err != nil {
+		if err := applyOwned(ctx, r.Client, r.Scheme, model, obj); err != nil {
 			return err
 		}
 	}
@@ -117,40 +116,6 @@ func (r *ModelReconciler) deleteOwned(ctx context.Context, owner *v1alpha1.Model
 		return fmt.Errorf("refusing to delete %T %s/%s: not owned by model %s", desired, desired.GetNamespace(), desired.GetName(), owner.Name)
 	}
 	return client.IgnoreNotFound(r.Delete(ctx, desired))
-}
-
-// applyConfiguration converts a typed object into an unstructured ApplyConfiguration for client.Apply,
-// since no typed apply-config is generated for these CRDs.
-func applyConfiguration(scheme *runtime.Scheme, obj client.Object) (runtime.ApplyConfiguration, error) {
-	// SSA requires apiVersion/kind; set them from the scheme before converting.
-	gvks, _, err := scheme.ObjectKinds(obj)
-	if err != nil {
-		return nil, err
-	}
-	obj.GetObjectKind().SetGroupVersionKind(gvks[0])
-
-	m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
-	if err != nil {
-		return nil, err
-	}
-	u := &unstructured.Unstructured{Object: m}
-	u.SetManagedFields(nil)
-	return client.ApplyConfigurationFromUnstructured(u), nil
-}
-
-// applyOwned sets an owner reference on obj then applies it via Server-Side Apply.
-func (r *ModelReconciler) applyOwned(ctx context.Context, model *v1alpha1.Model, desired client.Object) error {
-	if err := controllerutil.SetControllerReference(model, desired, r.Scheme); err != nil {
-		return err
-	}
-	ac, err := applyConfiguration(r.Scheme, desired)
-	if err != nil {
-		return err
-	}
-	return r.Apply(ctx, ac,
-		client.FieldOwner("thalamus-operator"),
-		client.ForceOwnership,
-	)
 }
 
 // syncStatus updates common status fields and dispatches to the backend-specific status sync.

@@ -7,10 +7,13 @@ import (
 	"context"
 	"testing"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	agentgatewayv1alpha1 "github.com/agentgateway/agentgateway/controller/api/v1alpha1/agentgateway"
 
@@ -19,31 +22,22 @@ import (
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
 )
 
-func newModelListPolicy() *agentgatewayv1alpha1.AgentgatewayPolicy {
-	return &agentgatewayv1alpha1.AgentgatewayPolicy{
-		Name:      native.ModelListPolicyName,
+func newGateway() *gatewayv1.Gateway {
+	return &gatewayv1.Gateway{
+		Name:      testGatewayName,
 		Namespace: testNamespace,
-		Spec: agentgatewayv1alpha1.AgentgatewayPolicySpec{
-			Traffic: &agentgatewayv1alpha1.Traffic{
-				DirectResponse: &agentgatewayv1alpha1.DirectResponseOrConditional{
-					StatusCode: new(modelListDirectStatus),
-					Body:       new(`{"object":"list","data":[]}`),
-					Headers: []agentgatewayv1alpha1.DirectResponseHeader{
-						{
-							Name:  modelListContentTypeHeader,
-							Value: modelListContentTypeValue,
-						},
-					},
-				},
-			},
-		},
+		Spec:      gatewayv1.GatewaySpec{GatewayClassName: "agentgateway"},
 	}
+}
+
+func newModelListPolicy() *agentgatewayv1alpha1.AgentgatewayPolicy {
+	return native.BuildModelListPolicy(testNamespace, `{"object":"list","data":[]}`)
 }
 
 func reconcileModelListOnce(t *testing.T, r *ModelListReconciler) ctrl.Result {
 	t.Helper()
 	res, err := r.Reconcile(context.Background(), ctrl.Request{
-		Name: native.ModelListPolicyName, Namespace: testNamespace,
+		Name: testGatewayName, Namespace: testNamespace,
 	})
 	if err != nil {
 		t.Fatalf("Reconcile returned error: %v", err)
@@ -60,6 +54,15 @@ func mustGetPolicy(t *testing.T, r *ModelListReconciler) *agentgatewayv1alpha1.A
 	return policy
 }
 
+func mustGetRoute(t *testing.T, r *ModelListReconciler) *gatewayv1.HTTPRoute {
+	t.Helper()
+	route := &gatewayv1.HTTPRoute{}
+	if err := r.Get(context.Background(), types.NamespacedName{Name: native.ModelListPolicyName, Namespace: testNamespace}, route); err != nil {
+		t.Fatalf("get route: %v", err)
+	}
+	return route
+}
+
 func mustGetPolicyBody(t *testing.T, r *ModelListReconciler) string {
 	t.Helper()
 	policy := mustGetPolicy(t, r)
@@ -72,72 +75,57 @@ func mustGetPolicyBody(t *testing.T, r *ModelListReconciler) string {
 	return ""
 }
 
-func mustAssertContentType(t *testing.T, r *ModelListReconciler) {
+func mustAssertOwnedByGateway(t *testing.T, obj client.Object, gateway *gatewayv1.Gateway) {
 	t.Helper()
-	policy := mustGetPolicy(t, r)
-	if policy.Spec.Traffic == nil || policy.Spec.Traffic.DirectResponse == nil {
-		t.Fatal("policy has no directResponse")
+	ref := metav1.GetControllerOf(obj)
+	if ref == nil {
+		t.Fatalf("%T %q has no controller owner reference", obj, obj.GetName())
 	}
-	dr := policy.Spec.Traffic.DirectResponse
-
-	headerFound := false
-	for _, h := range dr.Headers {
-		if h.Name != modelListContentTypeHeader {
-			continue
-		}
-		headerFound = true
-		if h.Value != modelListContentTypeValue {
-			t.Errorf("Content-Type header:\ngot:  %q\nwant: %q", h.Value, modelListContentTypeValue)
-		}
+	if ref.UID != gateway.UID {
+		t.Errorf("%T %q controller owner UID:\ngot:  %s\nwant: %s", obj, obj.GetName(), ref.UID, gateway.UID)
 	}
-	if !headerFound {
-		t.Fatal("Content-Type header not found")
-	}
-
-	status := int32(0)
-	if dr.StatusCode != nil {
-		status = *dr.StatusCode
-	}
-	if status != modelListDirectStatus {
-		t.Errorf("directResponse status:\ngot:  %d\nwant: %d", status, modelListDirectStatus)
+	if ref.Name != gateway.Name {
+		t.Errorf("%T %q controller owner name:\ngot:  %s\nwant: %s", obj, obj.GetName(), ref.Name, gateway.Name)
 	}
 }
 
-func TestModelListReconcile_PolicyNotFound(t *testing.T) {
+func TestModelListReconcile_NoGateway(t *testing.T) {
 	s := testutil.NewScheme(t)
 	c := fake.NewClientBuilder().WithScheme(s).Build()
-	r := &ModelListReconciler{Client: c, Scheme: s}
+	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName}
 
-	_, err := r.Reconcile(context.Background(), ctrl.Request{
-		Name: native.ModelListPolicyName, Namespace: testNamespace,
-	})
-	if err == nil {
-		t.Fatal("expected error when policy is not found")
-	}
+	reconcileModelListOnce(t, r)
+
+	testutil.MustNotGet(t, c, native.ModelListPolicyName, testNamespace, &agentgatewayv1alpha1.AgentgatewayPolicy{})
+	testutil.MustNotGet(t, c, native.ModelListPolicyName, testNamespace, &gatewayv1.HTTPRoute{})
 }
 
 func TestModelListReconcile_NoModels(t *testing.T) {
 	s := testutil.NewScheme(t)
-	c := fake.NewClientBuilder().WithScheme(s).WithObjects(newModelListPolicy()).Build()
-	r := &ModelListReconciler{Client: c, Scheme: s}
+	gateway := newGateway()
+	c := fake.NewClientBuilder().WithScheme(s).WithObjects(gateway).Build()
+	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName}
 
 	reconcileModelListOnce(t, r)
 
 	if body := mustGetPolicyBody(t, r); body != `{"object":"list","data":[]}` {
 		t.Errorf("model list policy body:\ngot:  %s\nwant: %s", body, `{"object":"list","data":[]}`)
 	}
-	mustAssertContentType(t, r)
+	route := mustGetRoute(t, r)
+	mustAssertOwnedByGateway(t, route, gateway)
+	mustAssertOwnedByGateway(t, mustGetPolicy(t, r), gateway)
 }
 
 func TestModelListReconcile_OneReadyModel(t *testing.T) {
 	s := testutil.NewScheme(t)
+	gateway := newGateway()
 	model := testutil.NewModel("tiny-llm", testNamespace)
 	model.Status.Phase = v1alpha1.ModelPhaseReady
 	c := fake.NewClientBuilder().WithScheme(s).
+		WithObjects(gateway).
 		WithObjects(model).WithStatusSubresource(model).
-		WithObjects(newModelListPolicy()).
 		Build()
-	r := &ModelListReconciler{Client: c, Scheme: s}
+	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName}
 
 	reconcileModelListOnce(t, r)
 
@@ -146,11 +134,11 @@ func TestModelListReconcile_OneReadyModel(t *testing.T) {
 	if body != expected {
 		t.Errorf("model list policy body:\ngot:  %s\nwant: %s", body, expected)
 	}
-	mustAssertContentType(t, r)
 }
 
 func TestModelListReconcile_OnlyReadyModelsListed(t *testing.T) {
 	s := testutil.NewScheme(t)
+	gateway := newGateway()
 	ready := testutil.NewModel("ready", testNamespace)
 	ready.Spec.Weights.HF.RepoID = "org/ready-model"
 	ready.Status.Phase = v1alpha1.ModelPhaseReady
@@ -158,10 +146,10 @@ func TestModelListReconcile_OnlyReadyModelsListed(t *testing.T) {
 	creating.Spec.Weights.HF.RepoID = "org/creating-model"
 	creating.Status.Phase = v1alpha1.ModelPhaseCreating
 	c := fake.NewClientBuilder().WithScheme(s).
+		WithObjects(gateway).
 		WithObjects(ready, creating).WithStatusSubresource(ready, creating).
-		WithObjects(newModelListPolicy()).
 		Build()
-	r := &ModelListReconciler{Client: c, Scheme: s}
+	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName}
 
 	reconcileModelListOnce(t, r)
 
@@ -170,32 +158,51 @@ func TestModelListReconcile_OnlyReadyModelsListed(t *testing.T) {
 	if body != expected {
 		t.Errorf("model list policy body:\ngot:  %s\nwant: %s", body, expected)
 	}
-	mustAssertContentType(t, r)
 }
 
-func TestModelListReconcile_SkipsUpdateWhenBodyUnchanged(t *testing.T) {
+func TestModelListReconcile_ReappliesModifiedPolicy(t *testing.T) {
 	s := testutil.NewScheme(t)
-	c := fake.NewClientBuilder().WithScheme(s).WithObjects(newModelListPolicy()).Build()
-	r := &ModelListReconciler{Client: c, Scheme: s}
-
-	reconcileModelListOnce(t, r)
-
-	if body := mustGetPolicyBody(t, r); body != `{"object":"list","data":[]}` {
-		t.Errorf("model list policy body:\ngot:  %s\nwant: %s", body, `{"object":"list","data":[]}`)
-	}
-	mustAssertContentType(t, r)
-}
-
-func TestModelListReconcile_AppliesWhenContentTypeMissing(t *testing.T) {
-	s := testutil.NewScheme(t)
+	gateway := newGateway()
 	policy := newModelListPolicy()
 	policy.Spec.Traffic.DirectResponse.Headers = nil
-	c := fake.NewClientBuilder().WithScheme(s).WithObjects(policy).Build()
-	r := &ModelListReconciler{Client: c, Scheme: s}
+	c := fake.NewClientBuilder().WithScheme(s).WithObjects(gateway, policy).Build()
+	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName}
 
 	reconcileModelListOnce(t, r)
 
-	mustAssertContentType(t, r)
+	fixed := mustGetPolicy(t, r)
+	dr := fixed.Spec.Traffic.DirectResponse
+	var header *agentgatewayv1alpha1.DirectResponseHeader
+	for i := range dr.Headers {
+		if dr.Headers[i].Name == "Content-Type" {
+			header = &dr.Headers[i]
+		}
+	}
+	if header == nil {
+		t.Fatal("Content-Type header not found after reconcile")
+	}
+	if header.Value != "'application/json'" {
+		t.Errorf("Content-Type header value:\ngot:  %q\nwant: %q", header.Value, "'application/json'")
+	}
+	if status := dr.StatusCode; status == nil || *status != int32(200) {
+		t.Errorf("directResponse status:\ngot:  %v\nwant: 200", status)
+	}
+}
+
+func TestModelListReconcile_RecreatesDeletedRoute(t *testing.T) {
+	s := testutil.NewScheme(t)
+	gateway := newGateway()
+	c := fake.NewClientBuilder().WithScheme(s).WithObjects(gateway).Build()
+	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName}
+
+	reconcileModelListOnce(t, r)
+	if err := r.Delete(context.Background(), mustGetRoute(t, r)); err != nil {
+		t.Fatalf("delete route: %v", err)
+	}
+	reconcileModelListOnce(t, r)
+
+	route := mustGetRoute(t, r)
+	mustAssertOwnedByGateway(t, route, gateway)
 }
 
 func TestPhaseChangedPredicate(t *testing.T) {

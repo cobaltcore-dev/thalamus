@@ -6,9 +6,70 @@ package native
 import (
 	"testing"
 
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
 )
+
+func TestBuildModelListRoute(t *testing.T) {
+	gateway := &gatewayv1.Gateway{Name: testGatewayName, Namespace: "thalamus"}
+
+	route := BuildModelListRoute(gateway)
+
+	if route.Name != ModelListPolicyName {
+		t.Errorf("route.Name:\ngot:  %q\nwant: %q", route.Name, ModelListPolicyName)
+	}
+	if route.Namespace != "thalamus" {
+		t.Errorf("route.Namespace:\ngot:  %q\nwant: %q", route.Namespace, "thalamus")
+	}
+	if len(route.Spec.ParentRefs) != 1 {
+		t.Fatalf("len(route.Spec.ParentRefs): %d, want 1", len(route.Spec.ParentRefs))
+	}
+	parentRef := route.Spec.ParentRefs[0]
+	if parentRef.Name != testGatewayName {
+		t.Errorf("parentRef.Name:\ngot:  %q\nwant: %q", parentRef.Name, testGatewayName)
+	}
+	if parentRef.SectionName == nil || *parentRef.SectionName != defaultGatewaySectionName {
+		t.Errorf("parentRef.SectionName:\ngot:  %v\nwant: %q", parentRef.SectionName, defaultGatewaySectionName)
+	}
+	if len(route.Spec.Rules) != 1 || len(route.Spec.Rules[0].Matches) != 1 {
+		t.Fatal("expected exactly one route rule with one match")
+	}
+	path := route.Spec.Rules[0].Matches[0].Path
+	if path == nil || path.Type == nil || *path.Type != gatewayv1.PathMatchExact ||
+		path.Value == nil || *path.Value != "/v1/models" {
+		t.Errorf("path match:\ngot:  %v\nwant: exact /v1/models", path)
+	}
+}
+
+func TestBuildModelListPolicy(t *testing.T) {
+	body := `{"object":"list","data":[]}`
+
+	policy := BuildModelListPolicy("thalamus", body)
+
+	if policy.Name != ModelListPolicyName {
+		t.Errorf("policy.Name:\ngot:  %q\nwant: %q", policy.Name, ModelListPolicyName)
+	}
+	if policy.Namespace != "thalamus" {
+		t.Errorf("policy.Namespace:\ngot:  %q\nwant: %q", policy.Namespace, "thalamus")
+	}
+	if len(policy.Spec.TargetRefs) != 1 {
+		t.Fatalf("len(policy.Spec.TargetRefs): %d, want 1", len(policy.Spec.TargetRefs))
+	}
+	ref := policy.Spec.TargetRefs[0]
+	if string(ref.Group) != gatewayv1.GroupName || ref.Kind != "HTTPRoute" || ref.Name != ModelListPolicyName {
+		t.Errorf("targetRef:\ngot:  %s/%s %s\nwant: %s/HTTPRoute %s",
+			ref.Group, ref.Kind, ref.Name, gatewayv1.GroupName, ModelListPolicyName)
+	}
+	dr := policy.Spec.Traffic.DirectResponse
+	if dr == nil || dr.StatusCode == nil || *dr.StatusCode != modelListStatus || dr.Body == nil || *dr.Body != body {
+		t.Errorf("directResponse:\ngot:  %v\nwant: status %d and body %s", dr, modelListStatus, body)
+	}
+	if len(dr.Headers) != 1 || dr.Headers[0].Name != modelListContentTypeName || dr.Headers[0].Value != modelListContentTypeValue {
+		t.Errorf("directResponse headers:\ngot:  %v\nwant: [%s: %s]", dr.Headers, modelListContentTypeName, modelListContentTypeValue)
+	}
+}
 
 func TestBuildModelListResponse_Empty(t *testing.T) {
 	want := `{"object":"list","data":[]}`

@@ -15,6 +15,8 @@ import (
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
 )
 
+const testGatewayName = "test-gateway"
+
 func TestBuildInferencePool(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	model.Spec.Serving.EPP = &v1alpha1.EPPSpec{Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0"}
@@ -36,7 +38,7 @@ func TestBuildInferencePool(t *testing.T) {
 
 func TestBuildHTTPRoute(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
-	route := BuildHTTPRoute(model)
+	route := BuildHTTPRoute(model, "custom-gateway")
 
 	if route.Name != model.EngineName() {
 		t.Errorf("Name:\ngot:  %q\nwant: %q", route.Name, model.EngineName())
@@ -45,8 +47,8 @@ func TestBuildHTTPRoute(t *testing.T) {
 		t.Errorf("len(route.Spec.ParentRefs): %d, want 1", len(route.Spec.ParentRefs))
 	}
 	parentRef := route.Spec.ParentRefs[0]
-	if name := parentRef.Name; name != defaultGatewayName {
-		t.Errorf("parentRef.Name:\ngot:  %q\nwant: %q", name, defaultGatewayName)
+	if name := parentRef.Name; name != "custom-gateway" {
+		t.Errorf("parentRef.Name:\ngot:  %q\nwant: %q", name, "custom-gateway")
 	}
 	if section := *parentRef.SectionName; section != defaultGatewaySectionName {
 		t.Errorf("parentRef.SectionName: got: %q, want %q", section, defaultGatewaySectionName)
@@ -78,5 +80,45 @@ func TestBuildHTTPRoute(t *testing.T) {
 	}
 	if backendRef.Name != gatewayv1.ObjectName(model.Name) {
 		t.Errorf("backendRef.Name:\ngot:  %q\nwant: %q", backendRef.Name, model.Name)
+	}
+}
+
+func TestBuildBodyBasedRoutingPolicy(t *testing.T) {
+	gateway := &gatewayv1.Gateway{Name: testGatewayName, Namespace: "thalamus"}
+
+	policy := BuildBodyBasedRoutingPolicy(gateway)
+
+	if policy.Name != BodyBasedRoutingPolicyName {
+		t.Errorf("policy.Name:\ngot:  %q\nwant: %q", policy.Name, BodyBasedRoutingPolicyName)
+	}
+	if policy.Namespace != "thalamus" {
+		t.Errorf("policy.Namespace:\ngot:  %q\nwant: %q", policy.Namespace, "thalamus")
+	}
+	if len(policy.Spec.TargetRefs) != 1 {
+		t.Fatalf("len(policy.Spec.TargetRefs): %d, want 1", len(policy.Spec.TargetRefs))
+	}
+	ref := policy.Spec.TargetRefs[0]
+	if string(ref.Group) != gatewayv1.GroupName || ref.Kind != "Gateway" || ref.Name != testGatewayName {
+		t.Errorf("targetRef:\ngot:  %s/%s %s\nwant: %s/Gateway %s",
+			ref.Group, ref.Kind, ref.Name, gatewayv1.GroupName, testGatewayName)
+	}
+	if ref.SectionName == nil || *ref.SectionName != defaultGatewaySectionName {
+		t.Errorf("targetRef.SectionName:\ngot:  %v\nwant: %q", ref.SectionName, defaultGatewaySectionName)
+	}
+
+	traffic := policy.Spec.Traffic
+	if traffic == nil || traffic.Phase == nil || *traffic.Phase != agentgatewayv1alpha1.PolicyPhasePreRouting {
+		t.Fatalf("traffic.phase:\ngot:  %v\nwant: PreRouting", traffic)
+	}
+	if traffic.Transformation == nil || traffic.Transformation.Request == nil ||
+		len(traffic.Transformation.Request.Set) != 1 {
+		t.Fatal("expected one request transformation set entry")
+	}
+	set := traffic.Transformation.Request.Set[0]
+	if set.Name != gatewayBaseModelHeaderName {
+		t.Errorf("transformation header name:\ngot:  %q\nwant: %q", set.Name, gatewayBaseModelHeaderName)
+	}
+	if set.Value != bodyBasedRoutingCELExpression {
+		t.Errorf("transformation CEL expression:\ngot:  %q\nwant: %q", set.Value, bodyBasedRoutingCELExpression)
 	}
 }
