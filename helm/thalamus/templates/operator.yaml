@@ -24,7 +24,7 @@ metadata:
 rules:
   - apiGroups: [thalamus.cloud]
     resources: [models]
-    verbs: [get, list, watch, delete]
+    verbs: [get, list, watch]
   - apiGroups: [thalamus.cloud]
     resources: [models/status]
     verbs: [get, update, patch]
