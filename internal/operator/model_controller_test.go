@@ -75,6 +75,9 @@ func TestReconcile_Native(t *testing.T) {
 	if len(dep.OwnerReferences) == 0 || dep.OwnerReferences[0].Name != "tiny-llm" {
 		t.Error("Deployment missing owner reference to Model")
 	}
+	if ref := dep.OwnerReferences[0]; ref.BlockOwnerDeletion == nil || !*ref.BlockOwnerDeletion {
+		t.Error("Deployment owner reference to Model must block owner deletion")
+	}
 	if len(backend.OwnerReferences) == 0 || backend.OwnerReferences[0].Name != "tiny-llm" {
 		t.Error("AgentgatewayBackend missing owner reference to Model")
 	}

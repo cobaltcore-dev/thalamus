@@ -35,7 +35,7 @@ func (r *BodyRoutingReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	if err := applyOwned(ctx, r.Client, r.Scheme, gateway, native.BuildBodyBasedRoutingPolicy(gateway)); err != nil {
+	if err := applyOwnedNonBlocking(ctx, r.Client, r.Scheme, gateway, native.BuildBodyBasedRoutingPolicy(gateway)); err != nil {
 		return ctrl.Result{}, err
 	}
 

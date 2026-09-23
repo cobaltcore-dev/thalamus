@@ -49,10 +49,10 @@ func (r *ModelListReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
-	if err := applyOwned(ctx, r.Client, r.Scheme, gateway, native.BuildModelListRoute(gateway)); err != nil {
+	if err := applyOwnedNonBlocking(ctx, r.Client, r.Scheme, gateway, native.BuildModelListRoute(gateway)); err != nil {
 		return ctrl.Result{}, err
 	}
-	if err := applyOwned(ctx, r.Client, r.Scheme, gateway, native.BuildModelListPolicy(req.Namespace, body)); err != nil {
+	if err := applyOwnedNonBlocking(ctx, r.Client, r.Scheme, gateway, native.BuildModelListPolicy(req.Namespace, body)); err != nil {
 		return ctrl.Result{}, err
 	}
 

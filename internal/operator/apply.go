@@ -30,9 +30,18 @@ func applyConfiguration(scheme *runtime.Scheme, obj client.Object) (runtime.Appl
 	return client.ApplyConfigurationFromUnstructured(u), nil
 }
 
-// applyOwned sets a controller owner reference on desired, then applies it via Server-Side Apply.
+// applyOwned applies desired via SSA with a blocking owner reference.
 func applyOwned(ctx context.Context, c client.Client, scheme *runtime.Scheme, owner, desired client.Object) error {
-	if err := controllerutil.SetControllerReference(owner, desired, scheme); err != nil {
+	return applyWithOwner(ctx, c, scheme, owner, desired)
+}
+
+// applyOwnedNonBlocking applies desired via SSA with a non-blocking owner reference.
+func applyOwnedNonBlocking(ctx context.Context, c client.Client, scheme *runtime.Scheme, owner, desired client.Object) error {
+	return applyWithOwner(ctx, c, scheme, owner, desired, controllerutil.WithBlockOwnerDeletion(false))
+}
+
+func applyWithOwner(ctx context.Context, c client.Client, scheme *runtime.Scheme, owner, desired client.Object, opts ...controllerutil.OwnerReferenceOption) error {
+	if err := controllerutil.SetControllerReference(owner, desired, scheme, opts...); err != nil {
 		return err
 	}
 	ac, err := applyConfiguration(scheme, desired)

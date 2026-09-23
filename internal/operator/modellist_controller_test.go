@@ -87,6 +87,9 @@ func mustAssertOwnedByGateway(t *testing.T, obj client.Object, gateway *gatewayv
 	if ref.Name != gateway.Name {
 		t.Errorf("%T %q controller owner name:\ngot:  %s\nwant: %s", obj, obj.GetName(), ref.Name, gateway.Name)
 	}
+	if ref.BlockOwnerDeletion == nil || *ref.BlockOwnerDeletion {
+		t.Errorf("%T %q owner reference must not block owner deletion", obj, obj.GetName())
+	}
 }
 
 func TestModelListReconcile_NoGateway(t *testing.T) {
