@@ -25,7 +25,7 @@ queue depth, and endpoint availability.
 - Prometheus,
   e.g. through [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack),
   which also provides [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics)
-  (required for some Panels).
+  (required for some panels).
 - [Perses](https://perses.dev) with a Prometheus datasource pointing at your Prometheus.
 
 ## Enable metric scraping
