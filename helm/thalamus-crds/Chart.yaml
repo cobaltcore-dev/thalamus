@@ -5,11 +5,11 @@ type: application
 version: 0.1.0
 dependencies:
   - name: gateway-api
-    version: 1.6.2
+    version: v1.6.2
     repository: file://../gateway-api
     condition: gateway-api.enabled
   - name: gateway-api-inference-extension
-    version: 1.6.1
+    version: v1.6.1
     repository: file://../gateway-api-inference-extension
     condition: gateway-api-inference-extension.enabled
   - name: agentgateway-crds
