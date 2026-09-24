@@ -1,0 +1,1291 @@
+{
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "thalamus_usage",
+    "project": "thalamus"
+  },
+  "spec": {
+    "display": {
+      "name": "Thalamus Usage"
+    },
+    "variables": [
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "display": {
+            "name": "Rate Interval",
+            "hidden": false
+          },
+          "value": "15m",
+          "name": "rate_interval"
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "display": {
+            "name": "Quantile",
+            "hidden": false
+          },
+          "value": "0.99",
+          "name": "quantile"
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "display": {
+            "name": "Rate Multiplier (per-second → per-hour = 3600)",
+            "hidden": false
+          },
+          "value": "1",
+          "name": "rate_multiplier"
+        }
+      }
+    ],
+    "panels": {
+      "readme": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "README"
+          },
+          "plugin": {
+            "kind": "Markdown",
+            "spec": {
+              "text": "# Thalamus Usage\n\nShows how clients use Thalamus: request and input/output token volume, request parameters, and compute consumption by tenants. Use the SLO dashboard for user-facing latency and the Debug dashboards for deep diagnosis.\n\n## Variables\n\n- `rate_interval` controls the smoothing window for counter rates. Shorter windows expose bursts; longer windows smooth sparse traffic. Does not change the displayed unit. Can't be lower than scrape interval (15s), and values lower than 1m may display inaccurately.\n- `quantile` selects the percentile shown by distribution panels, e.g. 0.99 shows p99 latency.\n- `rate_multiplier` scales counter rates, which Prometheus always returns per second. Use `1` for per-second, `60` for per-minute, or `3600` for per-hour values. Axis labels remain in their default per-second units."
+            }
+          }
+        }
+      },
+      "success_rate": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Success Rate",
+            "description": "Number of successfully completed requests."
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": [
+                  "last"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.2,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "decimal"
+                },
+                "label": "req/s",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource"
+                    },
+                    "query": "sum(rate(vllm:request_success_total{finished_reason=~\"stop|length\"}[$rate_interval])) * $rate_multiplier",
+                    "seriesNameFormat": "total"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource"
+                    },
+                    "query": "sum by (model_name) (rate(vllm:request_success_total{finished_reason=~\"stop|length\"}[$rate_interval])) * $rate_multiplier",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "error_rate": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Error Rate",
+            "description": "Number of aborted and failed requests."
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": [
+                  "last"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.2,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "decimal"
+                },
+                "label": "req/s",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource"
+                    },
+                    "query": "sum(rate(vllm:request_success_total{finished_reason=~\"abort|error\"}[$rate_interval])) * $rate_multiplier",
+                    "seriesNameFormat": "total"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource"
+                    },
+                    "query": "sum by (model_name) (rate(vllm:request_success_total{finished_reason=~\"abort|error\"}[$rate_interval])) * $rate_multiplier",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "running_requests": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Running Requests",
+            "description": "Number of requests currently being processed inside vLLM."
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": [
+                  "last"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.3,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "decimal"
+                },
+                "label": "count",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource"
+                    },
+                    "query": "sum(vllm:num_requests_running)",
+                    "seriesNameFormat": "total"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource"
+                    },
+                    "query": "sum by (model_name) (vllm:num_requests_running)",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "requested_n": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Requested n",
+            "description": "Selected percentile of completions requested per call, split by model."
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": [
+                  "last"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "decimal"
+                },
+                "label": "n",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource"
+                    },
+                    "query": "round(histogram_quantile($quantile, sum by (le) (rate(vllm:request_params_n_bucket[$rate_interval]))))",
+                    "seriesNameFormat": "all"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource"
+                    },
+                    "query": "round(histogram_quantile($quantile, sum by (model_name, le) (rate(vllm:request_params_n_bucket[$rate_interval]))))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "requested_max_tokens": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Requested max_tokens",
+            "description": "max_tokens query parameter value per request, limits the number of generated tokens."
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": [
+                  "last"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "decimal",
+                  "shortValues": true
+                },
+                "label": "tokens",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource"
+                    },
+                    "query": "round(histogram_quantile($quantile, sum by (le) (rate(vllm:request_params_max_tokens_bucket[$rate_interval]))))",
+                    "seriesNameFormat": "all"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource"
+                    },
+                    "query": "round(histogram_quantile($quantile, sum by (model_name, le) (rate(vllm:request_params_max_tokens_bucket[$rate_interval]))))",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "outcomes_breakdown": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Request Outcomes",
+            "description": "Request throughput split by completion reason."
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": [
+                  "last"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.7,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 0
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "decimal"
+                },
+                "label": "req/s",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource"
+                    },
+                    "query": "sum by (finished_reason) (rate(vllm:request_success_total[$rate_interval])) * $rate_multiplier",
+                    "seriesNameFormat": "{{finished_reason}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "prompt_tokens": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Prompt Tokens/sec",
+            "description": "Number of prompt tokens received from users per second."
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": [
+                  "last"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.2,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "decimal",
+                  "shortValues": true
+                },
+                "label": "tok/s",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource"
+                    },
+                    "query": "sum(rate(vllm:prompt_tokens_total[$rate_interval])) * $rate_multiplier",
+                    "seriesNameFormat": "total"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource"
+                    },
+                    "query": "sum by (model_name) (rate(vllm:prompt_tokens_total[$rate_interval])) * $rate_multiplier",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "prompt_tokens_by_source": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Prompt Tokens by Source",
+            "description": "Number of prompt tokens received from users, split between computed and cache-hit tokens."
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": [
+                  "last"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.5,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 0
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "decimal",
+                  "shortValues": true
+                },
+                "label": "tok/s",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource"
+                    },
+                    "query": "sum by (source) (rate(vllm:prompt_tokens_by_source_total[$rate_interval])) * $rate_multiplier",
+                    "seriesNameFormat": "{{source}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "generation_tokens_total": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Total Tokens Generated",
+            "description": "Total amount of generated tokens in the selected range."
+          },
+          "plugin": {
+            "kind": "Table",
+            "spec": {
+              "density": "compact",
+              "defaultColumnHidden": true,
+              "columnSettings": [
+                {
+                  "name": "model_name",
+                  "header": "Model",
+                  "hide": false
+                },
+                {
+                  "name": "value",
+                  "header": "Tokens",
+                  "hide": false,
+                  "align": "right",
+                  "format": {
+                    "unit": "decimal",
+                    "shortValues": true
+                  }
+                },
+                {
+                  "name": "timestamp",
+                  "hide": true
+                }
+              ],
+              "transforms": [
+                {
+                  "kind": "MergeSeries",
+                  "spec": {}
+                }
+              ]
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource"
+                    },
+                    "query": "round(sum by (model_name) (increase(vllm:generation_tokens_total[$__range]))) or label_replace(round(sum(increase(vllm:generation_tokens_total[$__range]))), \"model_name\", \"Total\", \"\", \"\")",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "generation_tokens": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Generation Tokens/sec",
+            "description": "Number of tokens generated and sent to users per second."
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": [
+                  "last"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.2,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "decimal",
+                  "shortValues": true
+                },
+                "label": "tok/s",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource"
+                    },
+                    "query": "sum(rate(vllm:generation_tokens_total[$rate_interval])) * $rate_multiplier",
+                    "seriesNameFormat": "total"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource"
+                    },
+                    "query": "sum by (model_name) (rate(vllm:generation_tokens_total[$rate_interval])) * $rate_multiplier",
+                    "seriesNameFormat": "{{model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "input_tokens_dist": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Prompt Size",
+            "description": "Selected percentile of prompt size per request."
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": [
+                  "last"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "decimal",
+                  "shortValues": true
+                },
+                "label": "tokens",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource"
+                    },
+                    "query": "round(histogram_quantile($quantile, sum by (le) (rate(llm_d_epp_request_input_tokens_bucket[$rate_interval]))))",
+                    "seriesNameFormat": "all"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource"
+                    },
+                    "query": "round(histogram_quantile($quantile, sum by (target_model_name, le) (rate(llm_d_epp_request_input_tokens_bucket[$rate_interval]))))",
+                    "seriesNameFormat": "{{target_model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "output_tokens_dist": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Output Tokens",
+            "description": "Selected percentile of generated output size per request."
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": [
+                  "last"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "decimal",
+                  "shortValues": true
+                },
+                "label": "tokens",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource"
+                    },
+                    "query": "round(histogram_quantile($quantile, sum by (le) (rate(llm_d_epp_request_output_tokens_bucket[$rate_interval]))))",
+                    "seriesNameFormat": "all"
+                  }
+                }
+              }
+            },
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource"
+                    },
+                    "query": "round(histogram_quantile($quantile, sum by (target_model_name, le) (rate(llm_d_epp_request_output_tokens_bucket[$rate_interval]))))",
+                    "seriesNameFormat": "{{target_model_name}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "input_cache_read_by_tenant": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Cached Prompt Tokens",
+            "description": "Prompt tokens served from cache."
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": [
+                  "last"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "decimal",
+                  "shortValues": true
+                },
+                "label": "tok/s",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource"
+                    },
+                    "query": "sum by (tenant_hash) (rate(agentgateway_gen_ai_client_token_usage_sum{gen_ai_token_type=\"input_cache_read\"}[$rate_interval])) * $rate_multiplier",
+                    "seriesNameFormat": "{{tenant_hash}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "input_cache_write_by_tenant": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Compute Prompt Tokens",
+            "description": "Fresh prompt tokens processed by the model."
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": [
+                  "last"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "decimal",
+                  "shortValues": true
+                },
+                "label": "tok/s",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource"
+                    },
+                    "query": "(sum by (tenant_hash) (rate(agentgateway_gen_ai_client_token_usage_sum{gen_ai_token_type=\"input\"}[$rate_interval])) - (sum by (tenant_hash) (rate(agentgateway_gen_ai_client_token_usage_sum{gen_ai_token_type=\"input_cache_read\"}[$rate_interval])) or sum by (tenant_hash) (rate(agentgateway_gen_ai_client_token_usage_sum{gen_ai_token_type=\"input\"}[$rate_interval])) * 0)) * $rate_multiplier",
+                    "seriesNameFormat": "{{tenant_hash}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "output_by_tenant": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Output Tokens",
+            "description": "Generated tokens grouped by tenant."
+          },
+          "plugin": {
+            "kind": "TimeSeriesChart",
+            "spec": {
+              "legend": {
+                "mode": "table",
+                "position": "right",
+                "size": "small",
+                "values": [
+                  "last"
+                ]
+              },
+              "visual": {
+                "areaOpacity": 0.1,
+                "connectNulls": false,
+                "display": "line",
+                "lineStyle": "solid",
+                "lineWidth": 1.5,
+                "pointRadius": 2
+              },
+              "yAxis": {
+                "format": {
+                  "unit": "decimal",
+                  "shortValues": true
+                },
+                "label": "tok/s",
+                "min": 0,
+                "show": true
+              }
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource"
+                    },
+                    "query": "sum by (tenant_hash) (rate(agentgateway_gen_ai_client_token_usage_sum{gen_ai_token_type=\"output\"}[$rate_interval])) * $rate_multiplier",
+                    "seriesNameFormat": "{{tenant_hash}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "tokens_by_tenant_model": {
+        "kind": "Panel",
+        "spec": {
+          "display": {
+            "name": "Total Compute Tokens",
+            "description": "Combined uncached input and output token sum for the selected range."
+          },
+          "plugin": {
+            "kind": "BarChart",
+            "spec": {
+              "calculation": "last",
+              "format": {
+                "unit": "decimal",
+                "shortValues": true
+              },
+              "sort": "desc",
+              "mode": "value",
+              "orientation": "horizontal",
+              "groupBy": [
+                "tenant_hash"
+              ],
+              "isStacked": true
+            }
+          },
+          "queries": [
+            {
+              "kind": "TimeSeriesQuery",
+              "spec": {
+                "plugin": {
+                  "kind": "PrometheusTimeSeriesQuery",
+                  "spec": {
+                    "datasource": {
+                      "kind": "PrometheusDatasource"
+                    },
+                    "query": "sum by (tenant_hash, m) (label_replace(round(sum by (tenant_hash, gen_ai_request_model) (increase(agentgateway_gen_ai_client_token_usage_sum{gen_ai_token_type=~\"input|output\"}[$__range])) - (sum by (tenant_hash, gen_ai_request_model) (increase(agentgateway_gen_ai_client_token_usage_sum{gen_ai_token_type=\"input_cache_read\"}[$__range])) or sum by (tenant_hash, gen_ai_request_model) (increase(agentgateway_gen_ai_client_token_usage_sum{gen_ai_token_type=~\"input|output\"}[$__range])) * 0)), \"m\", \"$1\", \"gen_ai_request_model\", \"(.*)\"))",
+                    "seriesNameFormat": "{{m}}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "layouts": [
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "README",
+            "collapse": {
+              "open": false
+            }
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 24,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/readme"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Tokens",
+            "collapse": {
+              "open": true
+            }
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 8,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/prompt_tokens"
+              }
+            },
+            {
+              "x": 8,
+              "y": 0,
+              "width": 8,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/prompt_tokens_by_source"
+              }
+            },
+            {
+              "x": 16,
+              "y": 0,
+              "width": 8,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/generation_tokens"
+              }
+            },
+            {
+              "x": 0,
+              "y": 8,
+              "width": 8,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/input_tokens_dist"
+              }
+            },
+            {
+              "x": 8,
+              "y": 8,
+              "width": 8,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/output_tokens_dist"
+              }
+            },
+            {
+              "x": 16,
+              "y": 8,
+              "width": 8,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/generation_tokens_total"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Tenants",
+            "collapse": {
+              "open": true
+            }
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 8,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/input_cache_read_by_tenant"
+              }
+            },
+            {
+              "x": 8,
+              "y": 0,
+              "width": 8,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/input_cache_write_by_tenant"
+              }
+            },
+            {
+              "x": 16,
+              "y": 0,
+              "width": 8,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/output_by_tenant"
+              }
+            },
+            {
+              "x": 0,
+              "y": 8,
+              "width": 24,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/tokens_by_tenant_model"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "kind": "Grid",
+        "spec": {
+          "display": {
+            "title": "Requests",
+            "collapse": {
+              "open": true
+            }
+          },
+          "items": [
+            {
+              "x": 0,
+              "y": 0,
+              "width": 8,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/success_rate"
+              }
+            },
+            {
+              "x": 8,
+              "y": 0,
+              "width": 8,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/error_rate"
+              }
+            },
+            {
+              "x": 16,
+              "y": 0,
+              "width": 8,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/running_requests"
+              }
+            },
+            {
+              "x": 0,
+              "y": 8,
+              "width": 8,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/requested_n"
+              }
+            },
+            {
+              "x": 8,
+              "y": 8,
+              "width": 8,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/requested_max_tokens"
+              }
+            },
+            {
+              "x": 16,
+              "y": 8,
+              "width": 8,
+              "height": 8,
+              "content": {
+                "$ref": "#/spec/panels/outcomes_breakdown"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "duration": "1h",
+    "refreshInterval": "30s",
+    "datasources": {},
+    "links": []
+  }
+}

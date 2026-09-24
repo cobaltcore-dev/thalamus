@@ -194,6 +194,7 @@ kubectl label secret apikey-<name> --namespace thalamus thalamus-apikey=true
 
 - Browse the [Model CRD API Reference](/reference/model-crd-api) for all available fields.
 - Add a web frontend with [Open WebUI](/open-webui).
+- Load the [Perses dashboards](/reference/perses-dashboards) to monitor SLOs, usage, and GPU health.
 - Read the [Architecture overview](/concepts/architecture) to understand how the
   operator, gateway, and endpoint picker fit together.
 - Watch the [Demo](/demo) for a visual walkthrough.

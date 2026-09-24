@@ -76,6 +76,7 @@ export default withMermaid({
         collapsed: false,
         items: [
           { text: 'Model CRD API', link: '/reference/model-crd-api' },
+          { text: 'Perses Dashboards', link: '/reference/perses-dashboards' },
         ],
       },
       {
