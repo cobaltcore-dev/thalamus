@@ -39,9 +39,9 @@ bundled with the install (Step 1).
 
 ## Step 1 — Deploy the stack
 
-Thalamus installs as two Helm charts. The CRDs go first: Helm cannot create
-custom resources in the same release as the CRDs they depend on, so one
-release installs all CRDs and a second installs the operator and gateway.
+Thalamus installs as two Helm charts: `thalamus-crds` (the Thalamus, Gateway
+API, inference extension, and agentgateway CRDs) and `thalamus` (the operator
+and agentgateway data plane). Everything is enabled by default:
 
 ```bash
 helm upgrade --install thalamus-crds oci://ghcr.io/cobaltcore-dev/charts/thalamus-crds \
@@ -51,11 +51,6 @@ helm upgrade --install thalamus oci://ghcr.io/cobaltcore-dev/charts/thalamus \
   --namespace thalamus --wait \
   --version @@CHART_VERSION@@
 ```
-
-The `thalamus-crds` chart installs the Thalamus CRDs plus the pinned Gateway
-API, Gateway API inference extension, and agentgateway CRDs. The `thalamus`
-chart installs the operator, the inference gateway, and the agentgateway
-data-plane controller. Everything is enabled by default — no extra flags needed.
 
 > **Caution:** the CRDs are installed as ordinary release resources, not via
 > Helm's protected `crds/` mechanism. `helm uninstall thalamus-crds` therefore
