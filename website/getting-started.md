@@ -75,9 +75,9 @@ helm upgrade --install thalamus-crds oci://ghcr.io/cobaltcore-dev/charts/thalamu
   --set gateway-api.enabled=false
 ```
 
-Likewise, if you run the agentgateway controller as a separate release,
-disable the bundled copy on the `thalamus` release with
-`--set agentgateway.enabled=false`.
+Likewise, if you run agentgateway as separate releases, disable its bundled CRDs
+on the `thalamus-crds` release with `--set agentgateway-crds.enabled=false`, and
+disable its bundled controller on the `thalamus` release with `--set agentgateway.enabled=false`.
 
 ## Step 2 — Create the Hugging Face secret
 
