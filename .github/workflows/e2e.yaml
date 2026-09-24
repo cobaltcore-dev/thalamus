@@ -40,7 +40,7 @@ jobs:
           version: v3.22.0
 
       - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
 
       - name: Create namespace
         run: |
@@ -61,6 +61,7 @@ jobs:
           helm dependency build thalamus-crds
           helm upgrade --install thalamus-crds ./thalamus-crds \
             --namespace thalamus \
+            --create-namespace \
             --wait \
             --timeout=600s
 
@@ -81,6 +82,7 @@ jobs:
           helm dependency build thalamus
           helm upgrade --install thalamus ./thalamus \
             --namespace thalamus \
+            --create-namespace \
             --wait \
             --timeout=600s \
             --set operator.image.tag=pr

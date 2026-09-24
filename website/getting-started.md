@@ -111,6 +111,12 @@ API, Gateway API inference extension, and agentgateway CRDs. The `thalamus`
 chart installs the operator, the inference gateway, and the agentgateway
 data-plane controller. Everything is enabled by default — no extra flags needed.
 
+> **Caution:** the CRDs are installed as ordinary release resources, not via
+> Helm's protected `crds/` mechanism. `helm uninstall thalamus-crds` therefore
+> deletes every CRD and cascades into deleting all custom resources they own —
+> including every `Model` and its inference workloads. Only uninstall it when
+> you intend to tear down Thalamus.
+
 To pin versions or override values, add `--version` / `--set` (or `-f values.yaml`):
 
 ```bash
