@@ -1,11 +1,13 @@
+# Dev convenience only; no official install method (see website/getting-started.md)
+
 releases:
   - name: gateway-api-crds
     namespace: default
-    chart: ./gateway-api
+    chart: ../helm/gateway-api
 
   - name: gateway-api-inference-extension-crds
     namespace: default
-    chart: ./gateway-api-inference-extension
+    chart: ../helm/gateway-api-inference-extension
 
   - name: agentgateway-crds
     namespace: agentgateway-system
@@ -58,7 +60,7 @@ releases:
   - name: thalamus-crds
     namespace: thalamus
     createNamespace: true
-    chart: ./thalamus-crds
+    chart: ../helm/thalamus-crds
     values:
       - gateway-api:
           enabled: false
@@ -70,7 +72,7 @@ releases:
 
 
   - name: thalamus
-    chart: ./thalamus
+    chart: ../helm/thalamus
     namespace: thalamus
     createNamespace: true
     needs:

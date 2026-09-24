@@ -20,15 +20,9 @@ concurrency:
 
 jobs:
   e2e:
-    name: E2E (${{ matrix.name }})
+    name: E2E
     runs-on: large_runner_16core_64gb
     timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: helmfile
-          - name: helm
 
     steps:
       - name: Check out code
@@ -40,13 +34,10 @@ jobs:
           cluster_name: thalamus
           node_image: kindest/node:v1.31.12
 
-      - name: Install helmfile
-        uses: helmfile/helmfile-action@v2.4.7
+      - name: Set up Helm
+        uses: azure/setup-helm@v5
         with:
-          helmfile-version: v1.7.4
-          helm-version: v3.17.3
-          helm-plugins: >
-            https://github.com/databus23/helm-diff@v3.9.14
+          version: v3.22.0
 
       - name: Install uv
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
@@ -64,28 +55,35 @@ jobs:
           kind load docker-image ghcr.io/cobaltcore-dev/thalamus:pr \
             --name thalamus
 
+      - name: Deploy CRDs
+        working-directory: helm
+        run: |
+          helm dependency build thalamus-crds
+          helm upgrade --install thalamus-crds ./thalamus-crds \
+            --namespace thalamus \
+            --wait \
+            --timeout=600s
+
+      - name: Verify CRDs
+        run: |
+          kubectl wait \
+            --for=condition=Established \
+            --timeout=120s \
+            crd/gateways.gateway.networking.k8s.io \
+            crd/httproutes.gateway.networking.k8s.io \
+            crd/inferencepools.inference.networking.k8s.io \
+            crd/agentgatewaypolicies.agentgateway.dev \
+            crd/models.thalamus.cloud
+
       - name: Deploy Thalamus
         working-directory: helm
         run: |
-          if [ "${{ matrix.name }}" = "helm" ]; then
-            helm dependency build thalamus-crds
-            helm dependency build thalamus
-            helm install thalamus-crds ./thalamus-crds \
-              --namespace thalamus \
-              --wait \
-              --timeout=600s
-            helm install thalamus ./thalamus \
-              --namespace thalamus \
-              --wait \
-              --timeout=600s \
-              --set operator.image.tag=pr
-          else
-            helmfile --file helmfile.yaml.gotmpl apply \
-              --skip-diff-validation-on-install \
-              --wait=true \
-              --timeout=600 \
-              --state-values-set thalamus.operator.image.tag=pr
-          fi
+          helm dependency build thalamus
+          helm upgrade --install thalamus ./thalamus \
+            --namespace thalamus \
+            --wait \
+            --timeout=600s \
+            --set operator.image.tag=pr
 
       - name: Wait for gateway
         run: |

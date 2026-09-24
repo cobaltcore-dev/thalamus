@@ -30,8 +30,8 @@ following are expected to already be present in the cluster:
 - **Observability (optional):** a monitoring stack such as
   [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts) if you want Thalamus metrics scraped.
 
-The Gateway API and Gateway API inference extension CRDs are applied as part of
-the install (Step 3).
+The Gateway API, Gateway API inference extension, and agentgateway CRDs are
+bundled with the install (Step 3).
 
 ### Accounts
 
@@ -56,29 +56,31 @@ kubectl create secret generic hf-token \
 
 ## Step 2 — Create API key secrets (optional)
 
-By default, the Thalamus API accepts unauthenticated requests. To enable token-based authentication, deploy an `AgentgatewayPolicy` through the extraDeploy section in your Helm values. The example policy below requires every request to include a valid `Authorization: Bearer <key>` header. API keys are loaded from Kubernetes secrets labeled `thalamus-apikey: "true"`.
+By default, the Thalamus API accepts unauthenticated requests. To enable token-based authentication, save an `AgentgatewayPolicy` as a values file. The example policy below requires every request to include a valid `Authorization: Bearer <key>` header. API keys are loaded from Kubernetes secrets labeled `thalamus-apikey: "true"`.
 
 ```yaml
-thalamus:
-  extraDeploy:
-    apikey-auth:
-      apiVersion: agentgateway.dev/v1alpha1
-      kind: AgentgatewayPolicy
-      metadata:
-        namespace: thalamus
-      spec:
-        targetRefs:
-          - group: gateway.networking.k8s.io
-            kind: Gateway
-            name: inference-gateway
-            sectionName: api
-        traffic:
-          apiKeyAuthentication:
-            mode: Strict
-            secretSelector:
-              matchLabels:
-                thalamus-apikey: "true"
+# apikey-auth.yaml
+extraDeploy:
+  apikey-auth:
+    apiVersion: agentgateway.dev/v1alpha1
+    kind: AgentgatewayPolicy
+    metadata:
+      namespace: thalamus
+    spec:
+      targetRefs:
+        - group: gateway.networking.k8s.io
+          kind: Gateway
+          name: inference-gateway
+          sectionName: api
+      traffic:
+        apiKeyAuthentication:
+          mode: Strict
+          secretSelector:
+            matchLabels:
+              thalamus-apikey: "true"
 ```
+
+Pass it with `-f apikey-auth.yaml` when installing in Step 3.
 
 Create one secret per user or client:
 
@@ -91,35 +93,45 @@ kubectl label secret apikey-<name> --namespace thalamus thalamus-apikey=true
 
 ## Step 3 — Deploy the stack
 
-Thalamus builds on the [Gateway API](https://gateway-api.sigs.k8s.io/) and the
-[Gateway API inference extension](https://github.com/kubernetes-sigs/gateway-api-inference-extension).
-Apply their CRDs first (pinned versions):
+Thalamus installs as two Helm charts. The CRDs go first: Helm cannot create
+custom resources in the same release as the CRDs they depend on, so one
+release installs all CRDs and a second installs the operator and gateway.
 
 ```bash
-kubectl apply -f \
-  "https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.6.2/standard-install.yaml"
-kubectl apply -f \
-  "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/v1.6.0/v1-manifests.yaml"
+helm upgrade --install thalamus-crds oci://ghcr.io/cobaltcore-dev/charts/thalamus-crds \
+  --namespace thalamus --create-namespace --wait
+helm upgrade --install thalamus oci://ghcr.io/cobaltcore-dev/charts/thalamus \
+  --namespace thalamus --wait
 ```
 
-Then install the Thalamus chart. By default it installs the Thalamus CRDs and
-the agentgateway data plane ; everything is enabled, no extra flags needed:
+The `thalamus-crds` chart installs the Thalamus CRDs plus the pinned Gateway
+API, Gateway API inference extension, and agentgateway CRDs. The `thalamus`
+chart installs the operator, the inference gateway, and the agentgateway
+data-plane controller. Everything is enabled by default — no extra flags needed.
+
+To pin versions or override values, add `--version` / `--set` (or `-f values.yaml`):
 
 ```bash
-helm install thalamus oci://ghcr.io/cobaltcore-dev/charts/thalamus \
-  --namespace thalamus --create-namespace
+helm upgrade --install thalamus oci://ghcr.io/cobaltcore-dev/charts/thalamus \
+  --namespace thalamus --version 0.1.0 \
+  --set operator.image.tag=0.1.0
 ```
 
-To pin a release or override values, add `--version` / `--set` (or a values file):
+### Already have some of these components?
+
+If your cluster already provides the Gateway API CRDs (common on managed
+clusters), skip the bundled copies on the `thalamus-crds` release:
 
 ```bash
-helm install thalamus oci://ghcr.io/cobaltcore-dev/charts/thalamus \
-  --namespace thalamus --version 2.0.0 \
-  --set operator.image.tag=2.0.0
+helm upgrade --install thalamus-crds oci://ghcr.io/cobaltcore-dev/charts/thalamus-crds \
+  --namespace thalamus --create-namespace --wait \
+  --set gateway-api.enabled=false \
+  --set gateway-api-inference-extension.enabled=false
 ```
 
-If you instead run the CRDs or agentgateway as separate releases, set
-`--set crds.enabled=false` and/or `--set agentgateway.enabled=false`.
+Likewise, if you run the agentgateway controller as a separate release,
+disable the bundled copy on the `thalamus` release with
+`--set agentgateway.enabled=false`.
 
 ## Step 4 — Deploy a model
 
@@ -160,11 +172,8 @@ kubectl wait model/smollm2-135m --namespace thalamus --for=condition=Ready --tim
 
 ## Step 5 — Access the stack
 
-Once the pods are running, the stack is reachable in two ways.
-
-### Gateway API (OpenAI-compatible endpoint)
-
-The inference gateway exposes an OpenAI-compatible API. Use the `LoadBalancer`
+Once the pods are running, the inference gateway exposes an OpenAI-compatible
+API. Use the `LoadBalancer`
 IP or internal service address to send requests:
 
 ```bash
@@ -185,7 +194,8 @@ kubectl port-forward svc/inference-gateway 8080:80 -n thalamus
 
 ## Local development (CPU-only)
 
-On a local cluster without GPUs apply the CPU model example:
+Install Thalamus with the commands in Step 3, then apply the CPU model example
+on a local cluster without GPUs:
 
 ```bash
 kubectl apply -f examples/model-smollm2-cpu.yaml
