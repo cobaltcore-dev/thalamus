@@ -42,13 +42,6 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
 
-      - name: Create namespace
-        run: |
-          kubectl create namespace thalamus
-          kubectl create secret generic hf-token \
-            --namespace thalamus \
-            --from-literal=HF_TOKEN=${{ secrets.HF_TOKEN }}
-
       - name: Build and load operator image
         run: |
           docker build -t ghcr.io/cobaltcore-dev/thalamus:pr -f Dockerfile .
@@ -82,30 +75,35 @@ jobs:
           helm dependency build thalamus
           helm upgrade --install thalamus ./thalamus \
             --namespace thalamus \
-            --create-namespace \
             --wait \
             --timeout=600s \
             --set operator.image.tag=pr
 
-      - name: Wait for gateway
+      - name: Wait for Gateway
         run: |
           kubectl wait gateway/inference-gateway \
             --namespace thalamus \
             --for=condition=Programmed=True \
             --timeout=120s
 
-      - name: Apply Model CR
+      - name: Create huggingface Secret
+        run: |
+          kubectl create secret generic hf-token \
+            --namespace thalamus \
+            --from-literal=HF_TOKEN=${{ secrets.HF_TOKEN }}
+
+      - name: Apply Model
         run: |
           kubectl apply -f ${{ github.workspace }}/examples/model-smollm2-cpu.yaml
 
-      - name: Wait for model readiness
+      - name: Wait for Model readiness
         run: |
           kubectl wait model/smollm2-135m \
             --namespace thalamus \
             --for=condition=Ready \
             --timeout=600s
 
-      - name: Port-forward gateway
+      - name: Port-forward Gateway
         run: |
           kubectl port-forward svc/inference-gateway \
             8080:80 --namespace thalamus &
