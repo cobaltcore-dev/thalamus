@@ -7,7 +7,8 @@ on:
   push:
     branches:
       - main
-      - 'release-*'
+    tags:
+      - 'v*'
     paths:
       - 'website/**'
       - 'api/**'
@@ -52,10 +53,13 @@ jobs:
         run: |
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             echo "version=main" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.ref }}" == refs/heads/release-* ]]; then
-            echo "version=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
+            echo "chart_version=0.0.0-main" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+            echo "chart_version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           else
             echo "version=" >> $GITHUB_OUTPUT
+            echo "chart_version=" >> $GITHUB_OUTPUT
           fi
 
       - name: Install dependencies
@@ -67,6 +71,7 @@ jobs:
         run: npm run docs:build
         env:
           DOCS_VERSION: ${{ steps.set-version.outputs.version }}
+          CHART_VERSION: ${{ steps.set-version.outputs.chart_version }}
           PAGES_BASE: thalamus
 
       - name: Deploy versioned docs

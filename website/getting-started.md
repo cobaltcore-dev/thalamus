@@ -99,9 +99,11 @@ release installs all CRDs and a second installs the operator and gateway.
 
 ```bash
 helm upgrade --install thalamus-crds oci://ghcr.io/cobaltcore-dev/charts/thalamus-crds \
-  --namespace thalamus --create-namespace --wait
+  --namespace thalamus --create-namespace --wait \
+  --version @@CHART_VERSION@@
 helm upgrade --install thalamus oci://ghcr.io/cobaltcore-dev/charts/thalamus \
-  --namespace thalamus --wait
+  --namespace thalamus --wait \
+  --version @@CHART_VERSION@@
 ```
 
 The `thalamus-crds` chart installs the Thalamus CRDs plus the pinned Gateway
@@ -125,6 +127,7 @@ clusters), skip the bundled copies on the `thalamus-crds` release:
 ```bash
 helm upgrade --install thalamus-crds oci://ghcr.io/cobaltcore-dev/charts/thalamus-crds \
   --namespace thalamus --create-namespace --wait \
+  --version @@CHART_VERSION@@ \
   --set gateway-api.enabled=false \
   --set gateway-api-inference-extension.enabled=false
 ```
