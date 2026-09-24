@@ -9,6 +9,28 @@ releases:
     namespace: default
     chart: ../helm/gateway-api-inference-extension
 
+  - name: node-feature-discovery
+    namespace: node-feature-discovery
+    createNamespace: true
+    chart: oci://registry.k8s.io/nfd/charts/node-feature-discovery
+    version: "0.19.0"
+    installed: {{ dig "node-feature-discovery" "enabled" true .Values }}
+    values:
+      - {{ dig "node-feature-discovery" dict .Values | toYaml | nindent 10 }}
+
+  - name: gpu-operator
+    namespace: gpu-operator
+    createNamespace: true
+    chart: oci://nvcr.io/nvidia/cloud-native-charts/gpu-operator
+    version: "v26.7.0"
+    installed: {{ dig "gpu-operator" "enabled" true .Values }}
+    needs:
+      - node-feature-discovery/node-feature-discovery
+    values:
+      - nfd:
+          enabled: false
+      - {{ dig "gpu-operator" dict .Values | toYaml | nindent 10 }}
+
   - name: agentgateway-crds
     namespace: agentgateway-system
     createNamespace: true

@@ -21,11 +21,11 @@ Helm chart repositories usually publish only packaging release notes, so your jo
    - `gh pr view <PR> --json number,title,body,state,headRefName,baseRefName`
    - `gh pr diff <PR>`
 3. Identify external Helm chart version bumps in `helm/thalamus/Chart.yaml` and `helm/thalamus-crds/Chart.yaml`. Skip `file://` dependencies (vendored local charts). For each changed external dependency, capture:
-    - parent chart (`thalamus` or `thalamus-crds`)
-    - chart reference (e.g. `oci://cr.agentgateway.dev/charts/agentgateway`)
-    - repository URL
-    - old version
-    - new version
+   - parent chart (`thalamus` or `thalamus-crds`)
+   - chart reference (e.g. `oci://cr.agentgateway.dev/charts/agentgateway`)
+   - repository URL
+   - old version
+   - new version
 4. For each bumped chart, inspect the old and new chart metadata:
    - If the chart uses a non-OCI repository, add it with `helm repo add <name> <url>` and run `helm repo update`.
    - Run `helm show chart <chart-ref> --version <old>` and `helm show chart <chart-ref> --version <new>`.

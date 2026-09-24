@@ -72,6 +72,10 @@ monitoring:
     # scrapeTimeout: 10s
     # additionalLabels: {}
 
+owner_info:
+  support_group: workload-management
+  service: thalamus
+
 gateway:
   name: inference-gateway
   annotations: {}
