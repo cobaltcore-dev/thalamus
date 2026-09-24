@@ -117,25 +117,21 @@ data-plane controller. Everything is enabled by default — no extra flags neede
 > including every `Model` and its inference workloads. Only uninstall it when
 > you intend to tear down Thalamus.
 
-To pin versions or override values, add `--version` / `--set` (or `-f values.yaml`):
-
-```bash
-helm upgrade --install thalamus oci://ghcr.io/cobaltcore-dev/charts/thalamus \
-  --namespace thalamus --version 0.1.0 \
-  --set operator.image.tag=0.1.0
-```
-
 ### Already have some of these components?
 
-If your cluster already provides the Gateway API CRDs (common on managed
-clusters), skip the bundled copies on the `thalamus-crds` release:
+If your cluster already provides some of the CRDs bundled in `thalamus-crds`,
+disable the matching dependencies:
+
+- `gateway-api` — skip with `--set gateway-api.enabled=false` (common on
+  managed clusters)
+- `gateway-api-inference-extension` — provides the `InferencePool` CRD
+  Thalamus needs; disable only if your cluster already provides it
 
 ```bash
 helm upgrade --install thalamus-crds oci://ghcr.io/cobaltcore-dev/charts/thalamus-crds \
   --namespace thalamus --create-namespace --wait \
   --version @@CHART_VERSION@@ \
-  --set gateway-api.enabled=false \
-  --set gateway-api-inference-extension.enabled=false
+  --set gateway-api.enabled=false
 ```
 
 Likewise, if you run the agentgateway controller as a separate release,
