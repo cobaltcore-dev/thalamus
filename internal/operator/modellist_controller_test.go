@@ -12,7 +12,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	agentgatewayv1alpha1 "github.com/agentgateway/agentgateway/controller/api/v1alpha1/agentgateway"
@@ -206,32 +205,4 @@ func TestModelListReconcile_RecreatesDeletedRoute(t *testing.T) {
 
 	route := mustGetRoute(t, r)
 	mustAssertOwnedByGateway(t, route, gateway)
-}
-
-func TestPhaseChangedPredicate(t *testing.T) {
-	pred := phaseChangedPredicate{}
-
-	cases := []struct {
-		name     string
-		oldPhase v1alpha1.ModelPhase
-		newPhase v1alpha1.ModelPhase
-		want     bool
-	}{
-		{"creating→ready fires", v1alpha1.ModelPhaseCreating, v1alpha1.ModelPhaseReady, true},
-		{"ready→failed fires", v1alpha1.ModelPhaseReady, v1alpha1.ModelPhaseFailed, true},
-		{"ready→ready no-op", v1alpha1.ModelPhaseReady, v1alpha1.ModelPhaseReady, false},
-		{"creating→failed no-op", v1alpha1.ModelPhaseCreating, v1alpha1.ModelPhaseFailed, false},
-		{"pending→creating no-op", v1alpha1.ModelPhasePending, v1alpha1.ModelPhaseCreating, false},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			old := &v1alpha1.Model{Status: v1alpha1.ModelStatus{Phase: tc.oldPhase}}
-			cur := &v1alpha1.Model{Status: v1alpha1.ModelStatus{Phase: tc.newPhase}}
-			got := pred.Update(event.UpdateEvent{ObjectOld: old, ObjectNew: cur})
-			if got != tc.want {
-				t.Errorf("got %v, want %v", got, tc.want)
-			}
-		})
-	}
 }

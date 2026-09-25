@@ -10,7 +10,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -62,13 +61,16 @@ func (r *ModelListReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 func (r *ModelListReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&gatewayv1.Gateway{}, builder.WithPredicates(namedPredicate(r.GatewayName))).
+		For(&gatewayv1.Gateway{}, builder.WithPredicates(predicate.And(
+			namePredicate(r.GatewayName),
+			predicate.GenerationChangedPredicate{},
+		))).
 		Owns(&gatewayv1.HTTPRoute{}, builder.WithPredicates(predicate.And(
-			namedPredicate(native.ModelListPolicyName),
+			namePredicate(native.ModelListPolicyName),
 			ownedByPredicate("Gateway", r.GatewayName),
 		))).
 		Owns(&agentgatewayv1alpha1.AgentgatewayPolicy{}, builder.WithPredicates(predicate.And(
-			namedPredicate(native.ModelListPolicyName),
+			namePredicate(native.ModelListPolicyName),
 			ownedByPredicate("Gateway", r.GatewayName),
 		))).
 		// Models are not owned by the gateway, so map their events onto it.
@@ -78,22 +80,7 @@ func (r *ModelListReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					Name:      r.GatewayName,
 					Namespace: obj.GetNamespace(),
 				}}
-			}),
-			builder.WithPredicates(phaseChangedPredicate{})).
+			})).
 		Named("model-list").
 		Complete(r)
-}
-
-// phaseChangedPredicate fires only when a Model is created, deleted, or its phase changes to/from Ready.
-type phaseChangedPredicate struct{ predicate.Funcs }
-
-func (phaseChangedPredicate) Update(e event.UpdateEvent) bool {
-	oldModel, ok1 := e.ObjectOld.(*v1alpha1.Model)
-	newModel, ok2 := e.ObjectNew.(*v1alpha1.Model)
-	if !ok1 || !ok2 {
-		return true
-	}
-	oldPhase := oldModel.Status.Phase
-	newPhase := newModel.Status.Phase
-	return oldPhase != newPhase && (oldPhase == v1alpha1.ModelPhaseReady || newPhase == v1alpha1.ModelPhaseReady)
 }

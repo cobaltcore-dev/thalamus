@@ -46,9 +46,12 @@ func (r *BodyRoutingReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 func (r *BodyRoutingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&gatewayv1.Gateway{}, builder.WithPredicates(namedPredicate(r.GatewayName))).
+		For(&gatewayv1.Gateway{}, builder.WithPredicates(predicate.And(
+			namePredicate(r.GatewayName),
+			predicate.GenerationChangedPredicate{},
+		))).
 		Owns(&agentgatewayv1alpha1.AgentgatewayPolicy{}, builder.WithPredicates(predicate.And(
-			namedPredicate(native.BodyBasedRoutingPolicyName),
+			namePredicate(native.BodyBasedRoutingPolicyName),
 			ownedByPredicate("Gateway", r.GatewayName),
 		))).
 		Named("body-routing").
