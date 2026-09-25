@@ -26,11 +26,11 @@ review:
 # there. It cannot be set from this file (GitHub does not allow a cron to be read
 # from a file), so it need not run weekly; set the cron to whatever you like.
 bugfinder:
-  active: true
+  active: false
   # model: sap/anthropic--claude-4.6-opus
   # command: /cortex-agents:bugfinder
 docswriter:
-  active: true
+  active: false
   # model: sap/anthropic--claude-4.6-opus
   # command: /cortex-agents:docswriter
 
