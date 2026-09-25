@@ -31,28 +31,32 @@ queue depth, and endpoint availability._
 ## Enable metric scraping
 
 The `thalamus` chart creates `ServiceMonitor`/`PodMonitor` resources for the
-operator, the vLLM engine, and the endpoint picker, and the `agentgateway`
-chart creates one for the gateway, when monitoring is enabled:
+operator, the vLLM engine, and the endpoint picker, and the bundled
+`agentgateway` chart creates monitors for the gateway controller and its
+proxies. Enable both with values passed to the `thalamus` release:
 
 ```yaml
-# my-cluster.yaml (helmfile state values)
-thalamus:
-  monitoring:
-    enabled: true
+# my-cluster.yaml (values for the thalamus release)
+monitoring:
+  enabled: true
 agentgateway:
   monitoring:
     enabled: true
 ```
 
 ```bash
-helmfile --file helm/helmfile.yaml.gotmpl apply --state-values-file my-cluster.yaml
+helm upgrade --install thalamus oci://ghcr.io/cobaltcore-dev/charts/thalamus \
+  --namespace thalamus --wait \
+  --version @@CHART_VERSION@@ \
+  -f my-cluster.yaml
 ```
 
 > [!NOTE]
 > If your Prometheus selects monitors by label (e.g. the `release:` label of
-> kube-prometheus-stack), add it via `monitoring.additionalLabels` in the
-> `thalamus` chart and `monitoring.serviceMonitor.extraLabels` in the
-> `agentgateway` chart.
+> kube-prometheus-stack), add it via `monitoring.additionalLabels` for the
+> operator, engine, and endpoint picker monitors and via
+> `agentgateway.monitoring.serviceMonitor.extraLabels` for the gateway
+> monitors.
 
 ## Per-tenant token usage (optional)
 
