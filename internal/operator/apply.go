@@ -14,6 +14,7 @@ import (
 
 // applyConfiguration converts a typed object into an unstructured ApplyConfiguration for client.Apply.
 func applyConfiguration(scheme *runtime.Scheme, obj client.Object) (runtime.ApplyConfiguration, error) {
+	obj = obj.DeepCopyObject().(client.Object)
 	// SSA requires apiVersion/kind; set them from the scheme before converting.
 	gvks, _, err := scheme.ObjectKinds(obj)
 	if err != nil {
@@ -41,6 +42,7 @@ func applyOwnedNonBlocking(ctx context.Context, c client.Client, scheme *runtime
 }
 
 func applyWithOwner(ctx context.Context, c client.Client, scheme *runtime.Scheme, owner, desired client.Object, opts ...controllerutil.OwnerReferenceOption) error {
+	desired = desired.DeepCopyObject().(client.Object)
 	if err := controllerutil.SetControllerReference(owner, desired, scheme, opts...); err != nil {
 		return err
 	}
