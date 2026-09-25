@@ -21,10 +21,10 @@ The operator also keeps a model-list `AgentgatewayPolicy` in sync, so the `/v1/m
 
 ## Gateway
 
-The shared inference gateway is `agentgateway`. A body-based routing `AgentgatewayPolicy` extracts the model name from each request body, which the per-model `HTTPRoute` matches to route the request to the right model. See [Request flow](/concepts/backends/native/request-flow) for a step-by-step walkthrough.
+The shared inference gateway is a plain Gateway API gateway, backed by agentgateway. A body-based routing `AgentgatewayPolicy` extracts the model name from each request body and sets the Inference Extension's `X-Gateway-Base-Model-Name` header, which the per-model `HTTPRoute` matches to route the request to the right model. See [Request flow](/concepts/backends/native/request-flow) for a step-by-step walkthrough.
 
 ## Artifacts and infrastructure
 
 The `Model` deployments in Thalamus depend on additional infrastructure that needs to be provided by cluster administrators.
 The container images are pulled from an OCI registry and the model weights are fetched from an object store.
-The reconciled workloads run on GPU nodes prepared by the vendor GPU operators (NVIDIA, AMD, Intel), with TLS and DNS handled by cert-manager and ExternalDNS, and metrics collected by Prometheus and OpenTelemetry.
+The reconciled workloads run on GPU nodes prepared by the vendor GPU operators (NVIDIA, AMD, Intel), with TLS and DNS handled by a certificate manager and an external DNS controller, and metrics collected by Prometheus and OpenTelemetry.
