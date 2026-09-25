@@ -3,6 +3,24 @@ agentgateway:
   inferenceExtension:
     enabled: true
 
+open-webui:
+  # Disabled by default; enable with --set open-webui.enabled=true
+  enabled: false
+  ollama:
+    enabled: false
+  pipelines:
+    enabled: false
+  extraEnvVars:
+    - name: WEBUI_AUTH
+      value: "False"
+  openaiBaseApiUrl: "http://inference-gateway.thalamus.svc.cluster.local/v1" # must match gateway.name + release namespace
+  route:
+    enabled: true
+    parentRefs:
+      - name: inference-gateway # must match gateway.name
+        namespace: thalamus # must match release namespace
+        sectionName: frontend
+
 operator:
   replicas: 1
   image:
@@ -73,6 +91,7 @@ monitoring:
     # additionalLabels: {}
 
 gateway:
+  # Renaming requires updating open-webui.openaiBaseApiUrl + open-webui.route.parentRefs
   name: inference-gateway
   annotations: {}
     # cert-manager.io/issuer: my-issuer

@@ -19,6 +19,17 @@ spec:
     - name: {{ $name }}
       {{- toYaml $listener | nindent 6 }}
     {{- end }}
+    {{- $openWebUI := index .Values "open-webui" }}
+    {{- if and $openWebUI (index $openWebUI "enabled") }}
+    {{- if not (index .Values.gateway.listeners "frontend") }}
+    - name: frontend
+      port: 8080
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: All
+    {{- end }}
+    {{- end }}
 ---
 apiVersion: agentgateway.dev/v1alpha1
 kind: AgentgatewayParameters
