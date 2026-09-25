@@ -19,7 +19,7 @@ Open WebUI is served on the gateway's `frontend` listener (port 8080). For
 local clusters without a `LoadBalancer`, use port-forward:
 
 ```bash
-kubectl port-forward svc/inference-gateway 8080:8080 -n thalamus
+kubectl port-forward svc/inference-gateway 8081:8080 -n thalamus
 ```
 
 Then open `http://localhost:8080` in your browser.
