@@ -21,7 +21,7 @@ The operator also keeps a model-list `AgentgatewayPolicy` in sync, so the `/v1/m
 
 ## Gateway
 
-The shared inference gateway is an agentgateway. A body-based routing `AgentgatewayPolicy` extracts the model name from each request body, which the per-model `HTTPRoute` matches to route the request to the right model. See [Request flow](/concepts/backends/native/request-flow) for a step-by-step walkthrough.
+The shared inference gateway is `agentgateway`. A body-based routing `AgentgatewayPolicy` extracts the model name from each request body, which the per-model `HTTPRoute` matches to route the request to the right model. See [Request flow](/concepts/backends/native/request-flow) for a step-by-step walkthrough.
 
 ## Artifacts and infrastructure
 
