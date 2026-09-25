@@ -35,7 +35,7 @@ operator, the vLLM engine, and the endpoint picker, and the bundled
 `agentgateway` chart creates monitors for the gateway controller and its
 proxies. Enable both with values passed to the `thalamus` release:
 
-Make sure `release` field matches the namespace where you have deployed Prometheus.
+Make sure `release` field matches the namespace where you have deployed Prometheus. In this guide, the Prometheus package is deployed as `monitoring` release.
 
 ```yaml
 # my-cluster.yaml (values for the thalamus release)
@@ -57,13 +57,6 @@ helm upgrade --install thalamus oci://ghcr.io/cobaltcore-dev/charts/thalamus \
   --version @@CHART_VERSION@@ \
   -f my-cluster.yaml
 ```
-
-> [!NOTE]
-> If your Prometheus selects monitors by label (e.g. the `release:` label of
-> kube-prometheus-stack), add it via `monitoring.additionalLabels` for the
-> operator, engine, and endpoint picker monitors and via
-> `agentgateway.monitoring.serviceMonitor.extraLabels` for the gateway
-> monitors.
 
 ## Load the dashboards
 
