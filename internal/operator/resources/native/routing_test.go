@@ -38,7 +38,7 @@ func TestBuildInferencePool(t *testing.T) {
 
 func TestBuildHTTPRoute(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
-	route := BuildHTTPRoute(model, "custom-gateway")
+	route := BuildHTTPRoute(model, "custom-gateway", "custom-listener")
 
 	if route.Name != model.EngineName() {
 		t.Errorf("Name:\ngot:  %q\nwant: %q", route.Name, model.EngineName())
@@ -50,8 +50,8 @@ func TestBuildHTTPRoute(t *testing.T) {
 	if name := parentRef.Name; name != "custom-gateway" {
 		t.Errorf("parentRef.Name:\ngot:  %q\nwant: %q", name, "custom-gateway")
 	}
-	if section := *parentRef.SectionName; section != defaultGatewaySectionName {
-		t.Errorf("parentRef.SectionName: got: %q, want %q", section, defaultGatewaySectionName)
+	if section := *parentRef.SectionName; section != "custom-listener" {
+		t.Errorf("parentRef.SectionName: got: %q, want %q", section, "custom-listener")
 	}
 	rule := route.Spec.Rules[0]
 	if len(rule.Matches) != len(modelRoutes) {
@@ -86,7 +86,7 @@ func TestBuildHTTPRoute(t *testing.T) {
 func TestBuildBodyBasedRoutingPolicy(t *testing.T) {
 	gateway := &gatewayv1.Gateway{Name: testGatewayName, Namespace: "thalamus"}
 
-	policy := BuildBodyBasedRoutingPolicy(gateway)
+	policy := BuildBodyBasedRoutingPolicy(gateway, "custom-listener")
 
 	if policy.Name != BodyBasedRoutingPolicyName {
 		t.Errorf("policy.Name:\ngot:  %q\nwant: %q", policy.Name, BodyBasedRoutingPolicyName)
@@ -102,8 +102,8 @@ func TestBuildBodyBasedRoutingPolicy(t *testing.T) {
 		t.Errorf("targetRef:\ngot:  %s/%s %s\nwant: %s/Gateway %s",
 			ref.Group, ref.Kind, ref.Name, gatewayv1.GroupName, testGatewayName)
 	}
-	if ref.SectionName == nil || *ref.SectionName != defaultGatewaySectionName {
-		t.Errorf("targetRef.SectionName:\ngot:  %v\nwant: %q", ref.SectionName, defaultGatewaySectionName)
+	if ref.SectionName == nil || *ref.SectionName != "custom-listener" {
+		t.Errorf("targetRef.SectionName:\ngot:  %v\nwant: %q", ref.SectionName, "custom-listener")
 	}
 
 	traffic := policy.Spec.Traffic

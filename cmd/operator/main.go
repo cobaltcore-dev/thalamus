@@ -42,11 +42,13 @@ func main() {
 	var probeAddr string
 	var watchNamespace string
 	var gatewayName string
+	var gatewayListener string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. Use :8080 for HTTP or 0 to disable.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.StringVar(&watchNamespace, "namespace", "", "Namespace to watch. Must match the namespace the operator is deployed in.")
 	flag.StringVar(&gatewayName, "gateway-name", "", "Name of the gateway the operator attaches its routes to. Required.")
+	flag.StringVar(&gatewayListener, "gateway-listener", "", "Name of the gateway listener the operator attaches its routes to. Required.")
 	// TODO: set to false before GA
 	opts := zap.Options{Development: true}
 	opts.BindFlags(flag.CommandLine)
@@ -56,6 +58,10 @@ func main() {
 
 	if gatewayName == "" {
 		setupLog.Error(nil, "--gateway-name must be set")
+		os.Exit(1)
+	}
+	if gatewayListener == "" {
+		setupLog.Error(nil, "--gateway-listener must be set")
 		os.Exit(1)
 	}
 
@@ -76,27 +82,30 @@ func main() {
 	}
 
 	if err := (&operator.ModelReconciler{
-		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
-		GatewayName: gatewayName,
+		Client:       mgr.GetClient(),
+		Scheme:       mgr.GetScheme(),
+		GatewayName:  gatewayName,
+		ListenerName: gatewayListener,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "model")
 		os.Exit(1)
 	}
 
 	if err := (&operator.ModelListReconciler{
-		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
-		GatewayName: gatewayName,
+		Client:       mgr.GetClient(),
+		Scheme:       mgr.GetScheme(),
+		GatewayName:  gatewayName,
+		ListenerName: gatewayListener,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "model-list")
 		os.Exit(1)
 	}
 
 	if err := (&operator.BodyRoutingReconciler{
-		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
-		GatewayName: gatewayName,
+		Client:       mgr.GetClient(),
+		Scheme:       mgr.GetScheme(),
+		GatewayName:  gatewayName,
+		ListenerName: gatewayListener,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "body-routing")
 		os.Exit(1)

@@ -48,15 +48,16 @@ jobs:
           kind load docker-image ghcr.io/cobaltcore-dev/thalamus:pr \
             --name thalamus
 
-      - name: Deploy CRDs
+      - name: Deploy Thalamus
         working-directory: helm
         run: |
-          helm dependency build thalamus-crds
-          helm upgrade --install thalamus-crds ./thalamus-crds \
+          helm dependency build thalamus
+          helm upgrade --install thalamus ./thalamus \
             --namespace thalamus \
             --create-namespace \
             --wait \
-            --timeout=600s
+            --timeout=600s \
+            --set operator.image.tag=pr
 
       - name: Verify CRDs
         run: |
@@ -69,15 +70,9 @@ jobs:
             crd/agentgatewaypolicies.agentgateway.dev \
             crd/models.thalamus.cloud
 
-      - name: Deploy Thalamus
-        working-directory: helm
+      - name: Create inference gateway
         run: |
-          helm dependency build thalamus
-          helm upgrade --install thalamus ./thalamus \
-            --namespace thalamus \
-            --wait \
-            --timeout=600s \
-            --set operator.image.tag=pr
+          kubectl apply -f ${{ github.workspace }}/examples/gateway.yaml
 
       - name: Wait for Gateway
         run: |

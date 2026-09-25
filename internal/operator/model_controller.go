@@ -31,8 +31,11 @@ import (
 // ModelReconciler reconciles Model objects.
 type ModelReconciler struct {
 	client.Client
-	Scheme      *runtime.Scheme
+	Scheme *runtime.Scheme
+	// GatewayName is the name of the gateway the model routes attach to.
 	GatewayName string
+	// ListenerName is the gateway listener the model routes attach to.
+	ListenerName string
 }
 
 func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -76,7 +79,7 @@ func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.M
 		native.BuildEngineService(model),
 		native.BuildInferencePool(model),
 		native.BuildAIBackend(model),
-		native.BuildHTTPRoute(model, r.GatewayName),
+		native.BuildHTTPRoute(model, r.GatewayName, r.ListenerName),
 	}
 
 	// EPP stack.

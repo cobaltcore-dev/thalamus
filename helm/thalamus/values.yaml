@@ -3,6 +3,15 @@ agentgateway:
   inferenceExtension:
     enabled: true
 
+agentgateway-crds:
+  enabled: true
+
+gateway-api:
+  enabled: true
+
+gateway-api-inference-extension:
+  enabled: true
+
 operator:
   replicas: 1
   image:
@@ -72,25 +81,10 @@ monitoring:
     # scrapeTimeout: 10s
     # additionalLabels: {}
 
+# Gateway the operator attaches its routes to; see examples/gateway.yaml.
 gateway:
   name: inference-gateway
-  annotations: {}
-    # cert-manager.io/issuer: my-issuer
-  listeners:
-    # All OpenAI-compatible routes (per-model and model-list) attach to this listener by default.
-    api:
-      port: 80
-      protocol: HTTP
-      allowedRoutes:
-        namespaces:
-          from: All
-
-  parameters:
-    service:
-      spec:
-        type: ClusterIP
-        # type: LoadBalancer
-        # loadBalancerIP: ""
+  listener: api
 
 extraDeploy: []
   # List of extra manifests (structured objects or templated strings).
@@ -110,4 +104,3 @@ extraDeploy: []
   #     namespace: "{{ .Release.Namespace }}"
   #   data:
   #     example-key: example-value
-
