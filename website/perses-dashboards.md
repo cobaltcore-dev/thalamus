@@ -15,7 +15,7 @@ Thalamus ships a set of [Perses](https://perses.dev) dashboards in
 | `thalamus-vllm.json` | Engine-level debugging: scheduling, prefill/decode, KV cache |
 | `thalamus-llmd.json` | Router (EPP) debugging: queueing, prefix routing, payload sizes |
 
-![The SLO dashboard in Perses](./img/perses-dashboards.png)
+![The SLO dashboard in Perses](./public/perses-dashboards.png)
 
 _The SLO dashboard: user-facing latency per model (TTFT, TPOT, E2E, ITL),
 queue depth, and endpoint availability._

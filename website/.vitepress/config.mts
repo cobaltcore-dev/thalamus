@@ -38,11 +38,12 @@ export default withMermaid({
 
     sidebar: [
       {
-         text: 'Getting Started',
-         items: [
-           { text: 'Overview', link: '/getting-started' },
-           { text: 'Open WebUI', link: '/open-webui' },
-         ],
+        text: 'Getting Started',
+        items: [
+          { text: 'Overview', link: '/getting-started' },
+          { text: 'Open WebUI', link: '/open-webui' },
+          { text: 'Perses Dashboards', link: '/perses-dashboards' },
+        ],
       },
       {
         text: 'Demo',
@@ -76,7 +77,6 @@ export default withMermaid({
         collapsed: false,
         items: [
           { text: 'Model CRD API', link: '/reference/model-crd-api' },
-          { text: 'Perses Dashboards', link: '/reference/perses-dashboards' },
         ],
       },
       {
