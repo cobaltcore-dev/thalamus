@@ -63,42 +63,42 @@ via an `AgentgatewayPolicy` that derives it from the API key of each request.
 1. Store each API key as JSON with a `tenant` field in its `metadata` (instead
    of a plain key):
 
-   ```bash
-   kubectl create secret generic apikey-my-client \
-     --namespace thalamus \
-     --from-literal=api-key='{"key": "<your-api-key>", "metadata": {"tenant": "my-client"}}' \
+```bash
+kubectl create secret generic apikey-my-client \
+  --namespace thalamus \
+  --from-literal=api-key='{"key": "<your-api-key>", "metadata": {"tenant": "my-client"}}'
 kubectl label secret apikey-my-client -n thalamus thalamus-apikey=true
-   ```
+```
 
 2. Extend the API key policy with a `tenant_hash` metric attribute. The
    expression is hash of the tenant name, so Prometheus
    only ever stores an anonymized identifier:
 
-   ```yaml
-   apiVersion: agentgateway.dev/v1alpha1
-   kind: AgentgatewayPolicy
-   metadata:
-     name: apikey-auth
-     namespace: thalamus
-   spec:
-     targetRefs:
-       - group: gateway.networking.k8s.io
-         kind: Gateway
-         name: inference-gateway
-         sectionName: api
-     frontend:
-       metrics:
-         attributes:
-           add:
-             - name: tenant_hash
-               expression: 'sha256.encode("<your-random-salt>:" + apiKey.tenant).substring(0, 8)'
-     traffic:
-       apiKeyAuthentication:
-         mode: Strict
-         secretSelector:
-           matchLabels:
-             thalamus-apikey: "true"
-   ```
+```yaml
+apiVersion: agentgateway.dev/v1alpha1
+kind: AgentgatewayPolicy
+metadata:
+  name: apikey-auth
+  namespace: thalamus
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: inference-gateway
+      sectionName: api
+  frontend:
+    metrics:
+      attributes:
+        add:
+          - name: tenant_hash
+            expression: 'sha256.encode("<your-random-salt>:" + apiKey.tenant).substring(0, 8)'
+  traffic:
+    apiKeyAuthentication:
+      mode: Strict
+      secretSelector:
+        matchLabels:
+          thalamus-apikey: "true"
+```
 
 The gateway then attaches `tenant_hash` to all of its metrics providing the data for the Tenant dashboard panels.
 
