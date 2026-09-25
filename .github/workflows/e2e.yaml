@@ -101,17 +101,6 @@ jobs:
             crd/agentgatewayparameters.agentgateway.dev \
             crd/agentgatewaypolicies.agentgateway.dev
 
-      - name: Verify CRDs
-        run: |
-          kubectl wait \
-            --for=condition=Established \
-            --timeout=120s \
-            crd/gateways.gateway.networking.k8s.io \
-            crd/httproutes.gateway.networking.k8s.io \
-            crd/inferencepools.inference.networking.k8s.io \
-            crd/agentgatewaypolicies.agentgateway.dev \
-            crd/models.thalamus.cloud
-
       - name: Pre-install agentgateway from upstream
         if: matrix.agentgateway == 'preinstalled'
         run: |
@@ -183,6 +172,17 @@ jobs:
             exit 1
           fi
           echo "PASS: thalamus skipped the bundled agentgateway controller"
+
+      - name: Verify CRDs
+        run: |
+          kubectl wait \
+            --for=condition=Established \
+            --timeout=120s \
+            crd/gateways.gateway.networking.k8s.io \
+            crd/httproutes.gateway.networking.k8s.io \
+            crd/inferencepools.inference.networking.k8s.io \
+            crd/agentgatewaypolicies.agentgateway.dev \
+            crd/models.thalamus.cloud
 
       - name: Create inference gateway
         run: |
