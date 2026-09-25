@@ -88,7 +88,7 @@ kubectl create secret generic hf-token \
   --namespace thalamus
 ```
 
-## Step 4 — Create the inference gateway
+## Step 3 — Create the inference gateway
 
 The Gateway is not part of the helm release; you create and own it. The
 operator attaches all of its routes — per-model traffic and the
