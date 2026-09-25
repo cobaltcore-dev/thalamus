@@ -911,8 +911,8 @@
                     "datasource": {
                       "kind": "PrometheusDatasource"
                     },
-                    "query": "sum by (tenant_hash) (rate(agentgateway_gen_ai_client_token_usage_sum{gen_ai_token_type=\"input_cache_read\"}[$rate_interval])) * $rate_multiplier",
-                    "seriesNameFormat": "{{tenant_hash}}"
+                    "query": "sum by (tenant) (rate(agentgateway_gen_ai_client_token_usage_sum{gen_ai_token_type=\"input_cache_read\"}[$rate_interval])) * $rate_multiplier",
+                    "seriesNameFormat": "{{tenant}}"
                   }
                 }
               }
@@ -967,8 +967,8 @@
                     "datasource": {
                       "kind": "PrometheusDatasource"
                     },
-                    "query": "(sum by (tenant_hash) (rate(agentgateway_gen_ai_client_token_usage_sum{gen_ai_token_type=\"input\"}[$rate_interval])) - (sum by (tenant_hash) (rate(agentgateway_gen_ai_client_token_usage_sum{gen_ai_token_type=\"input_cache_read\"}[$rate_interval])) or sum by (tenant_hash) (rate(agentgateway_gen_ai_client_token_usage_sum{gen_ai_token_type=\"input\"}[$rate_interval])) * 0)) * $rate_multiplier",
-                    "seriesNameFormat": "{{tenant_hash}}"
+                    "query": "(sum by (tenant) (rate(agentgateway_gen_ai_client_token_usage_sum{gen_ai_token_type=\"input\"}[$rate_interval])) - (sum by (tenant) (rate(agentgateway_gen_ai_client_token_usage_sum{gen_ai_token_type=\"input_cache_read\"}[$rate_interval])) or sum by (tenant) (rate(agentgateway_gen_ai_client_token_usage_sum{gen_ai_token_type=\"input\"}[$rate_interval])) * 0)) * $rate_multiplier",
+                    "seriesNameFormat": "{{tenant}}"
                   }
                 }
               }
@@ -1023,8 +1023,8 @@
                     "datasource": {
                       "kind": "PrometheusDatasource"
                     },
-                    "query": "sum by (tenant_hash) (rate(agentgateway_gen_ai_client_token_usage_sum{gen_ai_token_type=\"output\"}[$rate_interval])) * $rate_multiplier",
-                    "seriesNameFormat": "{{tenant_hash}}"
+                    "query": "sum by (tenant) (rate(agentgateway_gen_ai_client_token_usage_sum{gen_ai_token_type=\"output\"}[$rate_interval])) * $rate_multiplier",
+                    "seriesNameFormat": "{{tenant}}"
                   }
                 }
               }
@@ -1051,7 +1051,7 @@
               "mode": "value",
               "orientation": "horizontal",
               "groupBy": [
-                "tenant_hash"
+                "tenant"
               ],
               "isStacked": true
             }
@@ -1066,7 +1066,7 @@
                     "datasource": {
                       "kind": "PrometheusDatasource"
                     },
-                    "query": "sum by (tenant_hash, m) (label_replace(round(sum by (tenant_hash, gen_ai_request_model) (increase(agentgateway_gen_ai_client_token_usage_sum{gen_ai_token_type=~\"input|output\"}[$__range])) - (sum by (tenant_hash, gen_ai_request_model) (increase(agentgateway_gen_ai_client_token_usage_sum{gen_ai_token_type=\"input_cache_read\"}[$__range])) or sum by (tenant_hash, gen_ai_request_model) (increase(agentgateway_gen_ai_client_token_usage_sum{gen_ai_token_type=~\"input|output\"}[$__range])) * 0)), \"m\", \"$1\", \"gen_ai_request_model\", \"(.*)\"))",
+                    "query": "sum by (tenant, m) (label_replace(round(sum by (tenant, gen_ai_request_model) (increase(agentgateway_gen_ai_client_token_usage_sum{gen_ai_token_type=~\"input|output\"}[$__range])) - (sum by (tenant, gen_ai_request_model) (increase(agentgateway_gen_ai_client_token_usage_sum{gen_ai_token_type=\"input_cache_read\"}[$__range])) or sum by (tenant, gen_ai_request_model) (increase(agentgateway_gen_ai_client_token_usage_sum{gen_ai_token_type=~\"input|output\"}[$__range])) * 0)), \"m\", \"$1\", \"gen_ai_request_model\", \"(.*)\"))",
                     "seriesNameFormat": "{{m}}"
                   }
                 }
