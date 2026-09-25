@@ -46,7 +46,7 @@ agentgateway:
 
 ```bash
 helm upgrade --install thalamus oci://ghcr.io/cobaltcore-dev/charts/thalamus \
-  --namespace thalamus --wait \
+  --namespace thalamus --wait --reuse-values \
   --version @@CHART_VERSION@@ \
   -f my-cluster.yaml
 ```
