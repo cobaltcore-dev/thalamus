@@ -42,7 +42,7 @@
           "plugin": {
             "kind": "Markdown",
             "spec": {
-              "text": "# Thalamus Debug — vLLM\n\n## Description\n\nDiagnostic metrics from the vLLM model server. When the SLO dashboard shows a breach, this dashboard explains **why**. Everything here is from vLLM's internal perspective (per `model_name`) — the router-side view lives in Debug/llm_d (separate dashboard).\n\nA single vLLM request has three phases: **queue** (waiting in the scheduler) → **prefill** (processing the prompt) → **decode** (generating tokens one by one). Each phase has its own panels here.\n\nHistograms of latencies are split into **p50** and **p99** (per-panel, per-model). Histograms of token counts are wrapped in `round()` because token counts are integer.\n\n## Variables\n\n- `$rate_interval` (default `15m`) — histogram/counter smoothing window.\n- `$rate_multiplier` (default `1`) — 1 = per-second, 3600 = per-hour.\n\n## Sections\n\n### Scheduling\n\n#### Queue Time p50 / p99\nTime a request spent in the vLLM scheduler **before prefill started**.\n\nQuery: `histogram_quantile(0.50|0.99, sum by (model_name, le) (rate(vllm:request_queue_time_seconds_bucket[$rate_interval])))`\n\n**Debug scenario:** SLO `E2E` p99 is 6s. SLO `TTFT` p99 is 1s, SLO `TPOT` p99 is fine. Queue Time p99 here shows 5s — the missing 4s is requests sitting in the scheduler waiting for a slot. Root cause: concurrency exceeds `max_num_seqs`. Scale replicas or reduce load.\n\n#### Prefill Time p50 / p99\nTime spent processing the prompt (the compute-heavy phase before the first token).\n\nQuery: `histogram_quantile(..., sum by (model_name, le) (rate(vllm:request_prefill_time_seconds_bucket[$rate_interval])))`\n\n**Debug scenario:** TTFT p99 = 8s. Prefill Time p99 here = 7.8s → almost all TTFT is prefill. Someone is sending huge prompts; confirm with Usage `Input Tokens` p99. Nothing broken, just big prompts — either accept the latency or chunk on the client side.\n\n#### Decode Time p50 / p99\nTime spent generating output tokens (after prefill, until end of response).\n\nQuery: `histogram_quantile(..., sum by (model_name, le) (rate(vllm:request_decode_time_seconds_bucket[$rate_interval])))`\n\n**Debug scenario:** Decode Time p99 doubled without a change in Usage `Output Tokens` p99. The model is generating the same number of tokens but each token now takes longer. Cross-check GPU `HBM Activity` — likely memory-bound decode under higher concurrency. Reduce batch or scale out.\n\n#### Waiting by Reason\nCurrent count of waiting requests broken down by **why** they're waiting.\n\nQuery: `sum by (reason) (vllm:num_requests_waiting_by_reason)`\n\nReasons include `chunked_prefill` (prompt too large, being processed in chunks — blocks the queue), `swapped` (KV cache preempted), and others.\n\n**Debug scenario:** SLO `Queue Depth` is climbing. Open this panel: if `chunked_prefill` dominates, one very long prompt is being chunked across iterations and blocking everyone else — trace the offending request (client-side logs, request ID). If `swapped` dominates, KV cache pressure is preempting running requests; cross-check `KV Cache Usage` and `Preemptions`.\n\n### KV Cache\n\nThe **KV cache** stores attention key/value tensors for tokens already processed, so the model doesn't recompute them each decode step. Its size bounds how many concurrent requests vLLM can serve.\n\n#### KV Cache Usage\nAverage % of KV cache blocks occupied per model. Gauge.\n\nQuery: `avg by (model_name) (vllm:kv_cache_usage_perc) * 100`\n\n**Debug scenario:** KV Cache Usage climbs past 95%. `Preemptions` will start firing next — running requests are about to be evicted mid-decode to free blocks for new arrivals. That means recomputed prefills, wasted GPU work, and tail latency spikes in the SLO dashboard.\n\n#### Preemptions\nRate of requests kicked out of decode to free KV cache blocks — wasted GPU work.\n\nQuery: `sum by (model_name) (rate(vllm:num_preemptions_total[$rate_interval])) * $rate_multiplier`\n\n**Debug scenario:** Preemptions rate is non-zero. Every preempted request will re-run prefill from scratch when it resumes — you're paying GPU time twice. Correlates directly with SLO tail latency. Fix by either reducing concurrency (fewer in-flight requests) or scaling out (more KV cache total). Cross-check `KV Cache Usage` — usually at 95%+ when preemptions fire.\n\n#### Prefix Cache Hit Ratio\nFraction of prefill work skipped because the prompt prefix was already cached. `hits / queries`.\n\nQuery: `sum by (model_name) (rate(vllm:prefix_cache_hits_total[$rate_interval])) / sum by (model_name) (rate(vllm:prefix_cache_queries_total[$rate_interval]))`\n\n**Debug scenario:** Ratio is 0.05 despite the fact that clients send an identical system prompt on every request. Prefix cache is not doing its job — likely the shared prefix is shorter than one KV block, or block size is misconfigured. Confirm with Usage `Prompt Tokens by Source`: the `cache_hit` share should be high once fixed.\n\n#### MM Cache Hit Ratio\nMultimodal (image/audio) cache hit ratio. Same shape as prefix cache ratio but for multimodal token embeddings.\n\nQuery: `sum by (model_name) (rate(vllm:mm_cache_hits_total[...])) / sum by (model_name) (rate(vllm:mm_cache_queries_total[...]))`\n\nOnly meaningful for multimodal models — will be `NaN` for text-only.\n\n**Debug scenario:** Vision model, users are sending the same handful of reference images repeatedly, but ratio is near zero. MM cache is cold or disabled. When healthy, image embeddings are reused and TTFT drops noticeably.\n\n#### Prefill KV Computed Tokens p50 / p99\nDistribution of tokens **actually computed** (not cache-hit) during prefill.\n\nQuery: `round(histogram_quantile(0.50|0.99, sum by (model_name, le) (rate(vllm:request_prefill_kv_computed_tokens_bucket[$rate_interval]))))`\n\n**Debug scenario:** Usage `Input Tokens` p99 shows 4k, but this panel's p99 shows only 400. Prefix cache is doing real work — 90% of tokens are skipped. If instead this panel matches Usage `Input Tokens` closely while `Prompt Tokens Cached` is also high, there's an internal accounting inconsistency worth reporting upstream.\n\n#### Prompt Tokens Cached\nRate of prompt tokens served from KV cache (per second, times multiplier).\n\nQuery: `sum by (model_name) (rate(vllm:prompt_tokens_cached_total[$rate_interval])) * $rate_multiplier`\n\n**Debug scenario:** After enabling shared system prompts, this rate should rise proportionally to Usage `Prompt Tokens/sec`. If it stays at zero, prefix caching is not engaged — same root cause list as `Prefix Cache Hit Ratio`.\n\n### Batch & Tokens\n\n#### Iteration Tokens\nTokens processed per scheduler iteration — effectively batch size over time.\n\nQuery: `sum by (model_name) (rate(vllm:iteration_tokens_total[$rate_interval])) * $rate_multiplier`\n\n**Debug scenario:** GPU `Compute Occupancy` is low, but Usage `Running Requests` shows load. This panel's p50 is 12 tokens/iteration — vLLM is running tiny batches, wasting GPU throughput. `max_num_seqs` is probably set too low; raise it or investigate why the scheduler isn't packing requests.\n\n#### Max Generation Tokens p50 / p99\nDistribution of the **cap vLLM actually applies** per request (may differ from client's `max_tokens`).\n\nQuery: `round(histogram_quantile(..., sum by (model_name, le) (rate(vllm:request_max_num_generation_tokens_bucket[$rate_interval]))))`\n\n**Debug scenario:** Users complain their `max_tokens=8192` requests get cut off at 2048. Compare Usage `Requested max_tokens` (what clients ask for) with this panel (what vLLM enforces). A gap = vLLM is clamping — check `--max-model-len` and per-request logic.\n\n#### Prompt Token Distribution p50 / p99\nDistribution of prompt tokens per request, **vLLM-side**.\n\nQuery: `round(histogram_quantile(..., sum by (model_name, le) (rate(vllm:request_prompt_tokens_bucket[$rate_interval]))))`\n\n**Debug scenario:** This p99 is stuck at exactly 1800 across every model. That's suspicious — it's the value of vLLM's top histogram bucket. Real p99 is higher; the metric is clamping. Use Usage `Input Tokens` (llm_d-side) for the accurate reading.\n\n#### Generation Token Distribution p50 / p99\nDistribution of generation tokens per request, vLLM-side.\n\nQuery: `round(histogram_quantile(..., sum by (model_name, le) (rate(vllm:request_generation_tokens_bucket[$rate_interval]))))`\n\n**Debug scenario:** Same top-bucket clamping risk as prompt tokens. Cross-check with Usage `Output Tokens` — if the two disagree at p99, trust the Usage panel (llm_d has finer top-bucket resolution).\n\n### Cross-check vs SLO\n\nSame latency signals as SLO, but from vLLM's perspective instead of the endpoint picker's. The **delta** between these and SLO is routing overhead (EPP scheduling + network hop).\n\n#### TTFT p50 / p99 (vLLM)\nQuery: `histogram_quantile(..., sum by (model_name, le) (rate(vllm:time_to_first_token_seconds_bucket[$rate_interval])))`\n\n**Debug scenario:** SLO `TTFT` p99 = 3s, this panel's p99 = 0.4s. The delta (2.6s) is not the model — it's the router. Check the endpoint picker's scheduler duration and plugin latency (llm_d dashboard, when built). If they match instead (both 3s), the model itself is slow — go check `Queue Time` and `Prefill Time`.\n\n#### E2E Latency p50 / p99 (vLLM)\nQuery: `histogram_quantile(..., sum by (model_name, le) (rate(vllm:e2e_request_latency_seconds_bucket[$rate_interval])))`\n\n**Debug scenario:** Same delta logic as TTFT. If SLO `E2E` = vLLM `E2E`, routing is fast and the whole latency budget lives inside vLLM. If SLO `E2E` >> vLLM `E2E`, the router is spending real time somewhere — scheduling, prefix-affinity computation, or network.\n"
+              "text": "# Thalamus Debug — vLLM\n\nDiagnostic metrics from the vLLM model server — explains **why** when the SLO dashboard shows a breach. Everything here is vLLM's internal view, per `model_name`; the router-side view lives in Debug/llm_d.\n\nA vLLM request has three phases: **queue** (waiting in the scheduler) → **prefill** (processing the prompt) → **decode** (generating tokens). Each phase has its own panels.\n\n## Variables\n\n- `rate_interval` controls the smoothing window for histogram/counter rates. Shorter windows expose bursts; longer windows smooth sparse traffic.\n- `rate_multiplier` scales counter rates, which Prometheus always returns per second. Use `1` for per-second, `60` for per-minute, or `3600` for per-hour values. Axis labels remain in their default per-second units."
             }
           }
         }
@@ -51,7 +51,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Queue Time p50"
+            "name": "Queue Time p50",
+            "description": "Median time a request spends in the scheduler before prefill starts."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -100,7 +101,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Queue Time p99"
+            "name": "Queue Time p99",
+            "description": "Scheduler wait time for the slowest 1% of requests."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -149,7 +151,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Prefill Time p50"
+            "name": "Prefill Time p50",
+            "description": "Median time spent processing the prompt (prefill phase)."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -198,7 +201,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Prefill Time p99"
+            "name": "Prefill Time p99",
+            "description": "Prefill time for the slowest 1% of requests."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -247,7 +251,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Decode Time p50"
+            "name": "Decode Time p50",
+            "description": "Median time spent generating output tokens after prefill."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -296,7 +301,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Decode Time p99"
+            "name": "Decode Time p99",
+            "description": "Decode time for the slowest 1% of requests."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -345,7 +351,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Waiting by Reason"
+            "name": "Waiting by Reason",
+            "description": "Waiting requests broken down by why they are waiting."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -395,7 +402,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "KV Cache Usage"
+            "name": "KV Cache Usage",
+            "description": "Percentage of KV cache blocks occupied, per model."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -444,7 +452,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Preemptions"
+            "name": "Preemptions",
+            "description": "Rate of requests evicted from decode to free KV cache blocks."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -494,7 +503,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Prefix Cache Hit Ratio"
+            "name": "Prefix Cache Hit Ratio",
+            "description": "Fraction of prefill work skipped due to cached prompt prefixes (hits/queries)."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -543,7 +553,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "MM Cache Hit Ratio"
+            "name": "MM Cache Hit Ratio",
+            "description": "Multimodal embedding cache hit ratio (hits/queries); NaN for text-only models."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -592,7 +603,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Prefill KV Computed Tokens p50"
+            "name": "Prefill KV Computed Tokens p50",
+            "description": "Median prompt tokens actually computed during prefill, excluding cache hits."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -643,7 +655,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Prefill KV Computed Tokens p99"
+            "name": "Prefill KV Computed Tokens p99",
+            "description": "Prompt tokens computed during prefill, excluding cache hits, for the worst 1% of requests."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -694,7 +707,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Prompt Tokens Cached"
+            "name": "Prompt Tokens Cached",
+            "description": "Rate of prompt tokens served from the KV cache."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -745,7 +759,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Iteration Tokens p50"
+            "name": "Iteration Tokens p50",
+            "description": "Median tokens processed per scheduler iteration, effectively batch size."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -796,7 +811,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Iteration Tokens p99"
+            "name": "Iteration Tokens p99",
+            "description": "Tokens per scheduler iteration for the worst 1% of iterations."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -847,7 +863,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Max Generation Tokens p50"
+            "name": "Max Generation Tokens p50",
+            "description": "Median generation token cap vLLM enforces per request."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -898,7 +915,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Max Generation Tokens p99"
+            "name": "Max Generation Tokens p99",
+            "description": "Generation token cap vLLM enforces for the worst 1% of requests."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -949,7 +967,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Prompt Token Distribution p50"
+            "name": "Prompt Token Distribution p50",
+            "description": "Median prompt tokens per request, vLLM-side."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -1000,7 +1019,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Prompt Token Distribution p99"
+            "name": "Prompt Token Distribution p99",
+            "description": "99th percentile of prompt tokens per request, vLLM-side."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -1051,7 +1071,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Generation Token Distribution p50"
+            "name": "Generation Token Distribution p50",
+            "description": "Median generated tokens per request, vLLM-side."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -1102,7 +1123,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Generation Token Distribution p99"
+            "name": "Generation Token Distribution p99",
+            "description": "99th percentile of generated tokens per request, vLLM-side."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -1153,7 +1175,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "TTFT p50 (vLLM)"
+            "name": "TTFT p50 (vLLM)",
+            "description": "Median time to first token measured inside vLLM, excluding routing overhead."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -1202,7 +1225,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "TTFT p99 (vLLM)"
+            "name": "TTFT p99 (vLLM)",
+            "description": "Time to first token for the slowest 1% of requests, measured inside vLLM."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -1251,7 +1275,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "E2E Latency p50 (vLLM)"
+            "name": "E2E Latency p50 (vLLM)",
+            "description": "Median end-to-end latency measured inside vLLM, excluding routing overhead."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -1300,7 +1325,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "E2E Latency p99 (vLLM)"
+            "name": "E2E Latency p99 (vLLM)",
+            "description": "End-to-end latency for the slowest 1% of requests, measured inside vLLM."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -1361,7 +1387,7 @@
               "x": 0,
               "y": 0,
               "width": 24,
-              "height": 18,
+              "height": 8,
               "content": {
                 "$ref": "#/spec/panels/readme"
               }

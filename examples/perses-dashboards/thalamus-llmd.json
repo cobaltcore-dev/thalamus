@@ -42,7 +42,7 @@
           "plugin": {
             "kind": "Markdown",
             "spec": {
-              "text": "# Thalamus Debug LLM-d\n\n## Description\n\nDiagnostic metrics from the llm-d endpoint picker / router (EPP). When the SLO dashboard shows a breach, this dashboard explains whether the router, scheduling, or prefix-routing layer is contributing. Everything here is from EPP's perspective \u2014 the model-server view lives in Debug/vLLM.\n\nHistograms of latencies are split into **p50** and **p99**. Token-count histograms are wrapped in `round()` because token counts are inherently integer; latency, ratio, and byte histograms are left as-is.\n\n## Why some panels used to show only `http-metrics`\n\nPrometheus attaches an `endpoint` label to every scraped series \u2014 it is the **scrape endpoint name** from the ServiceMonitor/PodMonitor (the port is named `http-metrics`), not an EPP routing endpoint. Several EPP metrics do not carry a direct `model_name`/`target_model_name` label, so the dashboard must derive the model from `job` or use the model-specific labels that do exist.\n\n## Variables\n\n- `$rate_interval` (default `15m`) \u2014 histogram/counter smoothing window.\n- `$rate_multiplier` (default `1`) \u2014 1 = per-second, 3600 = per-hour.\n\n## Sections\n\n### Queue & Routing\n\n#### Average Queue Size\nPool-average queued request count across endpoints, grouped by model (`name` label).\n\nQuery: `sum by (name) (llm_d_epp_average_queue_size)`\n\n**Debug scenario:** `llm_d_epp_average_queue_size` climbs while `vllm:num_requests_waiting` stays flat \u2192 EPP is queuing requests before they reach vLLM. Check `Per-Endpoint Queue Size` for imbalance.\n\n#### Per-Endpoint Queue Size\nQueue depth per actual vLLM endpoint (`model_server_endpoint` label).\n\nQuery: `sum by (model_server_endpoint) (llm_d_epp_per_endpoint_queue_size)`\n\n**Debug scenario:** Endpoint A has queue=50, B and C have queue=0 \u2192 prefix-aware routing or another affinity plugin is pinning traffic to one endpoint.\n\n#### Scheduler E2E Duration p50 / p99\nTime EPP takes to pick an endpoint. Adds directly to user-visible latency before the request reaches vLLM. Model name is derived from the `job` label because the metric lacks a model label.\n\nQuery: `histogram_quantile(0.50|0.99, sum by (model, le) (label_replace(rate(llm_d_epp_scheduler_e2e_duration_seconds_bucket[$rate_interval]), \"model\", \"$1\", \"job\", \"(vllm-.*)-epp\")))`\n\n**Debug scenario:** SLO E2E p99 spikes but vLLM E2E p99 is flat. Scheduler E2E p99 here is 400ms \u2192 the router itself is slow. Check `Plugin Duration` to find the culprit plugin.\n\n#### Scheduler Attempts\nScheduling outcomes by `status` and `target_model_name`.\n\nQuery: `sum by (status, target_model_name) (rate(llm_d_epp_scheduler_attempts_total[$rate_interval])) * $rate_multiplier`\n\n**Debug scenario:** `status=\"error\"` rate rises \u2192 EPP cannot find a valid endpoint, possibly because health checks are failing even though pods appear ready.\n\n#### Plugin Duration p50 / p99\nLatency per routing plugin, grouped by model (derived from `job`) and `plugin_name`.\n\nQuery: `histogram_quantile(0.50|0.99, sum by (model, plugin_name, le) (label_replace(rate(llm_d_epp_plugin_duration_seconds_bucket[$rate_interval]), \"model\", \"$1\", \"job\", \"(vllm-.*)-epp\")))`\n\n**Debug scenario:** Scheduler E2E is high. Plugin `prefix-aware` p99 is 200ms \u2192 that plugin is slow. Disable or cache it.\n\n### Prefix Indexer\n\nPrefix-indexer metrics do not expose `name`, `model_name`, or `target_model_name`. The model is derived from the `job` label.\n\n#### Prefix Indexer Size\nNumber of entries in EPP's prefix index, grouped by model.\n\nQuery: `sum by (model) (label_replace(llm_d_epp_prefix_indexer_size, \"model\", \"$1\", \"job\", \"(vllm-.*)-epp\"))`\n\n**Debug scenario:** Size grows without bound \u2192 prefix index is leaking entries. Memory pressure on the EPP pod will follow.\n\n#### Prefix Indexer Hit Ratio p50 / p99\nHit ratio of EPP prefix-aware routing, grouped by model.\n\nQuery: `histogram_quantile(0.50|0.99, sum by (model, le) (label_replace(rate(llm_d_epp_prefix_indexer_hit_ratio_bucket[$rate_interval]), \"model\", \"$1\", \"job\", \"(vllm-.*)-epp\")))`\n\n**Debug scenario:** Low hit ratio despite repeated system prompts \u2192 the prefix index is cold, or the prefix is too short to match the configured block size.\n\n#### Prefix Indexer Hit Bytes p50 / p99\nBytes of prefix matched per routing decision, grouped by model.\n\nQuery: `histogram_quantile(0.50|0.99, sum by (model, le) (label_replace(rate(llm_d_epp_prefix_indexer_hit_bytes_bucket[$rate_interval]), \"model\", \"$1\", \"job\", \"(vllm-.*)-epp\")))`\n\n**Debug scenario:** Non-zero confirms prefix-aware routing is active; correlate with TTFT to confirm latency benefit.\n\n### Latency Cross-checks\n\n#### nTPOT p50 / p99\nConcurrency-normalized TPOT. Backs out GPU timeslicing so you can tell whether the model itself is slow.\n\nQuery: `histogram_quantile(0.50|0.99, sum by (target_model_name, le) (rate(llm_d_epp_request_ntpot_seconds_bucket[$rate_interval])))`\n\n**Debug scenario:** vLLM TPOT p99 = 4s but nTPOT p99 = 0.05s \u2192 the model is fast per-user; the perceived latency is from concurrent requests timeslicing the GPU, not a model problem.\n\n#### Non-streaming TTFT p50 / p99\nTTFT for non-streaming requests. For these clients this equals e2e latency, so this panel is a diagnostic cross-check.\n\nQuery: `histogram_quantile(0.50|0.99, sum by (target_model_name, le) (rate(llm_d_epp_request_ttft_seconds_bucket{streaming=\"false\"}[$rate_interval])))`\n\n**Debug scenario:** If non-streaming TTFT diverges from `llm_d_epp_request_duration_seconds`, the internal measurement points have a timing anomaly.\n\n### Payload Sizes\n\n#### Request Size p50 / p99\nIncoming HTTP request body size.\n\nQuery: `histogram_quantile(0.50|0.99, sum by (target_model_name, le) (rate(llm_d_epp_request_size_bytes_bucket[$rate_interval])))`\n\n**Debug scenario:** p99 > 1 MB \u2192 someone is sending huge JSON payloads (for example a base64 image to a text model).\n\n#### Response Size p50 / p99\nOutgoing HTTP response body size.\n\nQuery: `histogram_quantile(0.50|0.99, sum by (target_model_name, le) (rate(llm_d_epp_response_size_bytes_bucket[$rate_interval])))`\n\n**Debug scenario:** Very large responses correlate with high output token counts. Large responses plus streaming add network overhead per request.\n\n### Container & Network\n\n#### Container FS Reads\nFilesystem read rate per model. High rate during startup is normal (weights loading); sustained high during inference means weights are paging from disk.\n\nQuery: `sum by (model) (label_replace(rate(container_fs_reads_bytes_total{container=\"vllm\"}[$rate_interval]), \"model\", \"$1\", \"pod\", \"(vllm-.+)-[a-z0-9]{10}-[a-z0-9]{5}$\")) * $rate_multiplier`\n\n#### Container Network Receive Errors\nNetwork receive errors per vLLM pod.\n\nQuery: `sum by (pod) (rate(container_network_receive_errors_total{namespace=\"thalamus\", container=\"vllm\"}[$rate_interval])) * $rate_multiplier`\n\n**Debug scenario:** Non-zero \u2192 packet corruption or CNI issue on this pod. Check node NIC and CNI logs.\n"
+              "text": "# Thalamus Debug LLM-d\n\nDiagnostic metrics from the llm-d endpoint picker / router (EPP) \u2014 isolates whether the router, scheduling, or prefix-routing layer is contributing to an SLO breach. Everything here is from EPP's perspective. The model-server view lives in Debug/vLLM.\n\nLatency histograms are split into **p50** and **p99**. Some EPP metrics carry no model label, so the model is derived from the `job` label.\n\n## Variables\n\n- `rate_interval` controls the smoothing window for histogram/counter rates. Shorter windows expose bursts, longer windows smooth sparse traffic.\n- `rate_multiplier` scales counter rates, which Prometheus always returns per second. Use `1` for per-second, `60` for per-minute, or `3600` for per-hour values. Axis labels remain in their default per-second units."
             }
           },
           "queries": []
@@ -52,7 +52,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Average Queue Size"
+            "name": "Average Queue Size",
+            "description": "Average queued request count across endpoints, per model."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -102,7 +103,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Per-Endpoint Queue Size"
+            "name": "Per-Endpoint Queue Size",
+            "description": "Queue depth per vLLM endpoint."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -152,7 +154,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Scheduler E2E p50"
+            "name": "Scheduler E2E p50",
+            "description": "Median time EPP takes to pick an endpoint."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -201,7 +204,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Scheduler E2E p99"
+            "name": "Scheduler E2E p99",
+            "description": "Endpoint selection time for the slowest 1% of requests."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -250,7 +254,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Scheduler Attempts"
+            "name": "Scheduler Attempts",
+            "description": "Scheduling attempts by status and target model."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -300,7 +305,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Plugin Duration p50"
+            "name": "Plugin Duration p50",
+            "description": "Median time spent in each routing plugin."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -353,7 +359,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Plugin Duration p99"
+            "name": "Plugin Duration p99",
+            "description": "Time in each routing plugin for the slowest 1% of requests."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -406,7 +413,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Prefix Indexer Size"
+            "name": "Prefix Indexer Size",
+            "description": "Number of entries in EPP's prefix index, per model."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -456,7 +464,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Prefix Hit Ratio p50"
+            "name": "Prefix Hit Ratio p50",
+            "description": "Median prefix-aware routing hit ratio, per model."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -509,7 +518,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Prefix Hit Ratio p99"
+            "name": "Prefix Hit Ratio p99",
+            "description": "Prefix-aware routing hit ratio for the worst 1% of requests."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -562,7 +572,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Prefix Hit Bytes p50"
+            "name": "Prefix Hit Bytes p50",
+            "description": "Median bytes of prefix matched per routing decision."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -611,7 +622,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Prefix Hit Bytes p99"
+            "name": "Prefix Hit Bytes p99",
+            "description": "Prefix bytes matched per routing decision for the worst 1% of decisions."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -660,7 +672,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "nTPOT p50"
+            "name": "nTPOT p50",
+            "description": "Median concurrency-normalized TPOT"
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -709,7 +722,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "nTPOT p99"
+            "name": "nTPOT p99",
+            "description": "Concurrency-normalized TPOT for the slowest 1% of requests."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -758,7 +772,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "TTFT Non-Streaming p50"
+            "name": "TTFT Non-Streaming p50",
+            "description": "Median time to first token for non-streaming requests, where TTFT equals e2e latency."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -807,7 +822,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "TTFT Non-Streaming p99"
+            "name": "TTFT Non-Streaming p99",
+            "description": "Time to first token for the slowest 1% of non-streaming requests."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -856,7 +872,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Request Size p50"
+            "name": "Request Size p50",
+            "description": "Median incoming HTTP request body size."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -905,7 +922,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Request Size p99"
+            "name": "Request Size p99",
+            "description": "Incoming request body size for the largest 1% of requests."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -954,7 +972,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Response Size p50"
+            "name": "Response Size p50",
+            "description": "Median outgoing HTTP response body size."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -1003,7 +1022,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Response Size p99"
+            "name": "Response Size p99",
+            "description": "Outgoing response body size for the largest 1% of responses."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -1052,7 +1072,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Container FS Reads"
+            "name": "Container FS Reads",
+            "description": "Filesystem read rate per model. Sustained reads during inference mean weights are paging from disk."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -1106,7 +1127,8 @@
         "kind": "Panel",
         "spec": {
           "display": {
-            "name": "Network Receive Errors"
+            "name": "Network Receive Errors",
+            "description": "Network receive error rate per vLLM pod."
           },
           "plugin": {
             "kind": "TimeSeriesChart",
@@ -1172,7 +1194,7 @@
               "x": 0,
               "y": 0,
               "width": 24,
-              "height": 18,
+              "height": 8,
               "content": {
                 "$ref": "#/spec/panels/readme"
               }
