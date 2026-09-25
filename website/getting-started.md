@@ -131,26 +131,37 @@ kubectl wait model/smollm2-135m --namespace thalamus --for=condition=Ready --tim
 ## Step 4 — Access the stack
 
 Once the pods are running, the inference gateway exposes an OpenAI-compatible
-API. Use the `LoadBalancer`
-IP or internal service address to send requests:
+API. Point `GATEWAY_HOST` at the endpoint you want to use, then send requests.
+
+**With a `LoadBalancer` (cloud clusters):**
 
 ```bash
-curl http://<gateway-ip>/v1/models
+GATEWAY_HOST=$(kubectl get svc inference-gateway -n thalamus -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+```
+
+If the IP comes back empty, the load balancer is still provisioning. Check
+progress with `kubectl get svc inference-gateway -n thalamus`.
+
+**With port-forward (local clusters without a `LoadBalancer`):**
+
+```bash
+kubectl port-forward svc/inference-gateway 8080:80 -n thalamus &
+GATEWAY_HOST=localhost:8080
+```
+
+Then test the API:
+
+```bash
+curl "http://$GATEWAY_HOST/v1/models"
 ```
 
 ```bash
-curl http://<gateway-ip>/v1/chat/completions \
+curl "http://$GATEWAY_HOST/v1/chat/completions" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "<model-id>",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
-```
-
-For local clusters without a `LoadBalancer`, use port-forward:
-
-```bash
-kubectl port-forward svc/inference-gateway 8080:80 -n thalamus
 ```
 
 ## API key authentication (optional)
