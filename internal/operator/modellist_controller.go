@@ -66,7 +66,7 @@ func (r *ModelListReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			predicate.GenerationChangedPredicate{},
 		))).
 		Owns(&gatewayv1.HTTPRoute{}, builder.WithPredicates(predicate.And(
-			namePredicate(native.ModelListPolicyName),
+			namePredicate(native.ModelListRouteName),
 			ownedByPredicate("Gateway", r.GatewayName),
 		))).
 		Owns(&agentgatewayv1alpha1.AgentgatewayPolicy{}, builder.WithPredicates(predicate.And(

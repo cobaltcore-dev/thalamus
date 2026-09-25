@@ -56,7 +56,7 @@ func mustGetPolicy(t *testing.T, r *ModelListReconciler) *agentgatewayv1alpha1.A
 func mustGetRoute(t *testing.T, r *ModelListReconciler) *gatewayv1.HTTPRoute {
 	t.Helper()
 	route := &gatewayv1.HTTPRoute{}
-	if err := r.Get(context.Background(), types.NamespacedName{Name: native.ModelListPolicyName, Namespace: testNamespace}, route); err != nil {
+	if err := r.Get(context.Background(), types.NamespacedName{Name: native.ModelListRouteName, Namespace: testNamespace}, route); err != nil {
 		t.Fatalf("get route: %v", err)
 	}
 	return route
@@ -99,7 +99,7 @@ func TestModelListReconcile_NoGateway(t *testing.T) {
 	reconcileModelListOnce(t, r)
 
 	testutil.MustNotGet(t, c, native.ModelListPolicyName, testNamespace, &agentgatewayv1alpha1.AgentgatewayPolicy{})
-	testutil.MustNotGet(t, c, native.ModelListPolicyName, testNamespace, &gatewayv1.HTTPRoute{})
+	testutil.MustNotGet(t, c, native.ModelListRouteName, testNamespace, &gatewayv1.HTTPRoute{})
 }
 
 func TestModelListReconcile_NoModels(t *testing.T) {

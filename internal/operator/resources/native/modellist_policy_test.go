@@ -17,8 +17,8 @@ func TestBuildModelListRoute(t *testing.T) {
 
 	route := BuildModelListRoute(gateway)
 
-	if route.Name != ModelListPolicyName {
-		t.Errorf("route.Name:\ngot:  %q\nwant: %q", route.Name, ModelListPolicyName)
+	if route.Name != ModelListRouteName {
+		t.Errorf("route.Name:\ngot:  %q\nwant: %q", route.Name, ModelListRouteName)
 	}
 	if route.Namespace != "thalamus" {
 		t.Errorf("route.Namespace:\ngot:  %q\nwant: %q", route.Namespace, "thalamus")
@@ -58,9 +58,9 @@ func TestBuildModelListPolicy(t *testing.T) {
 		t.Fatalf("len(policy.Spec.TargetRefs): %d, want 1", len(policy.Spec.TargetRefs))
 	}
 	ref := policy.Spec.TargetRefs[0]
-	if string(ref.Group) != gatewayv1.GroupName || ref.Kind != "HTTPRoute" || ref.Name != ModelListPolicyName {
+	if string(ref.Group) != gatewayv1.GroupName || ref.Kind != "HTTPRoute" || ref.Name != ModelListRouteName {
 		t.Errorf("targetRef:\ngot:  %s/%s %s\nwant: %s/HTTPRoute %s",
-			ref.Group, ref.Kind, ref.Name, gatewayv1.GroupName, ModelListPolicyName)
+			ref.Group, ref.Kind, ref.Name, gatewayv1.GroupName, ModelListRouteName)
 	}
 	dr := policy.Spec.Traffic.DirectResponse
 	if dr == nil || dr.StatusCode == nil || *dr.StatusCode != modelListStatus || dr.Body == nil || *dr.Body != body {

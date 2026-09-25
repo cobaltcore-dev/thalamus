@@ -17,6 +17,7 @@ import (
 
 const (
 	ModelListPolicyName = "model-list"
+	ModelListRouteName  = "model-list"
 	modelListPath       = "/v1/models"
 	modelListStatus     = int32(200)
 
@@ -72,7 +73,7 @@ func BuildModelListResponse(models []v1alpha1.Model) (string, error) {
 // BuildModelListRoute returns the HTTPRoute exposing /v1/models on the gateway's API listener.
 func BuildModelListRoute(gateway *gatewayv1.Gateway) *gatewayv1.HTTPRoute {
 	return &gatewayv1.HTTPRoute{
-		Name:      ModelListPolicyName,
+		Name:      ModelListRouteName,
 		Namespace: gateway.Namespace,
 		Spec: gatewayv1.HTTPRouteSpec{
 			CommonRouteSpec: gatewayv1.CommonRouteSpec{
@@ -110,7 +111,7 @@ func BuildModelListPolicy(namespace, body string) *agentgatewayv1alpha1.Agentgat
 				{
 					Group: gatewayv1.GroupName,
 					Kind:  "HTTPRoute",
-					Name:  ModelListPolicyName,
+					Name:  ModelListRouteName,
 				},
 			},
 			Traffic: &agentgatewayv1alpha1.Traffic{
