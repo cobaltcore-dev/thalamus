@@ -10,7 +10,7 @@ to the `thalamus` install command from [Getting Started, Step 1](/getting-starte
 
 ```bash
 helm upgrade --install thalamus oci://ghcr.io/cobaltcore-dev/charts/thalamus \
-  --namespace thalamus --wait \
+  --namespace thalamus --wait --reuse-values \
   --version @@CHART_VERSION@@ \
   --set open-webui.enabled=true
 ```
