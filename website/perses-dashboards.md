@@ -35,13 +35,20 @@ operator, the vLLM engine, and the endpoint picker, and the bundled
 `agentgateway` chart creates monitors for the gateway controller and its
 proxies. Enable both with values passed to the `thalamus` release:
 
+Make sure `release` field matches the namespace where you have deployed Prometheus.
+
 ```yaml
 # my-cluster.yaml (values for the thalamus release)
 monitoring:
   enabled: true
+  additionalLabels:
+    release: monitoring
 agentgateway:
   monitoring:
     enabled: true
+    serviceMonitor:
+      extraLabels:
+        release: monitoring
 ```
 
 ```bash
