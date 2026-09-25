@@ -48,17 +48,6 @@ jobs:
           kind load docker-image ghcr.io/cobaltcore-dev/thalamus:pr \
             --name thalamus
 
-      - name: Verify CRDs
-        run: |
-          kubectl wait \
-            --for=condition=Established \
-            --timeout=120s \
-            crd/gateways.gateway.networking.k8s.io \
-            crd/httproutes.gateway.networking.k8s.io \
-            crd/inferencepools.inference.networking.k8s.io \
-            crd/agentgatewaypolicies.agentgateway.dev \
-            crd/models.thalamus.cloud
-
       - name: Deploy Thalamus
         working-directory: helm
         run: |
@@ -69,6 +58,17 @@ jobs:
             --wait \
             --timeout=600s \
             --set operator.image.tag=pr
+
+      - name: Verify CRDs
+        run: |
+          kubectl wait \
+            --for=condition=Established \
+            --timeout=120s \
+            crd/gateways.gateway.networking.k8s.io \
+            crd/httproutes.gateway.networking.k8s.io \
+            crd/inferencepools.inference.networking.k8s.io \
+            crd/agentgatewaypolicies.agentgateway.dev \
+            crd/models.thalamus.cloud
 
       - name: Create inference gateway
         run: |
