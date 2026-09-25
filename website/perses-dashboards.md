@@ -11,7 +11,7 @@ Thalamus ships a set of [Perses](https://perses.dev) dashboards in
 | --- | --- |
 | `thalamus-slo.json` | User-facing latency SLOs (TTFT, TPOT, E2E, ITL), queue depth, endpoints |
 | `thalamus-usage.json` | Token volume and request parameters |
-| `thalamus-gpu.json` | GPU utilization, memory, and health via DCGM |
+| `thalamus-gpu.json` | GPU utilization, memory, and health via DCGM **(only with GPU operator installed)** |
 | `thalamus-vllm.json` | Engine-level debugging: scheduling, prefill/decode, KV cache |
 | `thalamus-llmd.json` | Router (EPP) debugging: queueing, prefix routing, payload sizes |
 
@@ -60,16 +60,24 @@ helm upgrade --install thalamus oci://ghcr.io/cobaltcore-dev/charts/thalamus \
 
 ## Load the dashboards
 
-Use the [percli](https://github.com/perses/perses/blob/main/docs/cli.md) CLI
-to apply the project and dashboards to your Perses instance:
+You can add all the dashboards manually:
+1. Run `kubectl port-forward -n <perses-namespace> svc/perses 9090:8080` depending on your Perses installation and go to `localhost:9090` or the respective port.
+2. Create the project named `thalamus`.
+3. For each dashboard in `examples/perses-dashboards`, click "Add dashboard", specity name, click "Edit JSON" button with **"{}"** symbol, copy and paste the full dashboard code.
+4. Save.
+
+Alternatively, use [percli](https://github.com/perses/perses/blob/main/docs/cli.md) CLI
+to apply the project and dashboards to your Perses instance automatically:
 
 ```bash
-percli login https://<perses-url>
+percli login http://localhost:9090
 percli apply -f examples/perses-dashboards/project.json
 for d in examples/perses-dashboards/thalamus-*.json; do
   percli apply -f "$d"
 done
 ```
 
-Then add a Prometheus datasource to the `thalamus` project (Settings → Data
-Sources) and open the project in the Perses UI.
+Then add a Prometheus datasource to the `thalamus` project (Data
+Sources tab) and open the project in the Perses UI.
+- Type name and scrape interval (recommended 15s)
+- Select "Proxy" in **HTTP Settings** and write the respective in-cluster Prometheus service address, depending on your installation (for the upstream Prometheus chat with default installation into `monitoring` namespace it is `http://monitoring-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090`)
