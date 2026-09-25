@@ -4,9 +4,9 @@ dependencies:
   version: v1.6.2
 - name: gateway-api-inference-extension
   repository: file://../gateway-api-inference-extension
-  version: v1.6.1
+  version: v1.6.2
 - name: agentgateway-crds
   repository: oci://cr.agentgateway.dev/charts
   version: v1.5.0
-digest: sha256:d7b70dc56df6721f776346ae72e361f01da7d88f6401c56cfaea62553a7f8eb2
-generated: "2026-09-24T20:48:52.863258+02:00"
+digest: sha256:863671a249d896be20784ac3bde6ac56b2d9634995e951100ec98f16fd98ba7d
+generated: "2026-09-25T10:39:10.123036+02:00"
