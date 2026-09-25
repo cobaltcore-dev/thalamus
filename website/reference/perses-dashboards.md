@@ -67,7 +67,7 @@ via an `AgentgatewayPolicy` that derives it from the API key of each request.
    kubectl create secret generic apikey-my-client \
      --namespace thalamus \
      --from-literal=api-key='{"key": "<your-api-key>", "metadata": {"tenant": "my-client"}}' \
-     --label thalamus-apikey=true
+kubectl label secret apikey-my-client -n thalamus thalamus-apikey=true
    ```
 
 2. Extend the API key policy with a `tenant_hash` metric attribute. The
