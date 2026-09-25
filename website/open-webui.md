@@ -22,7 +22,7 @@ local clusters without a `LoadBalancer`, use port-forward:
 kubectl port-forward svc/inference-gateway 8081:8080 -n thalamus
 ```
 
-Then open `http://localhost:8080` in your browser.
+Then open `http://localhost:8081` in your browser.
 
 ::: warning
 [API key authentication](/getting-started#api-key-authentication-optional) does
