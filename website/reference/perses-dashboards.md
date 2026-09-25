@@ -26,7 +26,7 @@ queue depth, and endpoint availability._
   e.g. through [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack),
   which also provides [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics)
   (required for some panels).
-- [Perses](https://perses.dev) with a Prometheus datasource pointing at your Prometheus.
+- [Perses](https://perses.dev/helm-charts/docs/installation/) with a Prometheus datasource pointing at your Prometheus.
 
 ## Enable metric scraping
 
