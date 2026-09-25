@@ -99,7 +99,7 @@ for a GPU example and [`examples/model-smollm2-cpu.yaml`](https://raw.githubuser
 CPU example.
 
 ```bash
-kubectl apply -f examples/model-qwen3-6-27b-gpu.yaml
+kubectl apply -f https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/model-qwen3-6-27b-gpu.yaml
 ```
 
 Wait for the model to become ready:
@@ -115,7 +115,7 @@ kubectl wait model/qwen3-6-27b --namespace thalamus --for=condition=Ready --time
 For a CPU-only or local development setup, use the SmolLM2 example:
 
 ```bash
-kubectl apply -f examples/model-smollm2-cpu.yaml
+kubectl apply -f https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/model-smollm2-cpu.yaml
 ```
 
 Wait for the model to become ready:
@@ -135,10 +135,14 @@ API. Use the `LoadBalancer`
 IP or internal service address to send requests:
 
 ```bash
+curl http://<gateway-ip>/v1/models
+```
+
+```bash
 curl http://<gateway-ip>/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "Qwen/Qwen3.6-27B",
+    "model": "<model-id>",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
 ```
@@ -146,7 +150,6 @@ curl http://<gateway-ip>/v1/chat/completions \
 For local clusters without a `LoadBalancer`, use port-forward:
 
 ```bash
-# OpenAI-compatible API
 kubectl port-forward svc/inference-gateway 8080:80 -n thalamus
 ```
 
@@ -187,29 +190,10 @@ kubectl create secret generic apikey-<name> \
 kubectl label secret apikey-<name> --namespace thalamus thalamus-apikey=true
 ```
 
-## Local development (CPU-only)
-
-Install Thalamus with the commands in Step 1, then apply the CPU model example
-on a local cluster without GPUs:
-
-```bash
-kubectl apply -f examples/model-smollm2-cpu.yaml
-```
-
-> **Note:** The CPU image has no Apple Silicon / Metal acceleration. Inference
-> will be significantly slower than on a GPU or native macOS runtimes like
-> Ollama.
-
-> **Note:** When using the Docker driver (default on macOS), Docker does not
-> fully virtualize memory — vLLM sees the entire host RAM and will attempt to
-> allocate a large fraction of it, exceeding your container limits and causing
-> an OOM kill. Set `--gpu-memory-utilization` explicitly to avoid this. If a
-> model fails to start without a visible error, it was most likely OOM-killed;
-> adjust its `resources` for the selected model.
-
 ## Next Steps
 
 - Browse the [Model CRD API Reference](/reference/model-crd-api) for all available fields.
+- Add a web frontend with [Open WebUI](/open-webui).
 - Read the [Architecture overview](/concepts/architecture) to understand how the
   operator, gateway, and endpoint picker fit together.
 - Watch the [Demo](/demo) for a visual walkthrough.

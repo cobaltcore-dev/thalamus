@@ -18,6 +18,8 @@ spec:
         - --max-model-len=512
         - --max-num-seqs=1
         - --enforce-eager
+        - --enable-auto-tool-choice
+        - --tool-call-parser=apertus
       env:
         - name: VLLM_CPU_KVCACHE_SPACE
           value: "1"

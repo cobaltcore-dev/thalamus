@@ -38,10 +38,11 @@ export default withMermaid({
 
     sidebar: [
       {
-        text: 'Getting Started',
-        items: [
-          { text: 'Overview', link: '/getting-started' },
-        ],
+         text: 'Getting Started',
+         items: [
+           { text: 'Overview', link: '/getting-started' },
+           { text: 'Open WebUI', link: '/open-webui' },
+         ],
       },
       {
         text: 'Demo',
