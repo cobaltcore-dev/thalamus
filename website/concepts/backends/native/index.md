@@ -25,6 +25,6 @@ The shared inference gateway is an agentgateway. A body-based routing `Agentgate
 
 ## Artifacts and infrastructure
 
-The `Model` deployments in Thalamus depend on additional infrastructure that needs to be provided by the cluster administrators.
+The `Model` deployments in Thalamus depend on additional infrastructure that needs to be provided by cluster administrators.
 The container images are pulled from an OCI registry and the model weights are fetched from an object store.
 The reconciled workloads run on GPU nodes prepared by the vendor GPU operators (NVIDIA, AMD, Intel), with TLS and DNS handled by cert-manager and ExternalDNS, and metrics collected by Prometheus and OpenTelemetry.
