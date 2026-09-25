@@ -4,7 +4,7 @@ title: Native Backend
 
 # Native backend
 
-The native backend is Thalamus' built-in serving backend and the default for every [`Model`](/reference/model-crd-api). The Thalamus operator reconciles each `Model` custom resource (`thalamus.cloud/v1alpha1`) into a complete per-model runtime, served behind a shared [agentgateway](https://agentgateway.dev/) inference gateway.
+The native backend is Thalamus' built-in serving backend and the default for every [`Model`](/reference/model-crd-api). The Thalamus operator reconciles each `Model` custom resource (`thalamus.cloud/v1alpha1`) into a complete per-model runtime, served behind a shared Gateway API gateway backed by [agentgateway](https://agentgateway.dev/).
 
 ![Native backend architecture](/backends-native.svg)
 
