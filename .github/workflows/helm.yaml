@@ -36,7 +36,7 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@v5
         with:
-          version: v3.22.0
+          version: v4.3.0
 
       - name: Lint
         run: |
@@ -62,7 +62,7 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@v5
         with:
-          version: v3.22.0
+          version: v4.3.0
 
       # Same tag strategy as the Docker workflow, so chart tags match image tags.
       - name: Compute image tags
