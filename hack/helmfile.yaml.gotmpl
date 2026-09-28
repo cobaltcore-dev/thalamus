@@ -1,5 +1,8 @@
 # Dev convenience only; no official install method (see website/getting-started.md)
-# Requires `helm dependency build helm/thalamus helm/thalamus-crds`; CRDs/agentgateway are standalone releases (bundled copies disabled).
+# Uses charts CI published for the local git checkout (0.0.0-sha-<sha>); override with --state-values-set 'thalamus.version=X'
+
+{{- $sha := exec "git" (list "rev-parse" "--short" "HEAD") | trim }}
+{{- $version := dig "thalamus" "version" (printf "0.0.0-sha-%s" $sha) .Values }}
 
 releases:
   - name: gateway-api-crds
@@ -83,7 +86,8 @@ releases:
   - name: thalamus-crds
     namespace: thalamus
     createNamespace: true
-    chart: ../helm/thalamus-crds
+    chart: oci://ghcr.io/cobaltcore-dev/charts/thalamus-crds
+    version: "{{ $version }}"
     values:
       - gateway-api:
           enabled: false
@@ -95,7 +99,8 @@ releases:
 
 
   - name: thalamus
-    chart: ../helm/thalamus
+    chart: oci://ghcr.io/cobaltcore-dev/charts/thalamus
+    version: "{{ $version }}"
     namespace: thalamus
     createNamespace: true
     needs:
