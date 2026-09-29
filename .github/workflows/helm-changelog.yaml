@@ -35,7 +35,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: cobaltcore-dev/cortex
-          ref: d189ad6862c8025f57ea56c7366c4764698bfbdc
+          ref: 80bc22e9cb46252051ebee73b41b9a9bfabe8ea2
           path: .cortex-agent
           sparse-checkout: .github/actions
 
@@ -55,7 +55,7 @@ jobs:
             --max-turns 50
             --permission-mode auto
             --allowedTools "Read,Write,Bash(helm repo add *),Bash(helm repo update),Bash(helm show chart *),Bash(gh pr comment:*),Bash(gh pr view:*),Bash(gh pr diff:*),WebFetch"
-          cortex_ref: d189ad6862c8025f57ea56c7366c4764698bfbdc
+          cortex_ref: 80bc22e9cb46252051ebee73b41b9a9bfabe8ea2
           aicore_resource_group: ${{ secrets.AICORE_RESOURCE_GROUP }}
           aicore_base_url: ${{ secrets.AICORE_BASE_URL }}
           aicore_auth_url: ${{ secrets.AICORE_AUTH_URL }}

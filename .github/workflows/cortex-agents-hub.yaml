@@ -36,7 +36,7 @@ on:
         default: ""
 
 env:
-  CORTEX_REF: d189ad6862c8025f57ea56c7366c4764698bfbdc
+  CORTEX_REF: 80bc22e9cb46252051ebee73b41b9a9bfabe8ea2
 
 permissions:
   contents: read
@@ -104,7 +104,7 @@ jobs:
   review:
     needs: [config, review-gate]
     if: needs.review-gate.outputs.allowed == 'true'
-    uses: cobaltcore-dev/cortex/.github/workflows/cortex-agent-review.yaml@d189ad6862c8025f57ea56c7366c4764698bfbdc
+    uses: cobaltcore-dev/cortex/.github/workflows/cortex-agent-review.yaml@80bc22e9cb46252051ebee73b41b9a9bfabe8ea2
     secrets: inherit
     with:
       model: ${{ needs.config.outputs.review_model }}
@@ -118,7 +118,7 @@ jobs:
       (github.event_name == 'schedule' ||
        (github.event_name == 'workflow_dispatch' &&
         (github.event.inputs.feature == '' || github.event.inputs.feature == 'bugfinder')))
-    uses: cobaltcore-dev/cortex/.github/workflows/cortex-agent-bugfinder.yaml@d189ad6862c8025f57ea56c7366c4764698bfbdc
+    uses: cobaltcore-dev/cortex/.github/workflows/cortex-agent-bugfinder.yaml@80bc22e9cb46252051ebee73b41b9a9bfabe8ea2
     secrets: inherit
     with:
       model: ${{ needs.config.outputs.bugfinder_model }}
@@ -132,7 +132,7 @@ jobs:
       (github.event_name == 'schedule' ||
        (github.event_name == 'workflow_dispatch' &&
         (github.event.inputs.feature == '' || github.event.inputs.feature == 'docswriter')))
-    uses: cobaltcore-dev/cortex/.github/workflows/cortex-agent-docswriter.yaml@d189ad6862c8025f57ea56c7366c4764698bfbdc
+    uses: cobaltcore-dev/cortex/.github/workflows/cortex-agent-docswriter.yaml@80bc22e9cb46252051ebee73b41b9a9bfabe8ea2
     secrets: inherit
     with:
       model: ${{ needs.config.outputs.docswriter_model }}
@@ -180,7 +180,7 @@ jobs:
   assistant:
     needs: [config, assistant-gate]
     if: needs.assistant-gate.outputs.allowed == 'true' && needs.assistant-gate.outputs.triggered == 'true'
-    uses: cobaltcore-dev/cortex/.github/workflows/cortex-agent-assistant.yaml@d189ad6862c8025f57ea56c7366c4764698bfbdc
+    uses: cobaltcore-dev/cortex/.github/workflows/cortex-agent-assistant.yaml@80bc22e9cb46252051ebee73b41b9a9bfabe8ea2
     secrets: inherit
     with:
       model: ${{ needs.config.outputs.assistant_model }}
@@ -215,7 +215,7 @@ jobs:
   release:
     needs: [config, release-gate]
     if: needs.release-gate.outputs.matched == 'true'
-    uses: cobaltcore-dev/cortex/.github/workflows/cortex-agent-release.yaml@d189ad6862c8025f57ea56c7366c4764698bfbdc
+    uses: cobaltcore-dev/cortex/.github/workflows/cortex-agent-release.yaml@80bc22e9cb46252051ebee73b41b9a9bfabe8ea2
     secrets: inherit
     with:
       model: ${{ needs.config.outputs.release_model }}
