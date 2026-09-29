@@ -36,7 +36,7 @@ func mustGetBodyRoutingPolicy(t *testing.T, r *BodyRoutingReconciler) *agentgate
 func TestBodyRoutingReconcile_NoGateway(t *testing.T) {
 	s := testutil.NewScheme(t)
 	c := fake.NewClientBuilder().WithScheme(s).Build()
-	r := &BodyRoutingReconciler{Client: c, Scheme: s, GatewayName: testGatewayName}
+	r := &BodyRoutingReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
 
 	reconcileBodyRoutingOnce(t, r)
 
@@ -47,7 +47,7 @@ func TestBodyRoutingReconcile_CreatesPolicy(t *testing.T) {
 	s := testutil.NewScheme(t)
 	gateway := newGateway()
 	c := fake.NewClientBuilder().WithScheme(s).WithObjects(gateway).Build()
-	r := &BodyRoutingReconciler{Client: c, Scheme: s, GatewayName: testGatewayName}
+	r := &BodyRoutingReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
 
 	reconcileBodyRoutingOnce(t, r)
 
@@ -58,10 +58,10 @@ func TestBodyRoutingReconcile_CreatesPolicy(t *testing.T) {
 func TestBodyRoutingReconcile_ReappliesModifiedPolicy(t *testing.T) {
 	s := testutil.NewScheme(t)
 	gateway := newGateway()
-	policy := native.BuildBodyBasedRoutingPolicy(gateway)
+	policy := native.BuildBodyBasedRoutingPolicy(gateway, testGatewayListener)
 	policy.Spec.Traffic.Transformation = nil
 	c := fake.NewClientBuilder().WithScheme(s).WithObjects(gateway, policy).Build()
-	r := &BodyRoutingReconciler{Client: c, Scheme: s, GatewayName: testGatewayName}
+	r := &BodyRoutingReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
 
 	reconcileBodyRoutingOnce(t, r)
 
