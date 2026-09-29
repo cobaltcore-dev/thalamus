@@ -1,0 +1,63 @@
+# SPDX-FileCopyrightText: Copyright 2026 SAP SE or an SAP affiliate company and cobaltcore-dev contributors
+# SPDX-License-Identifier: Apache-2.0
+
+name: Helm Chart Changelog Commenter
+
+on:
+  pull_request:
+    types: [opened]
+    paths:
+      - 'helm/**'
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to analyze'
+        required: true
+
+concurrency:
+  group: helm-changelog-${{ github.event.pull_request.number || inputs.pr_number }}
+  cancel-in-progress: true
+
+jobs:
+  helm-changelog:
+    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.user.login == 'renovate[bot]' && startsWith(github.head_ref, 'renovate/'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Fetch cortex agent actions
+        uses: actions/checkout@v7
+        with:
+          repository: cobaltcore-dev/cortex
+          ref: main
+          path: .cortex-agent
+          sparse-checkout: .github/actions
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v5
+        with:
+          version: v3.22.0
+
+      - name: Run helm changelog commenter
+        uses: ./.cortex-agent/.github/actions/cortex-agent-run
+        with:
+          github_app_id: ${{ secrets.CORTEX_AI_AGENTS_APP_ID }}
+          github_app_private_key: ${{ secrets.CORTEX_AI_AGENTS_CLIENT_PKEY }}
+          litellm_model: "sap/anthropic--claude-4.6-opus"
+          prompt: "/helm-changelog PR #${{ github.event.pull_request.number || inputs.pr_number }}"
+          claude_args: |
+            --max-turns 50
+            --permission-mode auto
+            --allowedTools "Read,Write,Bash(helm repo add *),Bash(helm repo update),Bash(helm show chart *),Bash(gh pr comment:*),Bash(gh pr view:*),Bash(gh pr diff:*),WebFetch"
+          cortex_ref: d189ad6862c8025f57ea56c7366c4764698bfbdc
+          aicore_resource_group: ${{ secrets.AICORE_RESOURCE_GROUP }}
+          aicore_base_url: ${{ secrets.AICORE_BASE_URL }}
+          aicore_auth_url: ${{ secrets.AICORE_AUTH_URL }}
+          aicore_client_id: ${{ secrets.AICORE_CLIENT_ID }}
+          aicore_client_secret: ${{ secrets.AICORE_CLIENT_SECRET }}
