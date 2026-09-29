@@ -35,7 +35,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: cobaltcore-dev/cortex
-          ref: main
+          ref: d189ad6862c8025f57ea56c7366c4764698bfbdc
           path: .cortex-agent
           sparse-checkout: .github/actions
 
