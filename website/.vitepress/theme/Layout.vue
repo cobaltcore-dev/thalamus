@@ -1,5 +1,8 @@
 <template>
   <Layout>
+    <template #layout-top>
+      <VersionBanner />
+    </template>
     <template #layout-bottom>
       <SiteFooter :class="{ 'has-sidebar': hasSidebar }" />
     </template>
@@ -33,6 +36,7 @@ import mediumZoom from 'medium-zoom'
 import { onBeforeUnmount, onMounted, watch, nextTick, ref } from 'vue'
 import { useRoute } from 'vitepress'
 import SiteFooter from './components/Footer.vue'
+import VersionBanner from './components/VersionBanner.vue'
 
 const { Layout } = DefaultTheme
 const { hasSidebar } = useSidebar()

@@ -22,8 +22,12 @@ concurrency:
   group: pages-${{ github.ref_name }}
   cancel-in-progress: false
 
+env:
+  PAGES_BASE: thalamus
+
 jobs:
   build:
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -52,15 +56,28 @@ jobs:
         id: set-version
         run: |
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "version=main" >> $GITHUB_OUTPUT
-            echo "chart_version=0.0.0-main" >> $GITHUB_OUTPUT
+            version="main"
+            chart_version="0.0.0-main"
           elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-            echo "chart_version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+            version="${GITHUB_REF#refs/tags/}"
+            chart_version="${GITHUB_REF#refs/tags/}"
           else
-            echo "version=" >> $GITHUB_OUTPUT
-            echo "chart_version=" >> $GITHUB_OUTPUT
+            version=""
+            chart_version=""
           fi
+          # Latest released tag, or "main" when no release exists yet.
+          latest_release="$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)"
+          [[ -n "$latest_release" ]] || latest_release="main"
+          # All release tags, newest first, comma separated (e.g. "v0.2.0,v0.1.0").
+          versions="$(git tag --list 'v*' --sort=-v:refname | paste -sd, -)"
+          # Absolute origin of the GitHub Pages site (owner must be lowercase).
+          owner_lc="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          docs_base_url="https://${owner_lc}.github.io"
+          echo "version=$version" >> $GITHUB_OUTPUT
+          echo "chart_version=$chart_version" >> $GITHUB_OUTPUT
+          echo "latest_release=$latest_release" >> $GITHUB_OUTPUT
+          echo "versions=$versions" >> $GITHUB_OUTPUT
+          echo "docs_base_url=$docs_base_url" >> $GITHUB_OUTPUT
 
       - name: Install dependencies
         working-directory: website
@@ -72,7 +89,40 @@ jobs:
         env:
           DOCS_VERSION: ${{ steps.set-version.outputs.version }}
           CHART_VERSION: ${{ steps.set-version.outputs.chart_version }}
-          PAGES_BASE: thalamus
+          DOCS_BASE_URL: ${{ steps.set-version.outputs.docs_base_url }}
+          DOCUMENTATION_REPOSITORY_URL: https://github.com/${{ github.repository }}
+
+      - name: Generate root redirect and version manifest
+        id: root-redirect
+        if: ${{ steps.set-version.outputs.version != '' }}
+        run: |
+          target="${{ steps.set-version.outputs.latest_release }}"
+          versions="${{ steps.set-version.outputs.versions }}"
+          url="/${{ env.PAGES_BASE }}/${target}/"
+          out="${RUNNER_TEMP}/root-redirect"
+          mkdir -p "$out"
+          touch "$out/.nojekyll"
+          cat > "$out/index.html" <<EOF
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="utf-8">
+              <meta http-equiv="refresh" content="0; url=${url}">
+              <link rel="canonical" href="https://${{ github.repository_owner }}.github.io${url}">
+              <title>Thalamus Documentation</title>
+            </head>
+            <body>
+              <p>Redirecting to the latest documentation at <a href="${url}">${url}</a>…</p>
+            </body>
+          </html>
+          EOF
+          json=""
+          IFS=',' read -ra vlist <<< "$versions"
+          for v in "${vlist[@]}"; do
+            [[ -n "$v" ]] && json+="${json:+,}\"${v}\""
+          done
+          printf '{"latest": "%s", "versions": [%s]}\n' "$target" "$json" > "$out/versions.json"
+          echo "path=$out" >> $GITHUB_OUTPUT
 
       - name: Deploy versioned docs
         uses: JamesIves/github-pages-deploy-action@v4
@@ -84,10 +134,10 @@ jobs:
           force: false
 
       - name: Deploy root redirect
-        if: github.ref == 'refs/heads/main'
+        if: ${{ steps.root-redirect.outputs.path != '' }}
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: website/public/root
+          folder: ${{ steps.root-redirect.outputs.path }}
           branch: gh-pages
           target-folder: .
           clean: false

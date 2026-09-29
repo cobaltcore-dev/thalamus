@@ -12,6 +12,15 @@ const base = docsVersion && pagesBase
       ? `/${pagesBase}/`
       : '/'
 
+// Root of all versioned builds, e.g. "/thalamus/" for base "/thalamus/v0.1.0/".
+const baseRoot = base.endsWith(`${docsVersion}/`)
+  ? base.slice(0, base.length - docsVersion.length - 1)
+  : base
+const docsBaseUrl = process.env.DOCS_BASE_URL || ''
+
+const repoUrl =
+  process.env.DOCUMENTATION_REPOSITORY_URL || 'https://github.com/cobaltcore-dev/thalamus'
+
 export default withMermaid({
   title: 'Thalamus',
   description: 'Vendor-neutral, Kubernetes-native LLM inference service.',
@@ -28,12 +37,25 @@ export default withMermaid({
     logo: '/logo.svg',
     siteTitle: 'Thalamus',
 
+    // Consumed by the VersionBanner and VersionNav theme components. Both
+    // fetch <root>/versions.json at runtime, so frozen releases always know
+    // the current versions without being rebuilt.
+    versionBanner: {
+      version: docsVersion,
+      root: baseRoot,
+      baseUrl: docsBaseUrl,
+    },
+
     nav: [
       { text: 'Getting Started', link: '/getting-started' },
       { text: 'Demo', link: '/demo' },
       { text: 'Concepts', link: '/concepts/architecture' },
       { text: 'Reference', link: '/reference/model-crd-api' },
       { text: 'Community', link: '/ipcei-cis-workshop-2026/' },
+      {
+        component: 'VersionNav',
+        props: { version: docsVersion, root: baseRoot, baseUrl: docsBaseUrl },
+      },
     ],
 
     sidebar: [
@@ -100,7 +122,7 @@ export default withMermaid({
     },
 
     editLink: {
-      pattern: 'https://github.com/cobaltcore-dev/thalamus/edit/main/website/:path',
+      pattern: `${repoUrl}/edit/${docsVersion}/website/:path`,
       text: 'Edit this page on GitHub',
     },
 
