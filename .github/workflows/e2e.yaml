@@ -20,9 +20,15 @@ concurrency:
 
 jobs:
   e2e:
-    name: E2E
+    name: E2E (${{ matrix.gateway_api }} gateway-api, ${{ matrix.inference_extension }} inference-extension, ${{ matrix.agentgateway }} agentgateway)
     runs-on: large_runner_16core_64gb
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        gateway_api: [bundled, preinstalled]
+        inference_extension: [bundled, preinstalled]
+        agentgateway: [bundled, preinstalled]
 
     steps:
       - name: Check out code
@@ -48,15 +54,97 @@ jobs:
           kind load docker-image ghcr.io/cobaltcore-dev/thalamus:pr \
             --name thalamus
 
+      - name: Pre-install gateway-api CRDs from upstream
+        if: matrix.gateway_api == 'preinstalled'
+        run: |
+          version="$(sed -n 's/^GATEWAY_API_VERSION[[:space:]]*?=[[:space:]]*//p' helm/Makefile)"
+          curl -fsSL -o /tmp/gateway-api-standard-install.yaml \
+            "https://github.com/kubernetes-sigs/gateway-api/releases/download/${version}/standard-install.yaml"
+          kubectl apply -f /tmp/gateway-api-standard-install.yaml
+          kubectl wait \
+            --for=condition=Established \
+            --timeout=120s \
+            crd/gateways.gateway.networking.k8s.io \
+            crd/httproutes.gateway.networking.k8s.io
+
+      - name: Pre-install gateway-api-inference-extension CRDs from upstream
+        if: matrix.inference_extension == 'preinstalled'
+        run: |
+          version="$(sed -n 's/^GATEWAY_API_INFERENCE_EXTENSION_VERSION[[:space:]]*?=[[:space:]]*//p' helm/Makefile)"
+          curl -fsSL -o /tmp/ie-v1-manifests.yaml \
+            "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${version}/v1-manifests.yaml"
+          kubectl apply -f /tmp/ie-v1-manifests.yaml
+          kubectl wait \
+            --for=condition=Established \
+            --timeout=120s \
+            crd/inferencepools.inference.networking.k8s.io
+
+      - name: Pre-install agentgateway CRDs from upstream
+        if: matrix.agentgateway == 'preinstalled'
+        run: |
+          version="$(awk '/^  - name: agentgateway-crds$/ { f = 1; next } f && /^    version:/ { print $2; exit }' helm/thalamus-crds/Chart.yaml)"
+          if [ -z "$version" ]; then
+            echo "FAIL: could not parse agentgateway-crds chart version from helm/thalamus-crds/Chart.yaml"
+            exit 1
+          fi
+          helm upgrade --install agentgateway-crds oci://cr.agentgateway.dev/charts/agentgateway-crds \
+            --version "$version" \
+            --namespace thalamus \
+            --create-namespace \
+            --wait \
+            --timeout=600s
+          helm get manifest agentgateway-crds --namespace thalamus > /tmp/agw-crds.yaml
+          kubectl wait \
+            --for=condition=Established \
+            --timeout=120s \
+            crd/agentgatewaybackends.agentgateway.dev \
+            crd/agentgatewayparameters.agentgateway.dev \
+            crd/agentgatewaypolicies.agentgateway.dev
+
       - name: Deploy CRDs
         working-directory: helm
         run: |
+          flags=()
+          if [ "${{ matrix.gateway_api }}" = "preinstalled" ]; then
+            flags+=(--set gateway-api.enabled=false)
+          fi
+          if [ "${{ matrix.inference_extension }}" = "preinstalled" ]; then
+            flags+=(--set gateway-api-inference-extension.enabled=false)
+          fi
+          if [ "${{ matrix.agentgateway }}" = "preinstalled" ]; then
+            flags+=(--set agentgateway-crds.enabled=false)
+          fi
           helm dependency build thalamus-crds
           helm upgrade --install thalamus-crds ./thalamus-crds \
             --namespace thalamus \
             --create-namespace \
             --wait \
-            --timeout=600s
+            --timeout=600s \
+            "${flags[@]}"
+
+      - name: Verify disabled CRD dependencies were skipped
+        if: matrix.gateway_api == 'preinstalled' || matrix.inference_extension == 'preinstalled' || matrix.agentgateway == 'preinstalled'
+        run: |
+          manifest="$(helm get manifest thalamus-crds --namespace thalamus)"
+          assert_skipped() {
+            for name in $(awk '/^  name: / { print $2 }' "$1" | tr -d '"'); do
+              if printf '%s' "$manifest" | grep -q "^  name: ${name}$"; then
+                echo "FAIL: thalamus-crds installed ${name} despite its dependency being disabled"
+                exit 1
+              fi
+            done
+          }
+          if [ "${{ matrix.gateway_api }}" = "preinstalled" ]; then
+            assert_skipped /tmp/gateway-api-standard-install.yaml
+          fi
+          if [ "${{ matrix.inference_extension }}" = "preinstalled" ]; then
+            assert_skipped /tmp/ie-v1-manifests.yaml
+          fi
+          if [ "${{ matrix.agentgateway }}" = "preinstalled" ]; then
+            assert_skipped /tmp/agw-crds.yaml
+          fi
+          printf '%s' "$manifest" | grep -q '^  name: models.thalamus.cloud'
+          echo "PASS: thalamus-crds skipped all disabled CRD dependencies"
 
       - name: Verify CRDs
         run: |
@@ -69,15 +157,45 @@ jobs:
             crd/agentgatewaypolicies.agentgateway.dev \
             crd/models.thalamus.cloud
 
+      - name: Pre-install agentgateway from upstream
+        if: matrix.agentgateway == 'preinstalled'
+        run: |
+          version="$(awk '/^  - name: agentgateway$/ { f = 1; next } f && /^    version:/ { print $2; exit }' helm/thalamus/Chart.yaml)"
+          if [ -z "$version" ]; then
+            echo "FAIL: could not parse agentgateway chart version from helm/thalamus/Chart.yaml"
+            exit 1
+          fi
+          helm upgrade --install agentgateway oci://cr.agentgateway.dev/charts/agentgateway \
+            --version "$version" \
+            --namespace thalamus \
+            --set inferenceExtension.enabled=true \
+            --wait \
+            --timeout=600s
+
       - name: Deploy Thalamus
         working-directory: helm
         run: |
+          flags=()
+          if [ "${{ matrix.agentgateway }}" = "preinstalled" ]; then
+            flags+=(--set agentgateway.enabled=false)
+          fi
           helm dependency build thalamus
           helm upgrade --install thalamus ./thalamus \
             --namespace thalamus \
             --wait \
             --timeout=600s \
-            --set operator.image.tag=pr
+            --set operator.image.tag=pr \
+            "${flags[@]}"
+
+      - name: Verify disabled agentgateway controller was skipped
+        if: matrix.agentgateway == 'preinstalled'
+        run: |
+          thalamus_manifest="$(helm get manifest thalamus --namespace thalamus)"
+          if printf '%s' "$thalamus_manifest" | grep -q 'app.kubernetes.io/name: agentgateway'; then
+            echo "FAIL: thalamus installed the agentgateway controller despite its dependency being disabled"
+            exit 1
+          fi
+          echo "PASS: thalamus skipped the bundled agentgateway controller"
 
       - name: Wait for Gateway
         run: |
@@ -153,6 +271,6 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: e2e-debug-logs
+          name: e2e-debug-logs-gwapi-${{ matrix.gateway_api }}-ie-${{ matrix.inference_extension }}-agw-${{ matrix.agentgateway }}
           path: debug-logs/
           retention-days: 1
