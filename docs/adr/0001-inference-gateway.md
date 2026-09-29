@@ -27,31 +27,6 @@ Thalamus currently uses **Agentgateway**; another SAP internal team uses **Envoy
 **E. Cross-team alignment**
 - A shared stack with the other team only delivers value if there is a concrete shared maintenance or roadmap commitment — using the same component alone is not sufficient justification
 
-## Considered Options
-
-### Option 1: Agentgateway
-
-[agentgateway.dev](https://agentgateway.dev) — unified multi-protocol data plane (HTTP, gRPC, LLM, MCP, A2A) written in Rust. Single process, no sidecars, no stateful dependencies.
-
-**Key characteristics:**
-- `AgentgatewayPolicy` CRD for per-route auth, rate limiting, and transformation
-- API key auth via labelled Kubernetes Secrets; JWT/OIDC with multiple simultaneous providers; CEL-based RBAC
-- Token rate limiting: upfront estimation (approximate) for local enforcement; exact hard limits possible via remote Envoy Rate Limit gRPC service
-- LLM cost tracking and per-request token telemetry as Prometheus metrics
-- MCP and A2A protocol support (only relevant if Thalamus hosts and exposes its own MCP servers or AI agents)
-- Fully conformant with Gateway API v1.5.0
-
-### Option 2: Envoy AI Gateway
-
-[aigateway.envoyproxy.io](https://aigateway.envoyproxy.io) — LLM traffic layer on top of Envoy Gateway (v0.7.0, pre-GA since October 2024). Adds token quota enforcement and request/response transformation on top of the battle-tested Envoy proxy.
-
-**Key characteristics:**
-- `AIGatewayRoute` CRD for multi-model routing with token quota enforcement
-- `ai-gateway-extproc` sidecar injected into each proxy pod via mutating webhook — handles all LLM-specific logic over a Unix domain socket; Redis-backed state required
-- Exact token quota enforcement: extracts `InputToken`, `OutputToken`, `CachedInputToken` from response bodies; HTTP 429 on quota breach — suitable for hard per-user daily token budgets
-- JWT/OIDC via Envoy Gateway `SecurityPolicy`; no LLM-specific auth primitives
-- Partial Gateway API conformance (`GatewayInfrastructurePropagation` and `GatewayHTTPSListenerDetectMisdirectedRequests` not implemented)
-
 ## Decision Outcome
 
 Chosen option: **Option 1: Agentgateway**
@@ -90,7 +65,7 @@ Agentgateway meets all current requirements with significantly lower operational
 - Neutral, because v0.7.0 pre-GA (created October 2024) — production maturity of the AI Gateway layer specifically is unproven
 - Bad, because `ai-gateway-extproc` sidecar injected via mutating webhook — sidecar can crash independently of the proxy; webhook must be healthy for pods to start
 - Bad, because Redis is a required stateful dependency with no in-process fallback
-- Bad, because partial Gateway API conformance
+- Bad, because Gateway API conformance is partial (`GatewayInfrastructurePropagation` and `GatewayHTTPSListenerDetectMisdirectedRequests` not implemented)
 - Bad, because no LLM-specific cost/telemetry metrics — token counts surface only for rate limiting purposes
 
 ### Decision Matrix
