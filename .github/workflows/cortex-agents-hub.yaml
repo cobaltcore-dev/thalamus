@@ -1,16 +1,6 @@
-# Cortex Agents stub. Activated by .github/cortex-agents.config.yaml; with no
-# config file, or every feature inactive, nothing runs. All secrets come from
-# cobaltcore-dev organization secrets (secrets: inherit) — see the .agents/
-# README in cobaltcore-dev/cortex for org setup and the config schema.
+# SPDX-FileCopyrightText: Copyright 2026 SAP SE or an SAP affiliate company and cobaltcore-dev contributors
 #
-# All gating and fan-out live in the entry workflow in cortex; this stub only
-# holds what GitHub requires in the consuming repo: the triggers, the secrets
-# consent, and the permissions consent (the union of what the agents may
-# request — every job inside cortex downgrades to what it uses). The cron
-# drives the bugfinder/docswriter passes; edit it here to change the cadence.
-#
-# The uses: pin below is the only cortex version reference — the entry
-# workflow resolves its own commit from it and runs everything from it.
+# SPDX-License-Identifier: Apache-2.0
 
 name: Cortex Agents
 
