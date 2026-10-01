@@ -3,9 +3,9 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "docs:dev": "vitepress dev",
-    "docs:build": "vitepress build",
-    "docs:preview": "vitepress preview"
+    "docs:dev": "sh scripts/docs-env.sh vitepress dev",
+    "docs:build": "sh scripts/docs-env.sh vitepress build",
+    "docs:preview": "sh scripts/docs-env.sh vitepress preview"
   },
   "dependencies": {
     "medium-zoom": "^1.1.0"

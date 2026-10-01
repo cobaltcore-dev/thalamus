@@ -52,15 +52,21 @@ jobs:
         id: set-version
         run: |
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "version=main" >> $GITHUB_OUTPUT
-            echo "chart_version=0.0.0-main" >> $GITHUB_OUTPUT
+            version="main"
+            chart_version="0.0.0-main"
           elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-            echo "chart_version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+            version="${GITHUB_REF#refs/tags/}"
+            chart_version="${version}"
           else
-            echo "version=" >> $GITHUB_OUTPUT
-            echo "chart_version=" >> $GITHUB_OUTPUT
+            # Manual dispatch off main/tags: derive from the ref name so the
+            # build env stays complete (config.mts has no fallbacks).
+            version="${GITHUB_REF_NAME:-local}"
+            safe_ref="$(echo "${version}" | tr -c '0-9A-Za-z.-' '-')"
+            chart_version="0.0.0-${safe_ref}"
           fi
+          echo "version=${version}" >> $GITHUB_OUTPUT
+          echo "chart_version=${chart_version}" >> $GITHUB_OUTPUT
+          echo "base=/thalamus/${version}/" >> $GITHUB_OUTPUT
 
       - name: Install dependencies
         working-directory: website
@@ -72,7 +78,9 @@ jobs:
         env:
           DOCS_VERSION: ${{ steps.set-version.outputs.version }}
           CHART_VERSION: ${{ steps.set-version.outputs.chart_version }}
-          PAGES_BASE: thalamus
+          DOCS_BASE: ${{ steps.set-version.outputs.base }}
+          DOCS_SHA: ${{ github.sha }}
+          DOCS_REPO: ${{ github.repository }}
 
       - name: Deploy versioned docs
         uses: JamesIves/github-pages-deploy-action@v4

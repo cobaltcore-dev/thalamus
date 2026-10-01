@@ -27,6 +27,14 @@ html {
   padding: 18px;
 }
 
+/* Guide verification pill: sit right of the page title */
+.vp-doc h1:has(> .verified-badge) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
 /* Wrap the text in the right-hand sidebar */
 .VPDocAsideOutline .outline-link {
   white-space: normal !important;

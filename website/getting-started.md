@@ -2,7 +2,7 @@
 title: Getting Started
 ---
 
-# Getting Started
+# Getting Started <VerifiedBadge page="getting-started" />
 
 Thalamus is a vendor-neutral, Kubernetes-native inference service based on
 [llm-d](https://llm-d.ai/), the [Gateway API inference extension](https://github.com/kubernetes-sigs/gateway-api-inference-extension),
@@ -43,7 +43,7 @@ Thalamus installs as two Helm charts: `thalamus-crds` (the Thalamus, Gateway
 API, inference extension, and agentgateway CRDs) and `thalamus` (the operator
 and agentgateway data plane). Everything is enabled by default:
 
-```bash
+```bash test
 helm upgrade --install thalamus-crds oci://ghcr.io/cobaltcore-dev/charts/thalamus-crds \
   --namespace thalamus --create-namespace --wait \
   --version @@CHART_VERSION@@
@@ -85,7 +85,7 @@ Model pods pull their weights from Hugging Face at startup, so the secret must
 exist before you deploy a model in Step 3. Create a secret named `hf-token`
 with key `HF_TOKEN` in the `thalamus` namespace:
 
-```bash
+```bash test
 kubectl create secret generic hf-token \
   --from-literal=HF_TOKEN="$HF_TOKEN" \
   --namespace thalamus
@@ -114,13 +114,13 @@ kubectl wait model/qwen3-6-27b --namespace thalamus --for=condition=Ready --time
 
 For a CPU-only or local development setup, use the SmolLM2 example:
 
-```bash
+```bash test
 kubectl apply -f https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/model-smollm2-cpu.yaml
 ```
 
 Wait for the model to become ready:
 
-```bash
+```bash test
 kubectl wait model/smollm2-135m --namespace thalamus --for=condition=Ready --timeout=600s
 ```
 
@@ -144,24 +144,38 @@ progress with `kubectl get svc inference-gateway -n thalamus`.
 
 **With port-forward (local clusters without a `LoadBalancer`):**
 
-```bash
+```bash test
 kubectl port-forward svc/inference-gateway 8080:80 -n thalamus &
+sleep 3
 GATEWAY_HOST=localhost:8080
 ```
 
 Then test the API:
 
-```bash
+```bash test
 curl "http://$GATEWAY_HOST/v1/models"
 ```
 
-```bash
+```bash test
 curl "http://$GATEWAY_HOST/v1/chat/completions" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "<model-id>",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
+```
+
+Verify the model answers correctly:
+
+```bash test
+curl -s "http://$GATEWAY_HOST/v1/chat/completions" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "HuggingFaceTB/SmolLM2-135M-Instruct",
+    "messages": [{"role": "user", "content": "What is the capital of France? Answer with a single word."}],
+    "max_tokens": 8,
+    "temperature": 0
+  }' | grep -qi paris
 ```
 
 ## API key authentication (optional)

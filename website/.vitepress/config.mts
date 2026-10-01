@@ -1,16 +1,28 @@
 import { withMermaid } from 'vitepress-plugin-mermaid'
 import markdownItFootnote from 'markdown-it-footnote'
 
-const docsVersion = process.env.DOCS_VERSION || 'main'
-const chartVersion = process.env.CHART_VERSION || '0.0.0-main'
-const pagesBase = process.env.PAGES_BASE
-const base = docsVersion && pagesBase
-  ? `/${pagesBase}/${docsVersion}/`
-  : docsVersion
-    ? `/${docsVersion}/`
-    : pagesBase
-      ? `/${pagesBase}/`
-      : '/'
+const missing: string[] = []
+function requiredEnv(name: string): string {
+  const value = process.env[name]
+  if (!value) {
+    missing.push(name)
+    return ''
+  }
+  return value
+}
+
+const docsVersion = requiredEnv('DOCS_VERSION')
+const chartVersion = requiredEnv('CHART_VERSION')
+const base = requiredEnv('DOCS_BASE')
+const docsSha = requiredEnv('DOCS_SHA')
+const docsRepo = requiredEnv('DOCS_REPO')
+
+if (missing.length > 0) {
+  throw new Error(
+    `[docs] Missing required environment: ${missing.join(', ')}. ` +
+    `Run "npm run docs:dev" in website/.`,
+  )
+}
 
 export default withMermaid({
   title: 'Thalamus',
@@ -19,6 +31,15 @@ export default withMermaid({
   base,
   cleanUrls: true,
   lastUpdated: true,
+
+  vite: {
+    define: {
+      __DOCS_SHA__: JSON.stringify(docsSha),
+      __DOCS_REPO__: JSON.stringify(docsRepo),
+      __DOCS_LABEL__: JSON.stringify(docsVersion),
+      __GUIDES_WORKFLOW_FILE__: JSON.stringify('e2e-guides.yaml'),
+    },
+  },
 
   head: [
     ['link', { rel: 'icon', href: `${base}favicon.svg`, type: 'image/svg+xml' }],
