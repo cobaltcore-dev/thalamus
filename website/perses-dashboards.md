@@ -58,6 +58,19 @@ kubectl wait deployment --all --namespace perses \
   --for=condition=Available --timeout=300s
 ```
 
+Expose both services on localhost so the steps below can reach them:
+
+```bash test
+kubectl port-forward -n monitoring svc/monitoring-kube-prometheus-stack-prometheus 9091:9090 &
+perses_svc="$(kubectl get svc -n perses -l app.kubernetes.io/name=perses -o jsonpath='{.items[0].metadata.name}')"
+kubectl port-forward -n perses "svc/${perses_svc}" 9090:8080 &
+sleep 5
+export PERSES_URL=http://localhost:9090
+export PROM_URL=http://localhost:9091
+curl -sf "$PROM_URL/-/healthy" > /dev/null
+curl -sf "$PERSES_URL/" > /dev/null
+```
+
 ## Enable metric scraping
 
 The `thalamus` chart creates `ServiceMonitor`/`PodMonitor` resources for the
@@ -99,8 +112,7 @@ kubectl get podmonitor thalamus-engine --namespace thalamus -o json | grep -q '"
 
 You can add all the dashboards manually:
 
-1. Run `kubectl port-forward -n <perses-namespace> svc/perses 9090:8080` depending on your Perses installation and go to
-   `localhost:9090` or the respective port.
+1. Go to `localhost:9090` in your browser.
 2. Create the project named `thalamus`.
 3. For each dashboard in
    `examples/perses-dashboards`, click "Add dashboard", specity name, click "Edit JSON" button with **"{}"
@@ -125,11 +137,7 @@ for d in "$REPO_ROOT"/examples/perses-dashboards/thalamus-*.json; do
 done
 ```
 
-Verify scraping and the dashboards through the APIs (Perses renders
-client-side, so assert on the REST API plus a live Prometheus query, not on
-page HTML). Export `PERSES_URL` (e.g. `http://localhost:9090` after the
-port-forward above) and `PROM_URL` (your Prometheus, e.g.
-`http://localhost:9091`) first:
+Verify scraping and the dashboards:
 
 ```bash test
 curl -s "$PROM_URL/api/v1/targets?state=active" | grep -q thalamus-operator

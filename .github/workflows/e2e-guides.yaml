@@ -57,15 +57,12 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
 
-      # --- perses-dashboards prerequisites (referenced, not spelled out, by the guide) ---
-      # Go toolchain for the guide's own `go install percli` block.
       - name: Set up Go (perses job)
         if: matrix.slug == 'perses-dashboards'
         uses: actions/setup-go@v7
         with:
-          go-version-file: 'go.mod'
+          go-version: '1.25'
 
-      # --- base stack + model: runs the getting-started guide itself ---
       - name: Run getting-started guide
         if: matrix.slug != 'getting-started'
         env:
@@ -78,29 +75,6 @@ jobs:
           DRY_RUN: 'false'
         run: uv run test/e2e/run-guide.py
 
-      # --- guide-specific serving infra (mirrors the guides' port-forward steps) ---
-      # The open-webui guide enables the frontend listener itself; the forward
-      # only needs to exist before its curl checks run (no assert here yet).
-      - name: Port-forward WebUI frontend (open-webui job)
-        if: matrix.slug == 'open-webui'
-        run: |
-          kubectl port-forward svc/inference-gateway 8081:8080 -n thalamus &
-          sleep 3
-
-      - name: Port-forward Prometheus + Perses (perses job)
-        if: matrix.slug == 'perses-dashboards'
-        env:
-          PERSES_URL: http://localhost:9090
-          PROM_URL: http://localhost:9091
-        run: |
-          set -euo pipefail
-          kubectl port-forward -n monitoring svc/monitoring-kube-prometheus-stack-prometheus 9091:9090 &
-          svc="$(kubectl get svc -n perses -l app.kubernetes.io/name=perses -o jsonpath='{.items[0].metadata.name}')"
-          kubectl port-forward -n perses "svc/${svc}" 9090:8080 &
-          sleep 5
-          curl -sf "${PROM_URL}/-/healthy" > /dev/null
-          curl -sf "${PERSES_URL}/" > /dev/null
-
       - name: Run ${{ matrix.slug }} guide
         env:
           GUIDE: website/${{ matrix.slug }}.md
@@ -109,8 +83,6 @@ jobs:
           CHART_VERSION: ${{ env.CHART_VERSION }}
           DOCS_VERSION: ${{ env.DOCS_VERSION }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          PERSES_URL: http://localhost:9090
-          PROM_URL: http://localhost:9091
           DRY_RUN: 'false'
         run: uv run test/e2e/run-guide.py
 

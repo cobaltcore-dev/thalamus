@@ -63,7 +63,7 @@ jobs:
           fi
           echo "version=${version}" >> $GITHUB_OUTPUT
           echo "chart_version=${chart_version}" >> $GITHUB_OUTPUT
-          echo "base=/thalamus/${version}/" >> $GITHUB_OUTPUT
+          echo "base=/${{ github.event.repository.name }}/${version}/" >> $GITHUB_OUTPUT
 
       - name: Install dependencies
         working-directory: website

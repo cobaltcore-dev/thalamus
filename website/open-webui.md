@@ -23,10 +23,12 @@ kubectl get httproute thalamus-open-webui --namespace thalamus
 ```
 
 Open WebUI is served on the gateway's `frontend` listener (port 8080). For
-local clusters without a `LoadBalancer`, use port-forward:
+local clusters without a `LoadBalancer`, forward it to `localhost:8081`:
 
-```bash
-kubectl port-forward svc/inference-gateway 8081:8080 -n thalamus
+```bash test
+kubectl port-forward svc/inference-gateway 8081:8080 -n thalamus &
+sleep 3
+curl -sf http://localhost:8081/ > /dev/null
 ```
 
 Then open `http://localhost:8081` in your browser.
