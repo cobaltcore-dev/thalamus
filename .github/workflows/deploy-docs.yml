@@ -58,11 +58,8 @@ jobs:
             version="${GITHUB_REF#refs/tags/}"
             chart_version="${version}"
           else
-            # Manual dispatch off main/tags: derive from the ref name so the
-            # build env stays complete (config.mts has no fallbacks).
-            version="${GITHUB_REF_NAME:-local}"
-            safe_ref="$(echo "${version}" | tr -c '0-9A-Za-z.-' '-')"
-            chart_version="0.0.0-${safe_ref}"
+            version="${GITHUB_REF_NAME}"
+            chart_version="0.0.0-sha-${GITHUB_SHA::7}"
           fi
           echo "version=${version}" >> $GITHUB_OUTPUT
           echo "chart_version=${chart_version}" >> $GITHUB_OUTPUT
