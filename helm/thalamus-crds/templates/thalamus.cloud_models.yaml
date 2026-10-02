@@ -105,7 +105,7 @@ spec:
                         type: array
                       cache:
                         description: |-
-                          Cache defines the volume source for the vLLM cache directory (/root/.cache).
+                          Cache defines the volume source for the engine cache directory (/cache).
                           Defaults to an emptyDir. Accepts any Kubernetes volume source.
                         properties:
                           awsElasticBlockStore:

@@ -23,6 +23,14 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 	args := []string{}
 	env := engine.Env
 
+	// Root filesystem read-only; process runs as uid 65532
+	// Point caches at /cache instead of images $HOME (/root)
+	env = append([]corev1.EnvVar{
+		{Name: "HOME", Value: "/cache"},
+		{Name: "HF_HOME", Value: "/cache/huggingface"},
+		{Name: "XDG_CACHE_HOME", Value: "/cache"},
+	}, env...)
+
 	if model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && model.Spec.Weights.HF != nil {
 		hf := model.Spec.Weights.HF
 		args = append(args, hf.RepoID, "--served-model-name="+hf.RepoID)
@@ -59,8 +67,9 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 			{Name: "http", ContainerPort: engineHTTPPort, Protocol: corev1.ProtocolTCP},
 		},
 		VolumeMounts: []corev1.VolumeMount{
-			{Name: "vllm-cache", MountPath: "/root/.cache"},
+			{Name: "cache", MountPath: "/cache"},
 			{Name: "dshm", MountPath: "/dev/shm"},
+			{Name: "tmp", MountPath: "/tmp"},
 		},
 		StartupProbe: &corev1.Probe{
 			HTTPGet: &corev1.HTTPGetAction{
@@ -113,12 +122,16 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 		Containers: []corev1.Container{container},
 		Volumes: []corev1.Volume{
 			{
-				Name:         "vllm-cache",
+				Name:         "cache",
 				VolumeSource: cacheVolumeSource,
 			},
 			{
 				Name:     "dshm",
 				EmptyDir: &corev1.EmptyDirVolumeSource{Medium: corev1.StorageMediumMemory},
+			},
+			{
+				Name:     "tmp",
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		},
 	}

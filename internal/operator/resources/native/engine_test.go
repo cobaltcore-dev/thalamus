@@ -49,13 +49,23 @@ func TestBuildEngineDeployment(t *testing.T) {
 	}
 
 	if c.Env[0].Name != "HF_TOKEN" {
-		t.Errorf("first env:\ngot:  %q\nwant: HF_TOKEN", c.Env[0].Name)
+		t.Errorf("env[0]:\ngot:  %q\nwant: HF_TOKEN", c.Env[0].Name)
 	}
 	if c.Env[0].ValueFrom.SecretKeyRef.Name != "hf-token" {
 		t.Errorf("HF_TOKEN secret:\ngot:  %q\nwant: hf-token", c.Env[0].ValueFrom.SecretKeyRef.Name)
 	}
-	if c.Env[1].Name != "EXTRA" {
-		t.Errorf("second env:\ngot:  %q\nwant: EXTRA", c.Env[1].Name)
+	wantCacheEnv := map[string]string{
+		"HOME":           "/cache",
+		"HF_HOME":        "/cache/huggingface",
+		"XDG_CACHE_HOME": "/cache",
+	}
+	for i, w := range []string{"HOME", "HF_HOME", "XDG_CACHE_HOME"} {
+		if c.Env[i+1].Name != w || c.Env[i+1].Value != wantCacheEnv[w] {
+			t.Errorf("env[%d]:\ngot:  %+v\nwant: %s=%s", i+1, c.Env[i+1], w, wantCacheEnv[w])
+		}
+	}
+	if c.Env[4].Name != "EXTRA" {
+		t.Errorf("env[4]:\ngot:  %q\nwant: EXTRA", c.Env[4].Name)
 	}
 	if c.Resources.Requests == nil {
 		t.Error("Resources.Requests is nil")
@@ -67,12 +77,26 @@ func TestBuildEngineDeployment(t *testing.T) {
 		t.Error("missing probes")
 	}
 	volNames := map[string]bool{}
+	mountPaths := map[string]string{}
 	for _, v := range dep.Spec.Template.Spec.Volumes {
 		volNames[v.Name] = true
 	}
-	for _, want := range []string{"vllm-cache", "dshm"} {
+	for _, m := range c.VolumeMounts {
+		mountPaths[m.Name] = m.MountPath
+	}
+	for _, want := range []string{"cache", "dshm", "tmp"} {
 		if !volNames[want] {
 			t.Errorf("missing volume %q", want)
+		}
+	}
+	wantMounts := map[string]string{
+		"cache": "/cache",
+		"dshm":  "/dev/shm",
+		"tmp":   "/tmp",
+	}
+	for name, path := range wantMounts {
+		if mountPaths[name] != path {
+			t.Errorf("mount %q:\ngot:  %q\nwant: %q", name, mountPaths[name], path)
 		}
 	}
 }
@@ -167,14 +191,14 @@ func TestBuildEngineDeployment_NoScheduling(t *testing.T) {
 func TestBuildEngineDeployment_CacheDefaultsToEmptyDir(t *testing.T) {
 	dep := BuildEngineDeployment(testutil.NewModel("tiny-llm", "default"))
 	for _, v := range dep.Spec.Template.Spec.Volumes {
-		if v.Name == "vllm-cache" {
+		if v.Name == "cache" {
 			if v.EmptyDir == nil {
 				t.Error("expected emptyDir when cache not set")
 			}
 			return
 		}
 	}
-	t.Error("vllm-cache volume not found")
+	t.Error("cache volume not found")
 }
 
 func TestBuildEngineDeployment_CachePVC(t *testing.T) {
@@ -184,14 +208,14 @@ func TestBuildEngineDeployment_CachePVC(t *testing.T) {
 	}
 	dep := BuildEngineDeployment(model)
 	for _, v := range dep.Spec.Template.Spec.Volumes {
-		if v.Name == "vllm-cache" {
+		if v.Name == "cache" {
 			if v.PersistentVolumeClaim == nil || v.PersistentVolumeClaim.ClaimName != "my-model-cache" {
 				t.Errorf("unexpected cache volume source: %+v", v.VolumeSource)
 			}
 			return
 		}
 	}
-	t.Error("vllm-cache volume not found")
+	t.Error("cache volume not found")
 }
 
 func TestBuildEngineService(t *testing.T) {
