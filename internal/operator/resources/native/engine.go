@@ -15,6 +15,9 @@ import (
 // engineHTTPPort is the TCP port the vLLM engine listens on.
 const engineHTTPPort = 8000
 
+// nobody is the distroless "nobody" uid/gid.
+const nobody int64 = 65532
+
 // BuildEngineDeployment returns the desired Deployment for the vLLM inference engine.
 func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 	engine := model.Spec.Serving.Engine
@@ -32,7 +35,7 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 		})
 	}
 
-	// Root filesystem read-only; process runs as uid 65532
+	// Root filesystem read-only; process runs as uid nobody
 	// Point caches at /cache instead of images $HOME (/root)
 	// Appended last so user env can't override the redirection
 	env = append(env,
@@ -51,8 +54,8 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 			AllowPrivilegeEscalation: new(false),
 			ReadOnlyRootFilesystem:   new(true),
 			RunAsNonRoot:             new(true),
-			RunAsUser:                new(int64(65532)),
-			RunAsGroup:               new(int64(65532)),
+			RunAsUser:                new(nobody),
+			RunAsGroup:               new(nobody),
 			Privileged:               new(false),
 			Capabilities: &corev1.Capabilities{
 				Drop: []corev1.Capability{"ALL"},
@@ -114,11 +117,11 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 	podSpec := corev1.PodSpec{
 		SecurityContext: &corev1.PodSecurityContext{
 			RunAsNonRoot: new(true),
-			RunAsUser:    new(int64(65532)),
-			RunAsGroup:   new(int64(65532)),
-			// Chowns cache volume to group 65532; pre-populated PVC
+			RunAsUser:    new(nobody),
+			RunAsGroup:   new(nobody),
+			// Chowns cache volume to group nobody; pre-populated PVC
 			// stays writable regardless of seeding uid
-			FSGroup: new(int64(65532)),
+			FSGroup: new(nobody),
 			SeccompProfile: &corev1.SeccompProfile{
 				Type: corev1.SeccompProfileTypeRuntimeDefault,
 			},
