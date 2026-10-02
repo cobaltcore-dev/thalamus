@@ -43,7 +43,7 @@ jobs:
       - name: Setup Helm
         uses: azure/setup-helm@v5
         with:
-          version: v3.22.0
+          version: v4.3.0
 
       - name: Run helm changelog commenter
         uses: ./.cortex-agent/.github/actions/cortex-agent-run
