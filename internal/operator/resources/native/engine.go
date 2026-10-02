@@ -4,6 +4,8 @@
 package native
 
 import (
+	"slices"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,7 +26,7 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 
 	command := []string{"vllm", "serve"}
 	args := []string{}
-	env := engine.Env
+	env := slices.Clone(engine.Env)
 
 	if model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && model.Spec.Weights.HF != nil {
 		hf := model.Spec.Weights.HF
