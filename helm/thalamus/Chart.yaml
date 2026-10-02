@@ -10,6 +10,6 @@ dependencies:
     repository: oci://cr.agentgateway.dev/charts
     condition: agentgateway.enabled
   - name: open-webui
-    version: 16.5.0
+    version: 16.6.0
     repository: oci://ghcr.io/open-webui/helm-charts
     condition: open-webui.enabled
