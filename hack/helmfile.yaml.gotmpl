@@ -26,7 +26,7 @@ releases:
     namespace: gpu-operator
     createNamespace: true
     chart: oci://nvcr.io/nvidia/cloud-native-charts/gpu-operator
-    version: "v26.7.0"
+    version: "v26.7.1"
     installed: {{ dig "gpu-operator" "enabled" true .Values }}
     needs:
       - node-feature-discovery/node-feature-discovery
