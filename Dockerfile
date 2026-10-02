@@ -26,7 +26,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
       ./cmd/operator
 
 
-FROM gcr.io/distroless/static-debian12:nonroot
+FROM gcr.io/distroless/static-debian12:nonroot AS release
 
 COPY --from=build /out/operator /operator
 

@@ -28,7 +28,7 @@ jobs:
       matrix:
         include:
           - variant: image
-            target: ''
+            target: release
             flavor: ''
           - variant: debug
             target: debug
