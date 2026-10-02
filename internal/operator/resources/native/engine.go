@@ -23,22 +23,23 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 	args := []string{}
 	env := engine.Env
 
-	// Root filesystem read-only; process runs as uid 65532
-	// Point caches at /cache instead of images $HOME (/root)
-	env = append([]corev1.EnvVar{
-		{Name: "HOME", Value: "/cache"},
-		{Name: "HF_HOME", Value: "/cache/huggingface"},
-		{Name: "XDG_CACHE_HOME", Value: "/cache"},
-	}, env...)
-
 	if model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && model.Spec.Weights.HF != nil {
 		hf := model.Spec.Weights.HF
 		args = append(args, hf.RepoID, "--served-model-name="+hf.RepoID)
-		env = append([]corev1.EnvVar{{
+		env = append(env, corev1.EnvVar{
 			Name:      "HF_TOKEN",
 			ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &hf.TokenSecret},
-		}}, env...)
+		})
 	}
+
+	// Root filesystem read-only; process runs as uid 65532
+	// Point caches at /cache instead of images $HOME (/root)
+	// Appended last so user env can't override the redirection
+	env = append(env,
+		corev1.EnvVar{Name: "HOME", Value: "/cache"},
+		corev1.EnvVar{Name: "HF_HOME", Value: "/cache/huggingface"},
+		corev1.EnvVar{Name: "XDG_CACHE_HOME", Value: "/cache"},
+	)
 
 	args = append(args, engine.Args...)
 

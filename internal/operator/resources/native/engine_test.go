@@ -48,11 +48,14 @@ func TestBuildEngineDeployment(t *testing.T) {
 		t.Errorf("Args:\ngot:  %v\nwant: %v", c.Args, expectedArgs)
 	}
 
-	if c.Env[0].Name != "HF_TOKEN" {
-		t.Errorf("env[0]:\ngot:  %q\nwant: HF_TOKEN", c.Env[0].Name)
+	if c.Env[0].Name != "EXTRA" {
+		t.Errorf("env[0]:\ngot:  %q\nwant: EXTRA", c.Env[0].Name)
 	}
-	if c.Env[0].ValueFrom.SecretKeyRef.Name != "hf-token" {
-		t.Errorf("HF_TOKEN secret:\ngot:  %q\nwant: hf-token", c.Env[0].ValueFrom.SecretKeyRef.Name)
+	if c.Env[1].Name != "HF_TOKEN" {
+		t.Errorf("env[1]:\ngot:  %q\nwant: HF_TOKEN", c.Env[1].Name)
+	}
+	if c.Env[1].ValueFrom.SecretKeyRef.Name != "hf-token" {
+		t.Errorf("HF_TOKEN secret:\ngot:  %q\nwant: hf-token", c.Env[1].ValueFrom.SecretKeyRef.Name)
 	}
 	wantCacheEnv := map[string]string{
 		"HOME":           "/cache",
@@ -60,12 +63,9 @@ func TestBuildEngineDeployment(t *testing.T) {
 		"XDG_CACHE_HOME": "/cache",
 	}
 	for i, w := range []string{"HOME", "HF_HOME", "XDG_CACHE_HOME"} {
-		if c.Env[i+1].Name != w || c.Env[i+1].Value != wantCacheEnv[w] {
-			t.Errorf("env[%d]:\ngot:  %+v\nwant: %s=%s", i+1, c.Env[i+1], w, wantCacheEnv[w])
+		if c.Env[i+2].Name != w || c.Env[i+2].Value != wantCacheEnv[w] {
+			t.Errorf("env[%d]:\ngot:  %+v\nwant: %s=%s", i+2, c.Env[i+2], w, wantCacheEnv[w])
 		}
-	}
-	if c.Env[4].Name != "EXTRA" {
-		t.Errorf("env[4]:\ngot:  %q\nwant: EXTRA", c.Env[4].Name)
 	}
 	if c.Resources.Requests == nil {
 		t.Error("Resources.Requests is nil")
@@ -98,6 +98,27 @@ func TestBuildEngineDeployment(t *testing.T) {
 		if mountPaths[name] != path {
 			t.Errorf("mount %q:\ngot:  %q\nwant: %q", name, mountPaths[name], path)
 		}
+	}
+}
+
+func TestBuildEngineDeployment_CacheEnvOverridesUserEnv(t *testing.T) {
+	model := testutil.NewModel("tiny-llm", "default")
+	model.Spec.Serving.Engine.Env = append(model.Spec.Serving.Engine.Env,
+		corev1.EnvVar{Name: "HOME", Value: "/root"},
+		corev1.EnvVar{Name: "XDG_CACHE_HOME", Value: "/root/.cache"},
+	)
+	dep := BuildEngineDeployment(model)
+	c := dep.Spec.Template.Spec.Containers[0]
+
+	got := map[string]string{}
+	for _, e := range c.Env {
+		got[e.Name] = e.Value
+	}
+	if got["HOME"] != "/cache" {
+		t.Errorf("HOME:\ngot:  %q\nwant: /cache", got["HOME"])
+	}
+	if got["XDG_CACHE_HOME"] != "/cache" {
+		t.Errorf("XDG_CACHE_HOME:\ngot:  %q\nwant: /cache", got["XDG_CACHE_HOME"])
 	}
 }
 
