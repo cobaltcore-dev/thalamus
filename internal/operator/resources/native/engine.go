@@ -38,9 +38,23 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 		Name:            "engine",
 		Image:           engine.Image,
 		ImagePullPolicy: corev1.PullIfNotPresent,
-		Command:         command,
-		Args:            args,
-		Env:             env,
+		SecurityContext: &corev1.SecurityContext{
+			AllowPrivilegeEscalation: new(false),
+			ReadOnlyRootFilesystem:   new(true),
+			RunAsNonRoot:             new(true),
+			RunAsUser:                new(int64(65532)),
+			RunAsGroup:               new(int64(65532)),
+			Privileged:               new(false),
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{"ALL"},
+			},
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
+			},
+		},
+		Command: command,
+		Args:    args,
+		Env:     env,
 		Ports: []corev1.ContainerPort{
 			{Name: "http", ContainerPort: engineHTTPPort, Protocol: corev1.ProtocolTCP},
 		},
@@ -88,6 +102,14 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 	}
 
 	podSpec := corev1.PodSpec{
+		SecurityContext: &corev1.PodSecurityContext{
+			RunAsNonRoot: new(true),
+			RunAsUser:    new(int64(65532)),
+			RunAsGroup:   new(int64(65532)),
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
+			},
+		},
 		Containers: []corev1.Container{container},
 		Volumes: []corev1.Volume{
 			{

@@ -6,6 +6,7 @@ package native
 import (
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/yaml"
 
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
@@ -103,6 +104,59 @@ func TestBuildEPPDeployment(t *testing.T) {
 	}
 	if c.LivenessProbe == nil || c.ReadinessProbe == nil {
 		t.Error("missing probes")
+	}
+}
+
+func TestBuildEPPDeploymentSecurity(t *testing.T) {
+	model := testutil.NewModel("tiny-llm", "default")
+	model.Spec.Serving.EPP = &v1alpha1.EPPSpec{Image: testEPPImage}
+	dep := BuildEPPDeployment(model)
+
+	podSC := dep.Spec.Template.Spec.SecurityContext
+	if podSC == nil {
+		t.Fatal("missing pod securityContext")
+	}
+	if podSC.RunAsNonRoot == nil || !*podSC.RunAsNonRoot {
+		t.Error("pod runAsNonRoot must be true")
+	}
+	if podSC.RunAsUser == nil || *podSC.RunAsUser != 65532 {
+		t.Errorf("pod runAsUser:\ngot:  %+v\nwant: 65532", podSC.RunAsUser)
+	}
+	if podSC.RunAsGroup == nil || *podSC.RunAsGroup != 65532 {
+		t.Errorf("pod runAsGroup:\ngot:  %+v\nwant: 65532", podSC.RunAsGroup)
+	}
+	if podSC.SeccompProfile == nil || podSC.SeccompProfile.Type != corev1.SeccompProfileTypeRuntimeDefault {
+		t.Errorf("pod seccompProfile.type:\ngot:  %+v\nwant: RuntimeDefault", podSC.SeccompProfile)
+	}
+
+	c := dep.Spec.Template.Spec.Containers[0]
+	sc := c.SecurityContext
+	if sc == nil {
+		t.Fatal("missing container securityContext")
+	}
+	if sc.AllowPrivilegeEscalation == nil || *sc.AllowPrivilegeEscalation {
+		t.Error("container allowPrivilegeEscalation must be false")
+	}
+	if sc.ReadOnlyRootFilesystem == nil || !*sc.ReadOnlyRootFilesystem {
+		t.Error("container readOnlyRootFilesystem must be true")
+	}
+	if sc.RunAsNonRoot == nil || !*sc.RunAsNonRoot {
+		t.Error("container runAsNonRoot must be true")
+	}
+	if sc.RunAsUser == nil || *sc.RunAsUser != 65532 {
+		t.Errorf("container runAsUser:\ngot:  %+v\nwant: 65532", sc.RunAsUser)
+	}
+	if sc.RunAsGroup == nil || *sc.RunAsGroup != 65532 {
+		t.Errorf("container runAsGroup:\ngot:  %+v\nwant: 65532", sc.RunAsGroup)
+	}
+	if sc.Privileged != nil && *sc.Privileged {
+		t.Error("container privileged must be false")
+	}
+	if sc.Capabilities == nil || len(sc.Capabilities.Drop) != 1 || sc.Capabilities.Drop[0] != "ALL" {
+		t.Errorf("container capabilities.drop:\ngot:  %+v\nwant: [ALL]", sc.Capabilities)
+	}
+	if sc.SeccompProfile == nil || sc.SeccompProfile.Type != corev1.SeccompProfileTypeRuntimeDefault {
+		t.Errorf("container seccompProfile.type:\ngot:  %+v\nwant: RuntimeDefault", sc.SeccompProfile)
 	}
 }
 

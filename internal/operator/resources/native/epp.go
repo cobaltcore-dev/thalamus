@@ -115,7 +115,21 @@ func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 		Name:            "epp",
 		Image:           epp.Image,
 		ImagePullPolicy: corev1.PullIfNotPresent,
-		Args:            args,
+		SecurityContext: &corev1.SecurityContext{
+			AllowPrivilegeEscalation: new(false),
+			ReadOnlyRootFilesystem:   new(true),
+			RunAsNonRoot:             new(true),
+			RunAsUser:                new(int64(65532)),
+			RunAsGroup:               new(int64(65532)),
+			Privileged:               new(false),
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{"ALL"},
+			},
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
+			},
+		},
+		Args: args,
 		Env: append([]corev1.EnvVar{
 			{
 				Name: "NAMESPACE",
@@ -170,7 +184,15 @@ func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 				Spec: corev1.PodSpec{
 					ServiceAccountName:            model.EPPName(),
 					TerminationGracePeriodSeconds: new(int64(130)),
-					Containers:                    []corev1.Container{container},
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsNonRoot: new(true),
+						RunAsUser:    new(int64(65532)),
+						RunAsGroup:   new(int64(65532)),
+						SeccompProfile: &corev1.SeccompProfile{
+							Type: corev1.SeccompProfileTypeRuntimeDefault,
+						},
+					},
+					Containers: []corev1.Container{container},
 					Volumes: []corev1.Volume{
 						{
 							Name: "config",
