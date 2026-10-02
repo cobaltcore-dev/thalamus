@@ -20,6 +20,7 @@ spec:
         - --enforce-eager
         - --enable-auto-tool-choice
         - --tool-call-parser=apertus
+        - --override-generation-config={"temperature":0}
       env:
         - name: VLLM_CPU_KVCACHE_SPACE
           value: "1"
