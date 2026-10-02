@@ -12,7 +12,7 @@ spec:
   replicas: 1
   serving:
     engine:
-      image: docker.io/vllm/vllm-openai:v0.26.0
+      image: docker.io/vllm/vllm-openai:v0.27.0
       args:
         - --disable-uvicorn-access-log
         - --gpu-memory-utilization=0.95
