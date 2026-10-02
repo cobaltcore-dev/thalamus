@@ -115,6 +115,9 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 			RunAsNonRoot: new(true),
 			RunAsUser:    new(int64(65532)),
 			RunAsGroup:   new(int64(65532)),
+			// Chowns cache volume to group 65532; pre-populated PVC
+			// stays writable regardless of seeding uid
+			FSGroup: new(int64(65532)),
 			SeccompProfile: &corev1.SeccompProfile{
 				Type: corev1.SeccompProfileTypeRuntimeDefault,
 			},

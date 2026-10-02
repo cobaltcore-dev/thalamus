@@ -117,6 +117,9 @@ func TestBuildEngineDeploymentSecurity(t *testing.T) {
 	if podSC.RunAsGroup == nil || *podSC.RunAsGroup != 65532 {
 		t.Errorf("pod runAsGroup:\ngot:  %+v\nwant: 65532", podSC.RunAsGroup)
 	}
+	if podSC.FSGroup == nil || *podSC.FSGroup != 65532 {
+		t.Errorf("pod fsGroup:\ngot:  %+v\nwant: 65532", podSC.FSGroup)
+	}
 	if podSC.SeccompProfile == nil || podSC.SeccompProfile.Type != corev1.SeccompProfileTypeRuntimeDefault {
 		t.Errorf("pod seccompProfile.type:\ngot:  %+v\nwant: RuntimeDefault", podSC.SeccompProfile)
 	}
