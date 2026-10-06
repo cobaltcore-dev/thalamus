@@ -4,6 +4,6 @@ dependencies:
   version: v1.5.0
 - name: open-webui
   repository: oci://ghcr.io/open-webui/helm-charts
-  version: 16.5.0
-digest: sha256:0974bcca1fd31a6c424f93c8536d91d53315899dca00f54b35aa3434f2ab5559
-generated: "2026-09-25T15:07:06.001978+02:00"
+  version: 16.6.0
+digest: sha256:0f739885120318b3f26008001ab3e2bbbb228de459b47ebbd5de4a7decb2b071
+generated: "2026-10-06T12:05:42.176621561Z"
