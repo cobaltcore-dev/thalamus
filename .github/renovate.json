@@ -66,6 +66,28 @@
       "groupName": "gateway-api-inference-extension",
       "automerge": false,
       "rebaseWhen": "never"
+    },
+    {
+      "description": "Keep agentgateway and agentgateway-crds in lockstep",
+      "matchDatasources": ["docker", "helm"],
+      "matchPackageNames": [
+        "agentgateway",
+        "agentgateway-crds",
+        "cr.agentgateway.dev/charts/agentgateway",
+        "cr.agentgateway.dev/charts/agentgateway-crds"
+      ],
+      "groupName": "agentgateway",
+      "groupSlug": "agentgateway"
+    },
+    {
+      "description": "Group plain helm open-webui dep with helmfile",
+      "matchDatasources": ["docker", "helm"],
+      "matchPackageNames": [
+        "open-webui",
+        "ghcr.io/open-webui/helm-charts/open-webui"
+      ],
+      "groupName": "open-webui",
+      "groupSlug": "open-webui"
     }
   ],
   "prHourlyLimit": 0,
