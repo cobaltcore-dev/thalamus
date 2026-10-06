@@ -9,15 +9,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/yaml"
 
-	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
 )
 
-const testEPPImage = "test/epp:latest"
+const wantEPPUID = 65532
 
 func TestBuildEPPServiceAccount(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
-	model.Spec.Serving.EPP = &v1alpha1.EPPSpec{Image: testEPPImage}
 	sa := BuildEPPServiceAccount(model)
 	if sa.Name != model.EPPName() {
 		t.Errorf("Name:\ngot:  %q\nwant: %q", sa.Name, model.EPPName())
@@ -26,7 +24,6 @@ func TestBuildEPPServiceAccount(t *testing.T) {
 
 func TestBuildEPPRole(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
-	model.Spec.Serving.EPP = &v1alpha1.EPPSpec{Image: testEPPImage}
 	role := BuildEPPRole(model)
 	if role.Name != model.EPPName() {
 		t.Errorf("Name:\ngot:  %q\nwant: %q", role.Name, model.EPPName())
@@ -38,7 +35,6 @@ func TestBuildEPPRole(t *testing.T) {
 
 func TestBuildEPPRoleBinding(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
-	model.Spec.Serving.EPP = &v1alpha1.EPPSpec{Image: testEPPImage}
 	rb := BuildEPPRoleBinding(model)
 	if rb.RoleRef.Name != model.EPPName() {
 		t.Errorf("RoleRef.Name:\ngot:  %q\nwant: %q", rb.RoleRef.Name, model.EPPName())
@@ -50,7 +46,6 @@ func TestBuildEPPRoleBinding(t *testing.T) {
 
 func TestBuildEPPConfigMap(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
-	model.Spec.Serving.EPP = &v1alpha1.EPPSpec{Image: testEPPImage}
 	cm := BuildEPPConfigMap(model)
 	cfg, ok := cm.Data[eppConfigKey]
 	if !ok {
@@ -83,15 +78,14 @@ func TestBuildEPPConfigMap(t *testing.T) {
 
 func TestBuildEPPDeployment(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
-	model.Spec.Serving.EPP = &v1alpha1.EPPSpec{Image: testEPPImage}
 	dep := BuildEPPDeployment(model)
 
 	if dep.Name != model.EPPName() {
 		t.Errorf("Name:\ngot:  %q\nwant: %q", dep.Name, model.EPPName())
 	}
 	c := dep.Spec.Template.Spec.Containers[0]
-	if c.Image != testEPPImage {
-		t.Errorf("Image:\ngot:  %q\nwant: %q", c.Image, testEPPImage)
+	if c.Image != model.Spec.Serving.EPP.Image {
+		t.Errorf("Image:\ngot:  %q\nwant: %q", c.Image, model.Spec.Serving.EPP.Image)
 	}
 	if dep.Spec.Template.Spec.ServiceAccountName != model.EPPName() {
 		t.Errorf("ServiceAccountName:\ngot:  %q\nwant: %q", dep.Spec.Template.Spec.ServiceAccountName, model.EPPName())
@@ -109,7 +103,6 @@ func TestBuildEPPDeployment(t *testing.T) {
 
 func TestBuildEPPDeploymentSecurity(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
-	model.Spec.Serving.EPP = &v1alpha1.EPPSpec{Image: testEPPImage}
 	dep := BuildEPPDeployment(model)
 
 	podSC := dep.Spec.Template.Spec.SecurityContext
@@ -119,11 +112,11 @@ func TestBuildEPPDeploymentSecurity(t *testing.T) {
 	if podSC.RunAsNonRoot == nil || !*podSC.RunAsNonRoot {
 		t.Error("pod runAsNonRoot must be true")
 	}
-	if podSC.RunAsUser == nil || *podSC.RunAsUser != 65532 {
-		t.Errorf("pod runAsUser:\ngot:  %+v\nwant: 65532", podSC.RunAsUser)
+	if podSC.RunAsUser == nil || *podSC.RunAsUser != wantEPPUID {
+		t.Errorf("pod runAsUser:\ngot:  %+v\nwant: %d", podSC.RunAsUser, wantEPPUID)
 	}
-	if podSC.RunAsGroup == nil || *podSC.RunAsGroup != 65532 {
-		t.Errorf("pod runAsGroup:\ngot:  %+v\nwant: 65532", podSC.RunAsGroup)
+	if podSC.RunAsGroup == nil || *podSC.RunAsGroup != wantEPPUID {
+		t.Errorf("pod runAsGroup:\ngot:  %+v\nwant: %d", podSC.RunAsGroup, wantEPPUID)
 	}
 	if podSC.SeccompProfile == nil || podSC.SeccompProfile.Type != corev1.SeccompProfileTypeRuntimeDefault {
 		t.Errorf("pod seccompProfile.type:\ngot:  %+v\nwant: RuntimeDefault", podSC.SeccompProfile)
@@ -143,11 +136,11 @@ func TestBuildEPPDeploymentSecurity(t *testing.T) {
 	if sc.RunAsNonRoot == nil || !*sc.RunAsNonRoot {
 		t.Error("container runAsNonRoot must be true")
 	}
-	if sc.RunAsUser == nil || *sc.RunAsUser != 65532 {
-		t.Errorf("container runAsUser:\ngot:  %+v\nwant: 65532", sc.RunAsUser)
+	if sc.RunAsUser == nil || *sc.RunAsUser != wantEPPUID {
+		t.Errorf("container runAsUser:\ngot:  %+v\nwant: %d", sc.RunAsUser, wantEPPUID)
 	}
-	if sc.RunAsGroup == nil || *sc.RunAsGroup != 65532 {
-		t.Errorf("container runAsGroup:\ngot:  %+v\nwant: 65532", sc.RunAsGroup)
+	if sc.RunAsGroup == nil || *sc.RunAsGroup != wantEPPUID {
+		t.Errorf("container runAsGroup:\ngot:  %+v\nwant: %d", sc.RunAsGroup, wantEPPUID)
 	}
 	if sc.Privileged != nil && *sc.Privileged {
 		t.Error("container privileged must be false")
@@ -162,7 +155,6 @@ func TestBuildEPPDeploymentSecurity(t *testing.T) {
 
 func TestBuildEPPService(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
-	model.Spec.Serving.EPP = &v1alpha1.EPPSpec{Image: testEPPImage}
 	svc := BuildEPPService(model)
 	if svc.Name != model.EPPName() {
 		t.Errorf("Name:\ngot:  %q\nwant: %q", svc.Name, model.EPPName())
