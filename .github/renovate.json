@@ -42,10 +42,6 @@
       "allowedVersions": "1.27.x"
     },
     {
-      "matchPackageNames": ["cr.agentgateway.dev/charts/agentgateway", "cr.agentgateway.dev/charts/agentgateway-crds"],
-      "allowedVersions": "/^v1\\./"
-    },
-    {
       "matchPackageNames": ["/.*/"],
       "automerge": true
     },
@@ -68,7 +64,7 @@
       "rebaseWhen": "never"
     },
     {
-      "description": "Keep agentgateway and agentgateway-crds in lockstep",
+      "description": ["Keep agentgateway and agentgateway-crds in lockstep"],
       "matchDatasources": ["docker", "helm"],
       "matchPackageNames": [
         "agentgateway",
@@ -76,11 +72,12 @@
         "cr.agentgateway.dev/charts/agentgateway",
         "cr.agentgateway.dev/charts/agentgateway-crds"
       ],
+      "allowedVersions": "/^v1\\./",
       "groupName": "agentgateway",
       "groupSlug": "agentgateway"
     },
     {
-      "description": "Group plain helm open-webui dep with helmfile",
+      "description": ["Group plain helm open-webui dep with helmfile"],
       "matchDatasources": ["docker", "helm"],
       "matchPackageNames": [
         "open-webui",
