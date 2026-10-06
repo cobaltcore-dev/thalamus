@@ -132,14 +132,14 @@ func TestBuildEngineDeploymentSecurity(t *testing.T) {
 	if podSC.RunAsNonRoot == nil || !*podSC.RunAsNonRoot {
 		t.Error("pod runAsNonRoot must be true")
 	}
-	if podSC.RunAsUser == nil || *podSC.RunAsUser != 65532 {
-		t.Errorf("pod runAsUser:\ngot:  %+v\nwant: 65532", podSC.RunAsUser)
+	if podSC.RunAsUser == nil || *podSC.RunAsUser != 65534 {
+		t.Errorf("pod runAsUser:\ngot:  %+v\nwant: 65534", podSC.RunAsUser)
 	}
-	if podSC.RunAsGroup == nil || *podSC.RunAsGroup != 65532 {
-		t.Errorf("pod runAsGroup:\ngot:  %+v\nwant: 65532", podSC.RunAsGroup)
+	if podSC.RunAsGroup == nil || *podSC.RunAsGroup != 65534 {
+		t.Errorf("pod runAsGroup:\ngot:  %+v\nwant: 65534", podSC.RunAsGroup)
 	}
-	if podSC.FSGroup == nil || *podSC.FSGroup != 65532 {
-		t.Errorf("pod fsGroup:\ngot:  %+v\nwant: 65532", podSC.FSGroup)
+	if podSC.FSGroup == nil || *podSC.FSGroup != 65534 {
+		t.Errorf("pod fsGroup:\ngot:  %+v\nwant: 65534", podSC.FSGroup)
 	}
 	if podSC.SeccompProfile == nil || podSC.SeccompProfile.Type != corev1.SeccompProfileTypeRuntimeDefault {
 		t.Errorf("pod seccompProfile.type:\ngot:  %+v\nwant: RuntimeDefault", podSC.SeccompProfile)
@@ -159,11 +159,11 @@ func TestBuildEngineDeploymentSecurity(t *testing.T) {
 	if sc.RunAsNonRoot == nil || !*sc.RunAsNonRoot {
 		t.Error("container runAsNonRoot must be true")
 	}
-	if sc.RunAsUser == nil || *sc.RunAsUser != 65532 {
-		t.Errorf("container runAsUser:\ngot:  %+v\nwant: 65532", sc.RunAsUser)
+	if sc.RunAsUser == nil || *sc.RunAsUser != 65534 {
+		t.Errorf("container runAsUser:\ngot:  %+v\nwant: 65534", sc.RunAsUser)
 	}
-	if sc.RunAsGroup == nil || *sc.RunAsGroup != 65532 {
-		t.Errorf("container runAsGroup:\ngot:  %+v\nwant: 65532", sc.RunAsGroup)
+	if sc.RunAsGroup == nil || *sc.RunAsGroup != 65534 {
+		t.Errorf("container runAsGroup:\ngot:  %+v\nwant: 65534", sc.RunAsGroup)
 	}
 	if sc.Privileged != nil && *sc.Privileged {
 		t.Error("container privileged must be false")

@@ -32,6 +32,9 @@ const (
 
 	// eppHealthService is the gRPC health probe service name.
 	eppHealthService = "inference-extension"
+
+	// distrolessNobody is the distroless "nobody" uid/gid.
+	distrolessNobody int64 = 65532
 )
 
 //go:embed epp_config.yaml
@@ -119,8 +122,8 @@ func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 			AllowPrivilegeEscalation: new(false),
 			ReadOnlyRootFilesystem:   new(true),
 			RunAsNonRoot:             new(true),
-			RunAsUser:                new(nobody),
-			RunAsGroup:               new(nobody),
+			RunAsUser:                new(distrolessNobody),
+			RunAsGroup:               new(distrolessNobody),
 			Privileged:               new(false),
 			Capabilities: &corev1.Capabilities{
 				Drop: []corev1.Capability{"ALL"},
@@ -186,8 +189,8 @@ func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 					TerminationGracePeriodSeconds: new(int64(130)),
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsNonRoot: new(true),
-						RunAsUser:    new(nobody),
-						RunAsGroup:   new(nobody),
+						RunAsUser:    new(distrolessNobody),
+						RunAsGroup:   new(distrolessNobody),
 						SeccompProfile: &corev1.SeccompProfile{
 							Type: corev1.SeccompProfileTypeRuntimeDefault,
 						},
