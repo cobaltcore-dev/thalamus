@@ -40,6 +40,10 @@ jobs:
           path: .cortex-agent
           sparse-checkout: .github/actions
 
+      - name: Parse cortex agents config
+        id: cfg
+        uses: ./.cortex-agent/.github/actions/parse-cortex-config
+
       - name: Setup Helm
         uses: azure/setup-helm@v5
         with:
@@ -51,6 +55,7 @@ jobs:
           github_app_id: ${{ secrets.CORTEX_AI_AGENTS_APP_ID }}
           github_app_private_key: ${{ secrets.CORTEX_AI_AGENTS_CLIENT_PKEY }}
           litellm_model: "sap/anthropic--claude-4.6-opus"
+          allowed_bots: ${{ steps.cfg.outputs.allowed_bots }}
           prompt: "/helm-changelog PR #${{ github.event.pull_request.number || inputs.pr_number }}"
           claude_args: |
             --max-turns 50
