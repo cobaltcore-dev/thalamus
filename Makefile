@@ -55,6 +55,48 @@ helm-unittest: ## Run Helm unit tests for the thalamus chart.
 	fi
 	helm unittest helm/thalamus
 
+KIND_ACTIVE ?= $(shell kind get clusters 2>/dev/null | grep thalamus | head -n 1)
+REF ?= $(shell git branch --show-current)
+REPOSITORY ?= cobaltcore-dev/thalamus
+THALAMUS_CHART_LOCATION ?= ../helm
+THALAMUS_CHART_VERSION ?=
+OPERATOR_IMAGE_TAG ?= dev
+
+.PHONY: quarto
+quarto: kind-ensure quarto-setup ## Assert the cluster, then render+execute docs/*.qmd with the env coordinates.
+	@test -n "$$HF_TOKEN" || { echo "HF_TOKEN must be set"; exit 1; }
+	@REF="$(REF)" \
+	REPOSITORY="$(REPOSITORY)" \
+	THALAMUS_CHART_LOCATION="$(THALAMUS_CHART_LOCATION)" \
+	THALAMUS_CHART_VERSION="$(THALAMUS_CHART_VERSION)" \
+	OPERATOR_IMAGE_TAG="$(OPERATOR_IMAGE_TAG)" \
+	QUARTO_PYTHON="$(CURDIR)/.venv/bin/python" \
+	JUPYTER_PATH="$(CURDIR)/.venv/share/jupyter" \
+	for qmd in docs/*.qmd; do \
+		quarto render "$$qmd" --to gfm --execute -o - > "website/$$(basename "$$qmd" .qmd).md"; \
+	done
+
+.PHONY: quarto-setup
+quarto-setup: ## Assert quarto exists; create .venv and install the bash kernel if needed.
+	@command -v quarto >/dev/null || { echo "quarto not found. Install it: https://quarto.org/docs/get-started/"; exit 1; }
+	@[ -x .venv/bin/python ] || python3 -m venv .venv
+	@.venv/bin/python -c "import bash_kernel" 2>/dev/null || .venv/bin/pip install jupyter bash_kernel
+	@[ -d "$$(.venv/bin/jupyter --data-dir)/kernels/bash" ] || .venv/bin/python -m bash_kernel.install --user
+
+.PHONY: docker-build
+docker-build: ## Build the operator image and load it into kind.
+	docker build -t ghcr.io/cobaltcore-dev/thalamus:$(OPERATOR_IMAGE_TAG) -f Dockerfile .
+	kind load docker-image ghcr.io/cobaltcore-dev/thalamus:$(OPERATOR_IMAGE_TAG) --name $(KIND_ACTIVE)
+
+.PHONY: helm-build
+helm-build: ## Build local chart dependencies.
+	$(MAKE) -C helm build
+
+.PHONY: kind-ensure
+kind-ensure: ## Use a kind cluster with "thalamus" in its name, creating one with defaults if missing.
+	@[ -n "$(KIND_ACTIVE)" ] || kind create cluster --name thalamus
+	kubectl config use-context kind-$(KIND_ACTIVE)
+
 .PHONY: testsum
 testsum: gotestsum ## Run all tests (clean output for passing, verbose for failing). Options: WATCH=1, RUN=<pattern>, PACKAGE=<pkg>, FORMAT=<fmt>
 	$(GOTESTSUM) \

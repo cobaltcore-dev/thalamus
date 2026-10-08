@@ -54,16 +54,19 @@ and agentgateway data plane). Everything is enabled by default:
 
 ```{bash}
 #| include: false
+#| label: guard-kind-context
 set -uo pipefail
 kubectl config current-context | grep -q '^kind-'
 ```
 
 ```{bash}
+#| label: install-crds
 helm upgrade --install thalamus-crds "${THALAMUS_CHART_LOCATION}/thalamus-crds" \
   --namespace thalamus --create-namespace --wait --timeout=600s --version "$THALAMUS_CHART_VERSION"
 ```
 
 ```{bash}
+#| label: install-operator
 helm upgrade --install thalamus "${THALAMUS_CHART_LOCATION}/thalamus" \
   --namespace thalamus --wait --timeout=600s --version "$THALAMUS_CHART_VERSION" --set operator.image.tag="$OPERATOR_IMAGE_TAG"
 ```
@@ -103,6 +106,7 @@ exist before you deploy a model in Step 3. Create a secret named `hf-token`
 with key `HF_TOKEN` in the `thalamus` namespace:
 
 ```{bash}
+#| label: create-hf-secret
 kubectl create secret generic hf-token \
   --from-literal=HF_TOKEN="$HF_TOKEN" \
   --namespace thalamus
@@ -130,12 +134,14 @@ kubectl wait model/qwen3-6-27b --namespace thalamus --for=condition=Ready --time
 For a CPU-only or local development setup, use the SmolLM2 example:
 
 ```{bash}
+#| label: deploy-model-cpu
 kubectl apply -f "https://raw.githubusercontent.com/${REPOSITORY}/${REF}/examples/model-smollm2-cpu.yaml"
 ```
 
 Wait for the model to become ready:
 
 ```{bash}
+#| label: wait-model-ready
 kubectl wait model --all --namespace thalamus --for=condition=Ready --timeout=600s
 ```
 
@@ -156,6 +162,7 @@ progress with `kubectl get svc inference-gateway -n thalamus`.
 **With port-forward (local clusters without a `LoadBalancer`):**
 
 ```{bash}
+#| label: port-forward-gateway
 kubectl port-forward svc/inference-gateway 8080:80 --namespace thalamus &
 sleep 3
 ```
@@ -164,11 +171,13 @@ The checks below read the model id from `$MODEL`, derived from the deployed
 `Model` resource:
 
 ```{bash}
+#| label: export-model-id
 export MODEL="$(kubectl get model --namespace thalamus -o json | jq -r '.items[0].spec.weights.hf.repoId')"
 ```
 
 ```{bash}
 #| include: false
+#| label: wait-gateway-programmed
 kubectl wait gateway/inference-gateway --namespace thalamus --for=condition=Programmed=True --timeout=120s
 ```
 
@@ -189,6 +198,7 @@ curl "http://$GATEWAY_HOST/v1/chat/completions" \
 
 ::: details Verify with the Python SDK
 ```{bash}
+#| label: verify-openai-chat
 python3 -m pip install "openai>=2,<3" "anthropic>=0.49" && python3 - <<'EOF'
 import os
 from openai import OpenAI
@@ -213,6 +223,7 @@ EOF
 ```
 
 ```{bash}
+#| label: verify-openai-responses
 python3 - <<'EOF'
 import os
 from openai import OpenAI
@@ -228,6 +239,7 @@ EOF
 ```
 
 ```{bash}
+#| label: verify-anthropic-messages
 python3 - <<'EOF'
 import os
 from anthropic import Anthropic

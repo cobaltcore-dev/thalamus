@@ -25,9 +25,6 @@ jobs:
     env:
       REF: ${{ github.head_ref || github.ref_name }}
       REPOSITORY: ${{ github.repository }}
-      THALAMUS_CHART_LOCATION: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && 'oci://ghcr.io/cobaltcore-dev/charts' || '../helm' }}
-      THALAMUS_CHART_VERSION: ${{ github.ref == 'refs/heads/main' && '0.0.0-main' || startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
-      OPERATOR_IMAGE_TAG: ${{ github.ref == 'refs/heads/main' && 'main' || startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'pr' }}
     steps:
       - name: Check out code
         uses: actions/checkout@v7.0.1
@@ -46,40 +43,30 @@ jobs:
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
 
-      - name: Set up Python + bash kernel
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Install bash kernel
-        run: |
-          pip install jupyter bash_kernel
-          python -m bash_kernel.install --user
-
-      - name: Build local charts and image
+      - name: Execute docs (PR)
         if: ${{ !(github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
-        run: |
-          helm dependency build helm/thalamus-crds
-          helm dependency build helm/thalamus
-          docker build -t ghcr.io/cobaltcore-dev/thalamus:pr -f Dockerfile .
-          kind load docker-image ghcr.io/cobaltcore-dev/thalamus:pr \
-            --name thalamus
-
-      - name: Wait for published chart and image
-        if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
-        timeout-minutes: 10
-        run: |
-          until helm show chart oci://ghcr.io/cobaltcore-dev/charts/thalamus --version "$THALAMUS_CHART_VERSION" >/dev/null 2>&1 \
-            && docker manifest inspect ghcr.io/cobaltcore-dev/thalamus:"$OPERATOR_IMAGE_TAG" >/dev/null 2>&1; do
-            sleep 15
-          done
-
-      - name: Execute docs
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: make docker-build helm-build quarto
+
+      - name: Execute docs (release)
+        if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          THALAMUS_CHART_LOCATION: oci://ghcr.io/cobaltcore-dev/charts
+          THALAMUS_CHART_VERSION: ${{ github.ref == 'refs/heads/main' && '0.0.0-main' || github.ref_name }}
+          OPERATOR_IMAGE_TAG: ${{ github.ref_name }}
         run: |
-          quarto render docs/getting-started.qmd --to gfm --execute -o - > website/getting-started.md
-          test -f website/getting-started.md
+          until helm show chart "${THALAMUS_CHART_LOCATION}/thalamus" --version "$THALAMUS_CHART_VERSION" >/dev/null 2>&1 \
+            && docker manifest inspect "ghcr.io/${REPOSITORY}:${OPERATOR_IMAGE_TAG}" >/dev/null 2>&1; do
+            sleep 15
+          done
+          make quarto
 
       - name: Debug on failure
         if: failure()
