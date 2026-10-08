@@ -135,7 +135,7 @@ For a CPU-only or local development setup, use the SmolLM2 example:
 
 ```{bash}
 #| label: deploy-model-cpu
-kubectl apply -f "https://raw.githubusercontent.com/${REPOSITORY}/${REF}/examples/model-smollm2-cpu.yaml"
+kubectl apply -f "${ROOT:-$(git rev-parse --show-toplevel)}/examples/model-smollm2-cpu.yaml"
 ```
 
 Wait for the model to become ready:
@@ -165,6 +165,7 @@ progress with `kubectl get svc inference-gateway -n thalamus`.
 #| label: port-forward-gateway
 kubectl port-forward svc/inference-gateway 8080:80 --namespace thalamus &
 sleep 3
+export GATEWAY_HOST="localhost:8080"
 ```
 
 The checks below read the model id from `$MODEL`, derived from the deployed
@@ -181,17 +182,20 @@ export MODEL="$(kubectl get model --namespace thalamus -o json | jq -r '.items[0
 kubectl wait gateway/inference-gateway --namespace thalamus --for=condition=Programmed=True --timeout=120s
 ```
 
-Then test the API:
+Then test the API (against the port-forward here; on a cloud cluster swap in
+`$GATEWAY_HOST`):
 
-```bash
-curl "http://$GATEWAY_HOST/v1/models"
+```{bash}
+#| label: curl-models
+curl -s "http://$GATEWAY_HOST/v1/models"
 ```
 
-```bash
-curl "http://$GATEWAY_HOST/v1/chat/completions" \
+```{bash}
+#| label: curl-chat
+curl -s "http://$GATEWAY_HOST/v1/chat/completions" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "<model-id>",
+    "model": "'"$MODEL"'",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
 ```
@@ -204,7 +208,8 @@ import os
 from openai import OpenAI
 
 model = os.environ["MODEL"]
-client = OpenAI(base_url="http://localhost:8080/v1", api_key="e2e", timeout=120.0)
+gateway = os.environ["GATEWAY_HOST"]
+client = OpenAI(base_url=f"http://{gateway}/v1", api_key="e2e", timeout=120.0)
 ids = [m.id for m in client.models.list()]
 assert model in ids, f"model {model!r} not in /v1/models: {ids}"
 print("PASS: GET /v1/models")
@@ -229,7 +234,8 @@ import os
 from openai import OpenAI
 
 model = os.environ["MODEL"]
-client = OpenAI(base_url="http://localhost:8080/v1", api_key="e2e", timeout=120.0)
+gateway = os.environ["GATEWAY_HOST"]
+client = OpenAI(base_url=f"http://{gateway}/v1", api_key="e2e", timeout=120.0)
 prompt = "What is the capital of France? Answer with a single word."
 response = client.responses.create(model=model, input=prompt)
 content = response.output_text
@@ -245,7 +251,8 @@ import os
 from anthropic import Anthropic
 
 model = os.environ["MODEL"]
-client = Anthropic(base_url="http://localhost:8080", api_key="e2e", timeout=120.0)
+gateway = os.environ["GATEWAY_HOST"]
+client = Anthropic(base_url=f"http://{gateway}", api_key="e2e", timeout=120.0)
 prompt = "What is the capital of France? Answer with a single word."
 message = client.messages.create(
     model=model,

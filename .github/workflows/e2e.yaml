@@ -56,7 +56,7 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           DOCKER_BUILD_ARGS: --cache-from type=gha --cache-to type=gha,mode=max
-        run: make docker-build helm-build quarto
+        run: make kind-load helm-build quarto
 
       - name: Execute docs (release)
         if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
@@ -65,6 +65,7 @@ jobs:
           THALAMUS_CHART_LOCATION: oci://ghcr.io/cobaltcore-dev/charts
           THALAMUS_CHART_VERSION: ${{ github.ref == 'refs/heads/main' && '0.0.0-main' || github.ref_name }}
           OPERATOR_IMAGE_TAG: ${{ github.ref_name }}
+          ROOT: https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}
         run: |
           until helm show chart "${THALAMUS_CHART_LOCATION}/thalamus" --version "$THALAMUS_CHART_VERSION" >/dev/null 2>&1 \
             && docker manifest inspect "ghcr.io/${REPOSITORY}:${OPERATOR_IMAGE_TAG}" >/dev/null 2>&1; do

@@ -62,6 +62,7 @@ THALAMUS_CHART_LOCATION ?= ../helm
 THALAMUS_CHART_VERSION ?=
 OPERATOR_IMAGE_TAG ?= dev
 DOCKER_BUILD_ARGS ?=
+ROOT ?= $(CURDIR)
 
 .PHONY: quarto
 quarto: kind-ensure quarto-setup ## Assert the cluster, then render+execute docs/*.qmd with the env coordinates.
@@ -71,8 +72,8 @@ quarto: kind-ensure quarto-setup ## Assert the cluster, then render+execute docs
 		THALAMUS_CHART_LOCATION="$(THALAMUS_CHART_LOCATION)" \
 		THALAMUS_CHART_VERSION="$(THALAMUS_CHART_VERSION)" \
 		OPERATOR_IMAGE_TAG="$(OPERATOR_IMAGE_TAG)" \
-		QUARTO_PYTHON="$(CURDIR)/.venv/bin/python" \
-		JUPYTER_PATH="$(CURDIR)/.venv/share/jupyter"; \
+		ROOT="$(ROOT)" \
+		PATH="$(CURDIR)/.venv/bin:$$PATH"; \
 	for qmd in docs/*.qmd; do \
 		quarto render "$$qmd" --to gfm --execute -o - > "website/$$(basename "$$qmd" .qmd).md"; \
 	done
@@ -81,12 +82,20 @@ quarto: kind-ensure quarto-setup ## Assert the cluster, then render+execute docs
 quarto-setup: ## Assert quarto exists; create .venv and install the bash kernel if needed.
 	@command -v quarto >/dev/null || { echo "quarto not found. Install it: https://quarto.org/docs/get-started/"; exit 1; }
 	@[ -x .venv/bin/python ] || python3 -m venv .venv
+	@.venv/bin/python -m pip --version >/dev/null 2>&1 || .venv/bin/python -m ensurepip >/dev/null
 	@.venv/bin/python -c "import bash_kernel" 2>/dev/null || .venv/bin/pip install jupyter bash_kernel
 	@[ -d "$$(.venv/bin/jupyter --data-dir)/kernels/bash" ] || .venv/bin/python -m bash_kernel.install --user
 
+.PHONY: kind-destroy
+kind-destroy: ## Delete the thalamus kind cluster.
+	@[ -n "$(KIND_ACTIVE)" ] && kind delete cluster --name $(KIND_ACTIVE) || true
+
 .PHONY: docker-build
-docker-build: ## Build the operator image and load it into kind.
+docker-build: ## Build the operator image.
 	docker build $(DOCKER_BUILD_ARGS) -t ghcr.io/cobaltcore-dev/thalamus:$(OPERATOR_IMAGE_TAG) -f Dockerfile .
+
+.PHONY: kind-load
+kind-load: kind-ensure docker-build ## Build the operator image and load it into kind.
 	kind load docker-image ghcr.io/cobaltcore-dev/thalamus:$(OPERATOR_IMAGE_TAG) --name $(KIND_ACTIVE)
 
 .PHONY: helm-build
