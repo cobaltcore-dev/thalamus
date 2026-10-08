@@ -1,0 +1,279 @@
+# SPDX-FileCopyrightText: Copyright 2026 SAP SE or an SAP affiliate company and cobaltcore-dev contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Single-file variant: the root component and all building blocks it
+# references are defined together in this one constructor. One RGD on
+# the root orchestrates everything; the referenced components carry only
+# their charts.
+components:
+  - name: github.com/cobaltcore-dev/thalamus
+    version: 0.1.0
+    provider:
+      name: cobaltcore-dev
+    resources:
+      - name: thalamus-chart
+        type: helmChart
+        version: 0.1.0
+        input:
+          type: Helm/v1
+          path: helm/thalamus
+          repository: charts/thalamus:0.1.0
+      - name: thalamus-rgd
+        type: blob
+        version: 0.1.0
+        input:
+          type: File/v1
+          path: ocm-single-component/deploy/rgd.yaml
+          mediaType: application/vnd.cncf.kro.resourcegraphdefinition.v1+yaml
+      - name: operator-image
+        type: ociImage
+        version: 0.1.0
+        access:
+          type: ociArtifact
+          imageReference: ghcr.io/cobaltcore-dev/thalamus:latest
+      - name: epp-image
+        type: ociImage
+        version: v0.9.0
+        access:
+          type: ociArtifact
+          imageReference: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0
+    componentReferences:
+      - name: thalamus-crds
+        componentName: github.com/cobaltcore-dev/thalamus/thalamus-crds
+        version: 0.1.0
+      - name: gateway-api-crds
+        componentName: github.com/cobaltcore-dev/thalamus/gateway-api-crds
+        version: 1.5.1
+      - name: gateway-api-inference-extension-crds
+        componentName: github.com/cobaltcore-dev/thalamus/gateway-api-inference-extension-crds
+        version: 1.5.0
+      - name: node-feature-discovery
+        componentName: github.com/cobaltcore-dev/thalamus/node-feature-discovery
+        version: 0.19.0
+      - name: gpu-operator
+        componentName: github.com/cobaltcore-dev/thalamus/gpu-operator
+        version: v26.3.3
+      - name: kube-prometheus-stack
+        componentName: github.com/cobaltcore-dev/thalamus/kube-prometheus-stack
+        version: 87.15.1
+      - name: agentgateway-crds
+        componentName: github.com/cobaltcore-dev/thalamus/agentgateway-crds
+        version: v1.3.1
+      - name: agentgateway
+        componentName: github.com/cobaltcore-dev/thalamus/agentgateway
+        version: v1.3.1
+      - name: external-dns
+        componentName: github.com/cobaltcore-dev/thalamus/external-dns
+        version: 1.19.0
+      - name: open-webui
+        componentName: github.com/cobaltcore-dev/thalamus/open-webui
+        version: 15.2.0
+
+  - name: github.com/cobaltcore-dev/thalamus/thalamus-crds
+    version: 0.1.0
+    provider:
+      name: cobaltcore-dev
+    resources:
+      - name: thalamus-crds-chart
+        type: helmChart
+        version: 0.1.0
+        input:
+          type: Helm/v1
+          path: helm/thalamus-crds
+          repository: charts/thalamus-crds:0.1.0
+
+  - name: github.com/cobaltcore-dev/thalamus/gateway-api-crds
+    version: 1.5.1
+    provider:
+      name: cobaltcore-dev
+    resources:
+      - name: gateway-api-chart
+        type: helmChart
+        version: 1.5.1
+        input:
+          type: Helm/v1
+          path: helm/gateway-api
+          repository: charts/gateway-api:1.5.1
+
+  - name: github.com/cobaltcore-dev/thalamus/gateway-api-inference-extension-crds
+    version: 1.5.0
+    provider:
+      name: cobaltcore-dev
+    resources:
+      - name: gateway-api-inference-extension-chart
+        type: helmChart
+        version: 1.5.0
+        input:
+          type: Helm/v1
+          path: helm/gateway-api-inference-extension
+          repository: charts/gateway-api-inference-extension:1.5.0
+
+  - name: github.com/cobaltcore-dev/thalamus/node-feature-discovery
+    version: 0.19.0
+    provider:
+      name: cobaltcore-dev
+    resources:
+      - name: node-feature-discovery-chart
+        type: helmChart
+        version: 0.19.0
+        input:
+          type: Helm/v1
+          helmRepository: oci://registry.k8s.io/nfd/charts/node-feature-discovery:0.19.0
+          repository: charts/node-feature-discovery:0.19.0
+      - name: node-feature-discovery-image
+        type: ociImage
+        version: v0.19.0
+        access:
+          type: ociArtifact
+          imageReference: registry.k8s.io/nfd/node-feature-discovery:v0.19.0
+
+  - name: github.com/cobaltcore-dev/thalamus/gpu-operator
+    version: v26.3.3
+    provider:
+      name: cobaltcore-dev
+    resources:
+      - name: gpu-operator-chart
+        type: helmChart
+        version: v26.3.3
+        input:
+          type: Helm/v1
+          helmRepository: https://helm.ngc.nvidia.com/nvidia/charts/gpu-operator-v26.3.3.tgz
+          repository: charts/gpu-operator:v26.3.3
+
+  - name: github.com/cobaltcore-dev/thalamus/kube-prometheus-stack
+    version: 87.15.1
+    provider:
+      name: cobaltcore-dev
+    resources:
+      - name: kube-prometheus-stack-chart
+        type: helmChart
+        version: 87.15.1
+        input:
+          type: Helm/v1
+          helmRepository: oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack:87.15.1
+          repository: charts/kube-prometheus-stack:87.15.1
+      - name: prometheus-operator-image
+        type: ociImage
+        version: v0.92.1
+        access:
+          type: ociArtifact
+          imageReference: quay.io/prometheus-operator/prometheus-operator:v0.92.1
+      - name: config-reloader-image
+        type: ociImage
+        version: v0.92.1
+        access:
+          type: ociArtifact
+          imageReference: quay.io/prometheus-operator/prometheus-config-reloader:v0.92.1
+      - name: thanos-image
+        type: ociImage
+        version: v0.42.0
+        access:
+          type: ociArtifact
+          imageReference: quay.io/thanos/thanos:v0.42.0
+      - name: prometheus-image
+        type: ociImage
+        version: v3.13.1-distroless
+        access:
+          type: ociArtifact
+          imageReference: quay.io/prometheus/prometheus:v3.13.1-distroless
+      - name: alertmanager-image
+        type: ociImage
+        version: v0.33.1
+        access:
+          type: ociArtifact
+          imageReference: quay.io/prometheus/alertmanager:v0.33.1
+      - name: webhook-certgen-image
+        type: ociImage
+        version: 1.8.4
+        access:
+          type: ociArtifact
+          imageReference: ghcr.io/jkroepke/kube-webhook-certgen:1.8.4
+      - name: kube-state-metrics-image
+        type: ociImage
+        version: v2.19.1
+        access:
+          type: ociArtifact
+          imageReference: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.19.1
+
+  - name: github.com/cobaltcore-dev/thalamus/agentgateway-crds
+    version: v1.3.1
+    provider:
+      name: cobaltcore-dev
+    resources:
+      - name: agentgateway-crds-chart
+        type: helmChart
+        version: v1.3.1
+        input:
+          type: Helm/v1
+          helmRepository: oci://cr.agentgateway.dev/charts/agentgateway-crds:v1.3.1
+          repository: charts/agentgateway-crds:v1.3.1
+
+  - name: github.com/cobaltcore-dev/thalamus/agentgateway
+    version: v1.3.1
+    provider:
+      name: cobaltcore-dev
+    resources:
+      - name: agentgateway-chart
+        type: helmChart
+        version: v1.3.1
+        input:
+          type: Helm/v1
+          helmRepository: oci://cr.agentgateway.dev/charts/agentgateway:v1.3.1
+          repository: charts/agentgateway:v1.3.1
+      - name: controller-image
+        type: ociImage
+        version: v1.3.1
+        access:
+          type: ociArtifact
+          imageReference: cr.agentgateway.dev/controller:v1.3.1
+      - name: proxy-image
+        type: ociImage
+        version: v1.3.1
+        access:
+          type: ociArtifact
+          imageReference: cr.agentgateway.dev/agentgateway:v1.3.1
+
+  - name: github.com/cobaltcore-dev/thalamus/external-dns
+    version: 1.19.0
+    provider:
+      name: cobaltcore-dev
+    resources:
+      - name: external-dns-chart
+        type: helmChart
+        version: 1.19.0
+        input:
+          type: Helm/v1
+          helmRepository: https://github.com/kubernetes-sigs/external-dns/releases/download/external-dns-helm-chart-1.19.0/external-dns-1.19.0.tgz
+          repository: charts/external-dns:1.19.0
+      - name: external-dns-image
+        type: ociImage
+        version: v0.19.0
+        access:
+          type: ociArtifact
+          imageReference: registry.k8s.io/external-dns/external-dns:v0.19.0
+
+  - name: github.com/cobaltcore-dev/thalamus/open-webui
+    version: 15.2.0
+    provider:
+      name: cobaltcore-dev
+    resources:
+      - name: open-webui-chart
+        type: helmChart
+        version: 15.2.0
+        input:
+          type: Helm/v1
+          helmRepository: https://helm.openwebui.com/open-webui-15.2.0.tgz
+          repository: charts/open-webui:15.2.0
+      - name: open-webui-image
+        type: ociImage
+        version: 0.10.2
+        access:
+          type: ociArtifact
+          imageReference: ghcr.io/open-webui/open-webui:0.10.2
+      - name: redis-image
+        type: ociImage
+        version: 7.4.2-alpine3.21
+        access:
+          type: ociArtifact
+          imageReference: docker.io/library/redis:7.4.2-alpine3.21
