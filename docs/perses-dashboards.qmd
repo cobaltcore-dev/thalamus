@@ -5,7 +5,7 @@ title: Perses Dashboards
 # Perses Dashboards
 
 Thalamus ships a set of [Perses](https://perses.dev) dashboards in
-[`examples/perses-dashboards`](https://github.com/cobaltcore-dev/thalamus/tree/{{< env REF >}}/examples/perses-dashboards):
+[`examples/perses-dashboards`](https://github.com/{{< env REPOSITORY >}}/tree/{{< env REF >}}/examples/perses-dashboards):
 
 | Dashboard | Purpose |
 | --- | --- |

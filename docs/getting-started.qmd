@@ -30,7 +30,7 @@ kubectl create secret generic hf-token --from-literal=HF_TOKEN="$HF_TOKEN" --nam
 ```
 
 ```{bash}
-kubectl apply -f "https://raw.githubusercontent.com/cobaltcore-dev/thalamus/${REF}/examples/model-smollm2-cpu.yaml"
+kubectl apply -f "https://raw.githubusercontent.com/${REPOSITORY}/${REF}/examples/model-smollm2-cpu.yaml"
 ```
 
 ```{bash}

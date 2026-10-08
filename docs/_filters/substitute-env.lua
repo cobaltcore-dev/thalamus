@@ -6,6 +6,7 @@
 -- which is correct: readers supply their own token).
 local allowlist = {
   "REF",
+  "REPOSITORY",
   "THALAMUS_CHART_LOCATION",
   "THALAMUS_CHART_VERSION",
   "OPERATOR_IMAGE_TAG",

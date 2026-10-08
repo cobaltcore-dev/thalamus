@@ -113,7 +113,7 @@ export default withMermaid({
     ],
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/cobaltcore-dev/thalamus' },
+      { icon: 'github', link: repoUrl },
     ],
 
     search: {
