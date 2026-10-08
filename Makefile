@@ -61,17 +61,18 @@ REPOSITORY ?= cobaltcore-dev/thalamus
 THALAMUS_CHART_LOCATION ?= ../helm
 THALAMUS_CHART_VERSION ?=
 OPERATOR_IMAGE_TAG ?= dev
+DOCKER_BUILD_ARGS ?=
 
 .PHONY: quarto
 quarto: kind-ensure quarto-setup ## Assert the cluster, then render+execute docs/*.qmd with the env coordinates.
 	@test -n "$$HF_TOKEN" || { echo "HF_TOKEN must be set"; exit 1; }
-	@REF="$(REF)" \
-	REPOSITORY="$(REPOSITORY)" \
-	THALAMUS_CHART_LOCATION="$(THALAMUS_CHART_LOCATION)" \
-	THALAMUS_CHART_VERSION="$(THALAMUS_CHART_VERSION)" \
-	OPERATOR_IMAGE_TAG="$(OPERATOR_IMAGE_TAG)" \
-	QUARTO_PYTHON="$(CURDIR)/.venv/bin/python" \
-	JUPYTER_PATH="$(CURDIR)/.venv/share/jupyter" \
+	@export REF="$(REF)" \
+		REPOSITORY="$(REPOSITORY)" \
+		THALAMUS_CHART_LOCATION="$(THALAMUS_CHART_LOCATION)" \
+		THALAMUS_CHART_VERSION="$(THALAMUS_CHART_VERSION)" \
+		OPERATOR_IMAGE_TAG="$(OPERATOR_IMAGE_TAG)" \
+		QUARTO_PYTHON="$(CURDIR)/.venv/bin/python" \
+		JUPYTER_PATH="$(CURDIR)/.venv/share/jupyter"; \
 	for qmd in docs/*.qmd; do \
 		quarto render "$$qmd" --to gfm --execute -o - > "website/$$(basename "$$qmd" .qmd).md"; \
 	done
@@ -85,7 +86,7 @@ quarto-setup: ## Assert quarto exists; create .venv and install the bash kernel 
 
 .PHONY: docker-build
 docker-build: ## Build the operator image and load it into kind.
-	docker build -t ghcr.io/cobaltcore-dev/thalamus:$(OPERATOR_IMAGE_TAG) -f Dockerfile .
+	docker build $(DOCKER_BUILD_ARGS) -t ghcr.io/cobaltcore-dev/thalamus:$(OPERATOR_IMAGE_TAG) -f Dockerfile .
 	kind load docker-image ghcr.io/cobaltcore-dev/thalamus:$(OPERATOR_IMAGE_TAG) --name $(KIND_ACTIVE)
 
 .PHONY: helm-build
