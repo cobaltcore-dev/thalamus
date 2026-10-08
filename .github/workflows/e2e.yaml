@@ -64,7 +64,7 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           THALAMUS_CHART_LOCATION: oci://ghcr.io/cobaltcore-dev/charts
           THALAMUS_CHART_VERSION: ${{ github.ref == 'refs/heads/main' && '0.0.0-main' || github.ref_name }}
-          OPERATOR_IMAGE_TAG: ${{ github.ref_name }}
+          OPERATOR_IMAGE_TAG: # unset: fall back to chart appVersion
           ROOT: https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}
         run: |
           until helm show chart "${THALAMUS_CHART_LOCATION}/thalamus" --version "$THALAMUS_CHART_VERSION" >/dev/null 2>&1 \
