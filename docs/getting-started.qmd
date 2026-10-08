@@ -1,0 +1,112 @@
+---
+title: Getting Started
+format:
+  gfm:
+    toc: false
+execute:
+  enabled: true
+  timeout: 660
+jupyter: bash
+filters:
+  - _filters/substitute-env.lua
+---
+
+```{bash}
+#| include: false
+set -uo pipefail
+kubectl config current-context | grep -q '^kind-'
+```
+
+```{bash}
+helm upgrade --install thalamus-crds "${THALAMUS_CHART_LOCATION}/thalamus-crds" --namespace thalamus --create-namespace --wait --timeout=600s --version "$THALAMUS_CHART_VERSION"
+```
+
+```{bash}
+helm upgrade --install thalamus "${THALAMUS_CHART_LOCATION}/thalamus" --namespace thalamus --wait --timeout=600s --version "$THALAMUS_CHART_VERSION" --set operator.image.tag="$OPERATOR_IMAGE_TAG"
+```
+
+```{bash}
+kubectl create secret generic hf-token --from-literal=HF_TOKEN="$HF_TOKEN" --namespace thalamus
+```
+
+```{bash}
+kubectl apply -f "https://raw.githubusercontent.com/cobaltcore-dev/thalamus/${REF}/examples/model-smollm2-cpu.yaml"
+```
+
+```{bash}
+kubectl wait model --all --namespace thalamus --for=condition=Ready --timeout=600s
+```
+
+```{bash}
+export MODEL="$(kubectl get model --namespace thalamus -o json | jq -r '.items[0].spec.weights.hf.repoId')"
+```
+
+```{bash}
+kubectl wait gateway/inference-gateway --namespace thalamus --for=condition=Programmed=True --timeout=120s
+```
+
+```{bash}
+kubectl port-forward svc/inference-gateway 8080:80 --namespace thalamus &
+sleep 3
+```
+
+::: details Verify with the Python SDK
+```{bash}
+python3 -m pip install "openai>=2,<3" "anthropic>=0.49" && python3 - <<'EOF'
+import os
+from openai import OpenAI
+
+model = os.environ["MODEL"]
+client = OpenAI(base_url="http://localhost:8080/v1", api_key="e2e", timeout=120.0)
+ids = [m.id for m in client.models.list()]
+assert model in ids, f"model {model!r} not in /v1/models: {ids}"
+print("PASS: GET /v1/models")
+
+prompt = "What is the capital of France? Answer with a single word."
+completion = client.chat.completions.create(
+    model=model,
+    messages=[{"role": "user", "content": prompt}],
+    max_tokens=8,
+    temperature=0,
+)
+content = completion.choices[0].message.content or ""
+assert "paris" in content.lower(), f"expected 'Paris' in chat completion, got: {content!r}"
+print(f"PASS: POST /v1/chat/completions -> {content!r}")
+EOF
+```
+
+```{bash}
+python3 - <<'EOF'
+import os
+from openai import OpenAI
+
+model = os.environ["MODEL"]
+client = OpenAI(base_url="http://localhost:8080/v1", api_key="e2e", timeout=120.0)
+prompt = "What is the capital of France? Answer with a single word."
+response = client.responses.create(model=model, input=prompt)
+content = response.output_text
+assert "paris" in content.lower(), f"expected 'Paris' in response, got: {content!r}"
+print(f"PASS: POST /v1/responses -> {content!r}")
+EOF
+```
+
+```{bash}
+python3 - <<'EOF'
+import os
+from anthropic import Anthropic
+
+model = os.environ["MODEL"]
+client = Anthropic(base_url="http://localhost:8080", api_key="e2e", timeout=120.0)
+prompt = "What is the capital of France? Answer with a single word."
+message = client.messages.create(
+    model=model,
+    max_tokens=64,
+    messages=[{"role": "user", "content": prompt}],
+)
+content = "".join(block.text for block in message.content if block.type == "text")
+assert "paris" in content.lower(), f"expected 'Paris' in message, got: {content!r}"
+print(f"PASS: POST /v1/messages -> {content!r}")
+EOF
+```
+
+:::

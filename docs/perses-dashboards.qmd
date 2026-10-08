@@ -5,7 +5,7 @@ title: Perses Dashboards
 # Perses Dashboards
 
 Thalamus ships a set of [Perses](https://perses.dev) dashboards in
-[`examples/perses-dashboards`](https://github.com/cobaltcore-dev/thalamus/tree/@@DOCS_VERSION@@/examples/perses-dashboards):
+[`examples/perses-dashboards`](https://github.com/cobaltcore-dev/thalamus/tree/{{< env REF >}}/examples/perses-dashboards):
 
 | Dashboard | Purpose |
 | --- | --- |
@@ -54,7 +54,7 @@ agentgateway:
 ```bash
 helm upgrade --install thalamus oci://ghcr.io/cobaltcore-dev/charts/thalamus \
   --namespace thalamus --wait --reuse-values \
-  --version @@CHART_VERSION@@ \
+  --version {{< env THALAMUS_CHART_VERSION >}} \
   -f my-cluster.yaml
 ```
 

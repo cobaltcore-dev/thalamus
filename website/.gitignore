@@ -1,3 +1,11 @@
 node_modules/
 .vitepress/cache/
 .vitepress/dist/
+
+# `quarto render docs/*.qmd`
+/getting-started.md
+/open-webui.md
+/perses-dashboards.md
+
+/.quarto/
+**/*.quarto_ipynb

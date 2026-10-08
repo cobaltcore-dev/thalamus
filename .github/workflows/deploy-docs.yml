@@ -28,6 +28,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      REF: ${{ github.ref_name }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -49,19 +51,9 @@ jobs:
       - name: Generate API reference docs
         run: make docs
 
-      - name: Set documentation version
+      - name: Set release metadata
         id: set-version
         run: |
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            version="main"
-            chart_version="0.0.0-main"
-          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            version="${GITHUB_REF#refs/tags/}"
-            chart_version="${GITHUB_REF#refs/tags/}"
-          else
-            version=""
-            chart_version=""
-          fi
           # Latest released tag, or "main" when no release exists yet.
           latest_release="$(git tag --list 'v*' --sort=-v:refname | head -n 1)"
           [[ -n "$latest_release" ]] || latest_release="main"
@@ -70,11 +62,32 @@ jobs:
           # Absolute origin of the GitHub Pages site (owner must be lowercase).
           owner_lc="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
           docs_base_url="https://${owner_lc}.github.io"
-          echo "version=$version" >> $GITHUB_OUTPUT
-          echo "chart_version=$chart_version" >> $GITHUB_OUTPUT
           echo "latest_release=$latest_release" >> $GITHUB_OUTPUT
           echo "versions=$versions" >> $GITHUB_OUTPUT
           echo "docs_base_url=$docs_base_url" >> $GITHUB_OUTPUT
+
+      - name: Set up Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+
+      - name: Set up Python + bash kernel
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install bash kernel
+        run: |
+          pip install jupyter bash_kernel
+          python -m bash_kernel.install --user
+
+      - name: Render executable docs
+        run: |
+          for qmd in docs/*.qmd; do
+            quarto render "$qmd" --to gfm --no-execute -o - > "website/$(basename "$qmd" .qmd).md"
+          done
+        env:
+          THALAMUS_CHART_LOCATION: oci://ghcr.io/cobaltcore-dev/charts
+          THALAMUS_CHART_VERSION: ${{ github.ref == 'refs/heads/main' && '0.0.0-main' || github.ref_name }}
+          OPERATOR_IMAGE_TAG: ''
 
       - name: Install dependencies
         working-directory: website
@@ -84,15 +97,12 @@ jobs:
         working-directory: website
         run: npm run docs:build
         env:
-          DOCS_VERSION: ${{ steps.set-version.outputs.version }}
-          CHART_VERSION: ${{ steps.set-version.outputs.chart_version }}
           PAGES_BASE: ${{ github.event.repository.name }}
           DOCS_BASE_URL: ${{ steps.set-version.outputs.docs_base_url }}
           DOCUMENTATION_REPOSITORY_URL: https://github.com/${{ github.repository }}
 
       - name: Generate root redirect and version manifest
         id: root-redirect
-        if: ${{ steps.set-version.outputs.version != '' }}
         run: |
           target="${{ steps.set-version.outputs.latest_release }}"
           versions="${{ steps.set-version.outputs.versions }}"
@@ -124,7 +134,7 @@ jobs:
         with:
           folder: website/.vitepress/dist
           branch: gh-pages
-          target-folder: ${{ steps.set-version.outputs.version }}
+          target-folder: ${{ github.ref_name }}
           clean-exclude: pr-preview
           force: false
 
