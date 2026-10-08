@@ -11,6 +11,47 @@ filters:
   - _filters/substitute-env.lua
 ---
 
+# Getting Started
+
+Thalamus is a vendor-neutral, Kubernetes-native inference service based on
+[llm-d](https://llm-d.ai/), the [Gateway API inference extension](https://github.com/kubernetes-sigs/gateway-api-inference-extension),
+and [Cortex](https://github.com/cobaltcore-dev/cortex).
+
+Inference instances are declared as [`thalamus.cloud/v1alpha1 Model`](/reference/model-crd-api) resources.
+The Thalamus operator reconciles each `Model` into the required engine, endpoint
+picker, routing, and service resources.
+
+## Prerequisites
+
+### Tools
+
+- [kubectl](https://kubernetes.io/docs/tasks/tools/) — Kubernetes CLI
+- [helm](https://helm.sh/docs/intro/install/) — Kubernetes package manager (v3.x)
+- A Kubernetes cluster, or [minikube](https://minikube.sigs.k8s.io/docs/start/) / any other local cluster for development
+
+### Cluster requirements
+
+Thalamus is vendor-neutral and does not install platform infrastructure. The
+following are expected to already be present in the cluster:
+
+- **GPU workloads:** a GPU driver/operator and node feature discovery for your
+  hardware vendor (e.g. the [NVIDIA GPU Operator](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/latest/) for NVIDIA).
+- **Observability (optional):** a monitoring stack such as
+  [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts) if you want Thalamus metrics scraped.
+
+The Gateway API, Gateway API inference extension, and agentgateway CRDs are
+bundled with the install (Step 1).
+
+### Accounts
+
+- A [Hugging Face](https://huggingface.co) account with a [read token](https://huggingface.co/settings/tokens) and access to the models you want to serve
+
+## Step 1 — Deploy the stack
+
+Thalamus installs as two Helm charts: `thalamus-crds` (the Thalamus, Gateway
+API, inference extension, and agentgateway CRDs) and `thalamus` (the operator
+and agentgateway data plane). Everything is enabled by default:
+
 ```{bash}
 #| include: false
 set -uo pipefail
@@ -18,36 +59,132 @@ kubectl config current-context | grep -q '^kind-'
 ```
 
 ```{bash}
-helm upgrade --install thalamus-crds "${THALAMUS_CHART_LOCATION}/thalamus-crds" --namespace thalamus --create-namespace --wait --timeout=600s --version "$THALAMUS_CHART_VERSION"
+helm upgrade --install thalamus-crds "${THALAMUS_CHART_LOCATION}/thalamus-crds" \
+  --namespace thalamus --create-namespace --wait --timeout=600s --version "$THALAMUS_CHART_VERSION"
 ```
 
 ```{bash}
-helm upgrade --install thalamus "${THALAMUS_CHART_LOCATION}/thalamus" --namespace thalamus --wait --timeout=600s --version "$THALAMUS_CHART_VERSION" --set operator.image.tag="$OPERATOR_IMAGE_TAG"
+helm upgrade --install thalamus "${THALAMUS_CHART_LOCATION}/thalamus" \
+  --namespace thalamus --wait --timeout=600s --version "$THALAMUS_CHART_VERSION" --set operator.image.tag="$OPERATOR_IMAGE_TAG"
 ```
 
+> **Caution:** the CRDs are installed as ordinary release resources, not via
+> Helm's protected `crds/` mechanism. `helm uninstall thalamus-crds` therefore
+> deletes every CRD and cascades into deleting all custom resources they own —
+> including every `Model` and its inference workloads. Only uninstall it when
+> you intend to tear down Thalamus.
+
+### Already have some of these components?
+
+If your cluster already provides some of the CRDs bundled in `thalamus-crds`,
+disable the matching dependencies:
+
+- `gateway-api` — skip with `--set gateway-api.enabled=false` (common on
+  managed clusters)
+- `gateway-api-inference-extension` — provides the `InferencePool` CRD
+  Thalamus needs; disable only if your cluster already provides it
+
 ```{bash}
-kubectl create secret generic hf-token --from-literal=HF_TOKEN="$HF_TOKEN" --namespace thalamus
+#| eval: false
+helm upgrade --install thalamus-crds "${THALAMUS_CHART_LOCATION}/thalamus-crds" \
+  --namespace thalamus --create-namespace --wait \
+  --version "$THALAMUS_CHART_VERSION" \
+  --set gateway-api.enabled=false
 ```
+
+Likewise, if you run agentgateway as separate releases, disable its bundled CRDs
+on the `thalamus-crds` release with `--set agentgateway-crds.enabled=false`, and
+disable its bundled controller on the `thalamus` release with `--set agentgateway.enabled=false`.
+
+## Step 2 — Create the Hugging Face secret
+
+Model pods pull their weights from Hugging Face at startup, so the secret must
+exist before you deploy a model in Step 3. Create a secret named `hf-token`
+with key `HF_TOKEN` in the `thalamus` namespace:
+
+```{bash}
+kubectl create secret generic hf-token \
+  --from-literal=HF_TOKEN="$HF_TOKEN" \
+  --namespace thalamus
+```
+
+## Step 3 — Deploy a model
+
+Models are declared as `thalamus.cloud/v1alpha1 Model` resources and applied
+independently of the helm release. See [`examples/model-qwen3-6-27b-gpu.yaml`](https://raw.githubusercontent.com/{{< env REPOSITORY >}}/{{< env REF >}}/examples/model-qwen3-6-27b-gpu.yaml)
+for a GPU example and [`examples/model-smollm2-cpu.yaml`](https://raw.githubusercontent.com/{{< env REPOSITORY >}}/{{< env REF >}}/examples/model-smollm2-cpu.yaml) for a
+CPU example.
+
+```{bash}
+#| eval: false
+kubectl apply -f https://raw.githubusercontent.com/${REPOSITORY}/${REF}/examples/model-qwen3-6-27b-gpu.yaml
+```
+
+Wait for the model to become ready:
+
+```{bash}
+#| eval: false
+kubectl wait model/qwen3-6-27b --namespace thalamus --for=condition=Ready --timeout=600s
+```
+
+For a CPU-only or local development setup, use the SmolLM2 example:
 
 ```{bash}
 kubectl apply -f "https://raw.githubusercontent.com/${REPOSITORY}/${REF}/examples/model-smollm2-cpu.yaml"
 ```
 
+Wait for the model to become ready:
+
 ```{bash}
 kubectl wait model --all --namespace thalamus --for=condition=Ready --timeout=600s
 ```
+
+## Step 4 — Access the stack
+
+Once the pods are running, the inference gateway exposes an OpenAI-compatible
+API. Point `GATEWAY_HOST` at the endpoint you want to use, then send requests.
+
+**With a `LoadBalancer` (cloud clusters):**
+
+```bash
+GATEWAY_HOST=$(kubectl get svc inference-gateway -n thalamus -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+```
+
+If the IP comes back empty, the load balancer is still provisioning. Check
+progress with `kubectl get svc inference-gateway -n thalamus`.
+
+**With port-forward (local clusters without a `LoadBalancer`):**
+
+```{bash}
+kubectl port-forward svc/inference-gateway 8080:80 --namespace thalamus &
+sleep 3
+```
+
+The checks below read the model id from `$MODEL`, derived from the deployed
+`Model` resource:
 
 ```{bash}
 export MODEL="$(kubectl get model --namespace thalamus -o json | jq -r '.items[0].spec.weights.hf.repoId')"
 ```
 
 ```{bash}
+#| include: false
 kubectl wait gateway/inference-gateway --namespace thalamus --for=condition=Programmed=True --timeout=120s
 ```
 
-```{bash}
-kubectl port-forward svc/inference-gateway 8080:80 --namespace thalamus &
-sleep 3
+Then test the API:
+
+```bash
+curl "http://$GATEWAY_HOST/v1/models"
+```
+
+```bash
+curl "http://$GATEWAY_HOST/v1/chat/completions" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "<model-id>",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
 ```
 
 ::: details Verify with the Python SDK
@@ -110,3 +247,49 @@ EOF
 ```
 
 :::
+
+## API key authentication (optional)
+
+By default, the Thalamus API accepts unauthenticated requests. To enable token-based authentication, save an `AgentgatewayPolicy` as a values file. The example policy below requires every request to include a valid `Authorization: Bearer <key>` header. API keys are loaded from Kubernetes secrets labeled `thalamus-apikey: "true"`.
+
+```yaml
+# apikey-auth.yaml
+extraDeploy:
+  apikey-auth:
+    apiVersion: agentgateway.dev/v1alpha1
+    kind: AgentgatewayPolicy
+    metadata:
+      namespace: thalamus
+    spec:
+      targetRefs:
+        - group: gateway.networking.k8s.io
+          kind: Gateway
+          name: inference-gateway
+          sectionName: api
+      traffic:
+        apiKeyAuthentication:
+          mode: Strict
+          secretSelector:
+            matchLabels:
+              thalamus-apikey: "true"
+```
+
+Add `-f apikey-auth.yaml` to the install command in Step 1.
+
+Create one secret per user or client:
+
+```bash
+kubectl create secret generic apikey-<name> \
+  --namespace thalamus \
+  --from-literal=api-key=$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')
+kubectl label secret apikey-<name> --namespace thalamus thalamus-apikey=true
+```
+
+## Next Steps
+
+- Browse the [Model CRD API Reference](/reference/model-crd-api) for all available fields.
+- Add a web frontend with [Open WebUI](/open-webui).
+- Load the [Perses dashboards](/perses-dashboards) to monitor SLOs, usage, and GPU health.
+- Read the [Architecture overview](/concepts/architecture) to understand how the
+  operator, gateway, and endpoint picker fit together.
+- Watch the [Demo](/demo) for a visual walkthrough.
