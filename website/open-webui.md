@@ -31,7 +31,7 @@ If you use your own Gateway, make sure it has an HTTP `frontend` listener with
 ```bash
 helm upgrade --install open-webui oci://ghcr.io/open-webui/helm-charts/open-webui \
   --namespace open-webui --create-namespace \
-  --version 16.5.0 \
+  --version 16.6.0 \
   --set ollama.enabled=false \
   --set pipelines.enabled=false \
   --set extraEnvVars[0].name=WEBUI_AUTH \
