@@ -22,7 +22,7 @@ kubectl wait gateway/inference-gateway \
 ```
 
 The example manifest already contains the `api` listener (used by the operator,
-see `gateway.listener`) and the `frontend` listener (port 8080, used below).
+see `gateway.listener`) and the `frontend` listener (used below).
 If you use your own Gateway, make sure it has an HTTP `frontend` listener with
 `allowedRoutes.namespaces.from: All`.
 
@@ -42,9 +42,6 @@ helm upgrade --install open-webui oci://ghcr.io/open-webui/helm-charts/open-webu
   --set route.parentRefs[0].namespace=thalamus \
   --set route.parentRefs[0].sectionName=frontend
 ```
-
-Or via helmfile (`hack/helmfile.yaml.gotmpl` already contains an equivalent
-`open-webui` release in namespace `open-webui` with `needs: thalamus/thalamus`).
 
 ::: warning Renaming
 `openaiBaseApiUrl` and `route.parentRefs` must stay in sync with your Gateway:
@@ -70,8 +67,7 @@ Then open `http://localhost:8081` in your browser.
 not work with Open WebUI out of the box. The API key policy requires an
 `Authorization: Bearer <key>` header on every request to the gateway, but
 Open WebUI does not send one by default. If you enable both, configure Open WebUI
-to attach the bearer token to its requests, or exempt the `frontend` listener
-from the policy.
+to attach the bearer token to its requests.
 :::
 
 ## Troubleshooting
