@@ -39,9 +39,7 @@ bundled with the install (Step 1).
 
 ## Step 1 — Deploy the stack
 
-Thalamus installs as a single Helm chart bundling the operator, the
-Thalamus, Gateway API, inference extension, and agentgateway CRDs, and the
-agentgateway data plane. Everything is enabled by default:
+Thalamus installs as a single Helm chart bundling the Thalamus operator, the agentgateway controller, and all required CRDs (Thalamus, Gateway API, inference extension, agentgateway). Everything is enabled by default:
 
 ```bash
 helm upgrade --install thalamus oci://ghcr.io/cobaltcore-dev/charts/thalamus \
@@ -107,7 +105,7 @@ and `api`); set them if yours differ.
 Apply the example gateway:
 
 ```bash
-kubectl apply -f examples/gateway.yaml
+kubectl apply -f https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/gateway.yaml
 ```
 
 Wait for it to become programmed:
