@@ -1,6 +1,6 @@
 apiVersion: v2
 name: thalamus
-Thalamus operator, CRDs, and the agentgateway controller for LLM inference.
+description: Thalamus operator, CRDs, and the agentgateway controller for LLM inference.
 type: application
 version: 0.1.0
 appVersion: latest
