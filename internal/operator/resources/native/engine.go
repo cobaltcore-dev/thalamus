@@ -31,10 +31,12 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 	if model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && model.Spec.Weights.HF != nil {
 		hf := model.Spec.Weights.HF
 		args = append(args, hf.RepoID, "--served-model-name="+hf.RepoID)
-		env = append(env, corev1.EnvVar{
-			Name:      "HF_TOKEN",
-			ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &hf.TokenSecret},
-		})
+		if hf.TokenSecret != nil {
+			env = append(env, corev1.EnvVar{
+				Name:      "HF_TOKEN",
+				ValueFrom: &corev1.EnvVarSource{SecretKeyRef: hf.TokenSecret},
+			})
+		}
 	}
 
 	// Root filesystem read-only; process runs as uid nobody

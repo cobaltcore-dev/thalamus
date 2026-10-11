@@ -2613,7 +2613,6 @@ spec:
                         x-kubernetes-map-type: atomic
                     required:
                     - repoId
-                    - tokenSecret
                     type: object
                   type:
                     description: Type of the weights source.

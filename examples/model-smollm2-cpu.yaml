@@ -46,6 +46,3 @@ spec:
     type: hf
     hf:
       repoId: HuggingFaceTB/SmolLM2-135M-Instruct
-      tokenSecret:
-        name: hf-token
-        key: HF_TOKEN
