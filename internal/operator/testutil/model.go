@@ -40,8 +40,8 @@ func NewModel(name, namespace string) *v1alpha1.Model {
 				HF: &v1alpha1.HFWeightsSpec{
 					RepoID: "arnir0/Tiny-LLM",
 					TokenSecret: &corev1.SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{Name: "hf-token"},
-						Key:                  "token",
+						Name: "hf-token",
+						Key:  "token",
 					},
 				},
 			},
