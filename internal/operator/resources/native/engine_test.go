@@ -214,6 +214,19 @@ func TestBuildEngineDeployment_NoScheduling(t *testing.T) {
 	}
 }
 
+func TestBuildEngineDeployment_PublicModel(t *testing.T) {
+	model := testutil.NewModel("tiny-llm", "default")
+	model.Spec.Weights.HF.TokenSecret = nil
+	dep := BuildEngineDeployment(model)
+	c := dep.Spec.Template.Spec.Containers[0]
+
+	for _, e := range c.Env {
+		if e.Name == "HF_TOKEN" {
+			t.Error("HF_TOKEN must not be injected when TokenSecret is nil")
+		}
+	}
+}
+
 func TestBuildEngineDeployment_CacheDefaultsToEmptyDir(t *testing.T) {
 	dep := BuildEngineDeployment(testutil.NewModel("tiny-llm", "default"))
 	for _, v := range dep.Spec.Template.Spec.Volumes {

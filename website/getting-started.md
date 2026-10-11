@@ -81,9 +81,7 @@ disable its bundled controller on the `thalamus` release with `--set agentgatewa
 
 ## Step 2 — Create the Hugging Face secret
 
-Model pods pull their weights from Hugging Face at startup, so the secret must
-exist before you deploy a model in Step 3. Create a secret named `hf-token`
-with key `HF_TOKEN` in the `thalamus` namespace:
+Model pods pull their weights from Hugging Face at startup. `tokenSecret` is optional — public models work without it — but providing a token avoids anonymous rate limits. To create a secret named `hf-token` with key `HF_TOKEN` in the `thalamus` namespace:
 
 ```bash
 kubectl create secret generic hf-token \

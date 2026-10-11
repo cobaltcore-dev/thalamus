@@ -78,7 +78,8 @@ type HFWeightsSpec struct {
 	RepoID string `json:"repoId"`
 
 	// TokenSecret references the key within a Kubernetes secret containing the Hugging Face token.
-	TokenSecret corev1.SecretKeySelector `json:"tokenSecret"`
+	// +kubebuilder:validation:Optional
+	TokenSecret *corev1.SecretKeySelector `json:"tokenSecret,omitempty"`
 }
 
 // WeightsSpec defines where the model weights are sourced from.
