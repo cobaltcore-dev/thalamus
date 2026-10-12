@@ -5,6 +5,7 @@ package operator
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -32,7 +33,7 @@ type ModelListReconciler struct {
 func (r *ModelListReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	gateway, err := getGateway(ctx, r.Client, req.NamespacedName)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, fmt.Errorf("reconcile model-list: %w", err)
 	}
 	if gateway == nil {
 		return ctrl.Result{}, nil
@@ -40,19 +41,19 @@ func (r *ModelListReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	var modelList v1alpha1.ModelList
 	if err := r.List(ctx, &modelList, client.InNamespace(req.Namespace)); err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, fmt.Errorf("list models in namespace %s: %w", req.Namespace, err)
 	}
 
 	body, err := native.BuildModelListResponse(modelList.Items)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, fmt.Errorf("build model-list response: %w", err)
 	}
 
 	if err := applyOwnedNonBlocking(ctx, r.Client, r.Scheme, gateway, native.BuildModelListRoute(gateway)); err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, fmt.Errorf("apply model-list route: %w", err)
 	}
 	if err := applyOwnedNonBlocking(ctx, r.Client, r.Scheme, gateway, native.BuildModelListPolicy(req.Namespace, body)); err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, fmt.Errorf("apply model-list policy: %w", err)
 	}
 
 	log.FromContext(ctx).Info("synced model-list route and policy", "namespace", req.Namespace, "models", len(modelList.Items))

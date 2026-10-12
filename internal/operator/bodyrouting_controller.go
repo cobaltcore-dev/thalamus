@@ -5,6 +5,7 @@ package operator
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -30,14 +31,14 @@ type BodyRoutingReconciler struct {
 func (r *BodyRoutingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	gateway, err := getGateway(ctx, r.Client, req.NamespacedName)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, fmt.Errorf("reconcile body-routing: %w", err)
 	}
 	if gateway == nil {
 		return ctrl.Result{}, nil
 	}
 
 	if err := applyOwnedNonBlocking(ctx, r.Client, r.Scheme, gateway, native.BuildBodyBasedRoutingPolicy(gateway)); err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, fmt.Errorf("apply body-based routing policy: %w", err)
 	}
 
 	log.FromContext(ctx).Info("synced body-based routing policy", "namespace", req.Namespace)

@@ -88,7 +88,7 @@ func (r *ModelReconciler) syncDeploymentCondition(ctx context.Context, model *v1
 			setModelStatus(model, v1alpha1.ModelPhaseCreating, notReadyReason, fmt.Sprintf("Deployment %s not found", name))
 			return false, nil
 		}
-		return false, err
+		return false, fmt.Errorf("get deployment %s/%s: %w", model.Namespace, name, err)
 	}
 
 	if dep.Status.ObservedGeneration < dep.Generation {
@@ -127,7 +127,7 @@ func (r *ModelReconciler) syncInferencePoolCondition(ctx context.Context, model 
 			setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonInferencePoolNotAccepted, fmt.Sprintf("InferencePool %s not found", model.EngineName()))
 			return false, nil
 		}
-		return false, err
+		return false, fmt.Errorf("get inference pool %s/%s: %w", model.Namespace, model.EngineName(), err)
 	}
 
 	if len(pool.Status.Parents) == 0 {
@@ -179,7 +179,7 @@ func (r *ModelReconciler) syncHTTPRouteCondition(ctx context.Context, model *v1a
 			setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonHTTPRouteNotAccepted, fmt.Sprintf("HTTPRoute %s not found", model.EngineName()))
 			return false, nil
 		}
-		return false, err
+		return false, fmt.Errorf("get http route %s/%s: %w", model.Namespace, model.EngineName(), err)
 	}
 
 	if len(route.Status.Parents) == 0 {

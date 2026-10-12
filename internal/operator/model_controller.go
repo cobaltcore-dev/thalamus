@@ -39,7 +39,10 @@ type ModelReconciler struct {
 func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	model := &v1alpha1.Model{}
 	if err := r.Get(ctx, req.NamespacedName, model); err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+		if err = client.IgnoreNotFound(err); err != nil {
+			return ctrl.Result{}, fmt.Errorf("get model %s: %w", req.NamespacedName, err)
+		}
+		return ctrl.Result{}, nil
 	}
 
 	var err error
@@ -54,7 +57,7 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, fmt.Errorf("unknown backend type %q", model.Spec.Backend)
 	}
 	if err != nil {
-		return ctrl.Result{}, r.setFailedStatus(ctx, model, err)
+		return ctrl.Result{}, fmt.Errorf("reconcile model %s: %w", req.NamespacedName, r.setFailedStatus(ctx, model, err))
 	}
 	return ctrl.Result{}, r.syncStatus(ctx, model)
 }
@@ -111,12 +114,18 @@ func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.M
 // deleteOwned removes desired if it exists and is controlled by owner.
 func (r *ModelReconciler) deleteOwned(ctx context.Context, owner *v1alpha1.Model, desired client.Object) error {
 	if err := r.Get(ctx, types.NamespacedName{Name: desired.GetName(), Namespace: desired.GetNamespace()}, desired); err != nil {
-		return client.IgnoreNotFound(err)
+		if err = client.IgnoreNotFound(err); err != nil {
+			return fmt.Errorf("get %T %s/%s: %w", desired, desired.GetNamespace(), desired.GetName(), err)
+		}
+		return nil
 	}
 	if !metav1.IsControlledBy(desired, owner) {
 		return fmt.Errorf("refusing to delete %T %s/%s: not owned by model %s", desired, desired.GetNamespace(), desired.GetName(), owner.Name)
 	}
-	return client.IgnoreNotFound(r.Delete(ctx, desired))
+	if err := client.IgnoreNotFound(r.Delete(ctx, desired)); err != nil {
+		return fmt.Errorf("delete %T %s/%s: %w", desired, desired.GetNamespace(), desired.GetName(), err)
+	}
+	return nil
 }
 
 // syncStatus updates common status fields and dispatches to the backend-specific status sync.
@@ -139,13 +148,16 @@ func (r *ModelReconciler) syncStatus(ctx context.Context, model *v1alpha1.Model)
 		return fmt.Errorf("unknown backend type %q", model.Spec.Backend)
 	}
 	if err != nil {
-		return err
+		return fmt.Errorf("sync %s status: %w", model.Spec.Backend, err)
 	}
 
 	if apiequality.Semantic.DeepEqual(before, &model.Status) {
 		return nil
 	}
-	return r.Status().Patch(ctx, model, patch)
+	if err := r.Status().Patch(ctx, model, patch); err != nil {
+		return fmt.Errorf("patch model status %s/%s: %w", model.Namespace, model.Name, err)
+	}
+	return nil
 }
 
 // syncKServeStatus is a stub — not yet implemented.

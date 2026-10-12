@@ -5,6 +5,7 @@ package operator
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -18,13 +19,13 @@ func applyConfiguration(scheme *runtime.Scheme, obj client.Object) (runtime.Appl
 	// SSA requires apiVersion/kind; set them from the scheme before converting.
 	gvks, _, err := scheme.ObjectKinds(obj)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("resolve kind for %T: %w", obj, err)
 	}
 	obj.GetObjectKind().SetGroupVersionKind(gvks[0])
 
 	m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("convert %T to unstructured: %w", obj, err)
 	}
 	u := &unstructured.Unstructured{Object: m}
 	u.SetManagedFields(nil)
@@ -44,14 +45,17 @@ func applyOwnedNonBlocking(ctx context.Context, c client.Client, scheme *runtime
 func applyWithOwner(ctx context.Context, c client.Client, scheme *runtime.Scheme, owner, desired client.Object, opts ...controllerutil.OwnerReferenceOption) error {
 	desired = desired.DeepCopyObject().(client.Object)
 	if err := controllerutil.SetControllerReference(owner, desired, scheme, opts...); err != nil {
-		return err
+		return fmt.Errorf("set controller reference on %T %s/%s: %w", desired, desired.GetNamespace(), desired.GetName(), err)
 	}
 	ac, err := applyConfiguration(scheme, desired)
 	if err != nil {
 		return err
 	}
-	return c.Apply(ctx, ac,
+	if err := c.Apply(ctx, ac,
 		client.FieldOwner("thalamus-operator"),
 		client.ForceOwnership,
-	)
+	); err != nil {
+		return fmt.Errorf("apply %T %s/%s: %w", desired, desired.GetNamespace(), desired.GetName(), err)
+	}
+	return nil
 }

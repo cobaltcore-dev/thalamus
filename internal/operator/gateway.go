@@ -5,6 +5,7 @@ package operator
 
 import (
 	"context"
+	"fmt"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -20,7 +21,7 @@ func getGateway(ctx context.Context, c client.Client, nn types.NamespacedName) (
 		return nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get gateway %s/%s: %w", nn.Namespace, nn.Name, err)
 	}
 	if !gateway.DeletionTimestamp.IsZero() {
 		return nil, nil
