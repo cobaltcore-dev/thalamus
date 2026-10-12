@@ -72,14 +72,18 @@ to attach the bearer token to its requests.
 
 ## Troubleshooting
 
+Check that the route was created and accepted:
+
 ```bash
-# Route created and accepted?
 kubectl get httproute -n open-webui
 kubectl wait httproute/open-webui \
   --namespace open-webui \
   --for=condition=Accepted \
   --timeout=120s
+```
 
-# Does the Gateway have the frontend listener?
+Check that the Gateway has the `frontend` listener:
+
+```bash
 kubectl get gateway inference-gateway -n thalamus -o yaml | grep -A5 listeners
 ```
