@@ -1,9 +1,6 @@
--- Quarto Lua filter: display-only substitution of safe env vars in code blocks.
--- Runs at the pandoc stage (post-execution): executed cells always use live
--- $VAR values from the environment; this only rewrites what readers see, so
--- rendered docs show copy-pasteable literals (e.g. 0.0.0-main on main).
--- Secrets must NEVER be listed here (e.g. HF_TOKEN keeps showing $HF_TOKEN,
--- which is correct: readers supply their own token).
+-- Display-only substitution of safe env vars in code blocks (pandoc stage).
+-- Executed cells use live $VAR values; this rewrites display to copy-pasteable literals.
+-- Never list secrets here (e.g. HF_TOKEN stays as $HF_TOKEN).
 local allowlist = {
   "REF",
   "REPOSITORY",
