@@ -9,22 +9,9 @@ The `thalamus` chart does not bundle Open WebUI. Install it separately once Thal
 
 ## Prerequisites
 
-1. Thalamus installed per [Getting Started, Step 1](/getting-started) (this also
-   installs the Gateway API, inference extension, and agentgateway CRDs).
-2. A Gateway with a `frontend` listener, e.g. the example Gateway:
-
-```bash
-kubectl apply -f examples/gateway.yaml
-kubectl wait gateway/inference-gateway \
-  --namespace thalamus \
-  --for=condition=Programmed=True \
-  --timeout=120s
-```
-
-The example manifest already contains the `api` listener (used by the operator,
-see `gateway.listener`) and the `frontend` listener (used below).
-If you use your own Gateway, make sure it has an HTTP `frontend` listener with
-`allowedRoutes.namespaces.from: All`.
+1. Thalamus installed per [Getting Started, Step 1](/getting-started).
+2. A Gateway with a `frontend` listener (already included in the example). If you use your own Gateway, make sure to
+   adjust any `route` related configuration below.
 
 ## Install
 
@@ -43,15 +30,9 @@ helm upgrade --install open-webui oci://ghcr.io/open-webui/helm-charts/open-webu
   --set route.parentRefs[0].sectionName=frontend
 ```
 
-::: warning Renaming
-`openaiBaseApiUrl` and `route.parentRefs` must stay in sync with your Gateway:
-if you rename `gateway.name` (`inference-gateway`), change the release namespace
-(`thalamus`), or use a different listener than `frontend`, update both values.
-:::
-
 ## Access
 
-Open WebUI is served on the gateway's `frontend` listener (port 8080). For
+When using the example Gateway Open WebUI is served on the gateway's `frontend` listener (port 8080). For
 local clusters without a `LoadBalancer`, use port-forward:
 
 ```bash
