@@ -81,7 +81,7 @@ GOLANGCI_LINT_VERSION     ?= v2.14.0
 # renovate: datasource=go depName=gotest.tools/gotestsum
 GOTESTSUM_VERSION         ?= v1.13.0
 # renovate: datasource=github-releases depName=helm-unittest/helm-unittest
-HELM_UNITTEST_VERSION     ?= v1.1.2
+HELM_UNITTEST_VERSION     ?= v1.2.1
 
 CRD_REF_DOCS              ?= $(shell command -v crd-ref-docs 2>/dev/null || echo $(LOCALBIN)/crd-ref-docs)
 # renovate: datasource=go depName=github.com/elastic/crd-ref-docs
