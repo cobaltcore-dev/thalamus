@@ -7,8 +7,6 @@
 package v1alpha1
 
 import (
-	"fmt"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -37,13 +35,4 @@ func (b *schemeBuilder) Register(object ...runtime.Object) {
 		metav1.AddToGroupVersion(s, b.GroupVersion)
 		return nil
 	})
-}
-
-// Build returns a new Scheme containing all registered types.
-func (b *schemeBuilder) Build() (*runtime.Scheme, error) {
-	s := runtime.NewScheme()
-	if err := b.AddToScheme(s); err != nil {
-		return s, fmt.Errorf("build scheme: %w", err)
-	}
-	return s, nil
 }
