@@ -15,7 +15,10 @@ import (
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
 )
 
-const testGatewayName = "test-gateway"
+const (
+	testGatewayName     = "test-gateway"
+	testGatewayListener = "custom-listener"
+)
 
 func TestBuildInferencePool(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
@@ -38,7 +41,7 @@ func TestBuildInferencePool(t *testing.T) {
 
 func TestBuildHTTPRoute(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
-	route := BuildHTTPRoute(model, "custom-gateway", "custom-listener")
+	route := BuildHTTPRoute(model, "custom-gateway", testGatewayListener)
 
 	if route.Name != model.EngineName() {
 		t.Errorf("Name:\ngot:  %q\nwant: %q", route.Name, model.EngineName())
@@ -50,8 +53,8 @@ func TestBuildHTTPRoute(t *testing.T) {
 	if name := parentRef.Name; name != "custom-gateway" {
 		t.Errorf("parentRef.Name:\ngot:  %q\nwant: %q", name, "custom-gateway")
 	}
-	if section := *parentRef.SectionName; section != "custom-listener" {
-		t.Errorf("parentRef.SectionName: got: %q, want %q", section, "custom-listener")
+	if section := *parentRef.SectionName; section != testGatewayListener {
+		t.Errorf("parentRef.SectionName: got: %q, want %q", section, testGatewayListener)
 	}
 	rule := route.Spec.Rules[0]
 	if len(rule.Matches) != len(modelRoutes) {
@@ -86,7 +89,7 @@ func TestBuildHTTPRoute(t *testing.T) {
 func TestBuildBodyBasedRoutingPolicy(t *testing.T) {
 	gateway := &gatewayv1.Gateway{Name: testGatewayName, Namespace: "thalamus"}
 
-	policy := BuildBodyBasedRoutingPolicy(gateway, "custom-listener")
+	policy := BuildBodyBasedRoutingPolicy(gateway, testGatewayListener)
 
 	if policy.Name != BodyBasedRoutingPolicyName {
 		t.Errorf("policy.Name:\ngot:  %q\nwant: %q", policy.Name, BodyBasedRoutingPolicyName)
@@ -102,8 +105,8 @@ func TestBuildBodyBasedRoutingPolicy(t *testing.T) {
 		t.Errorf("targetRef:\ngot:  %s/%s %s\nwant: %s/Gateway %s",
 			ref.Group, ref.Kind, ref.Name, gatewayv1.GroupName, testGatewayName)
 	}
-	if ref.SectionName == nil || *ref.SectionName != "custom-listener" {
-		t.Errorf("targetRef.SectionName:\ngot:  %v\nwant: %q", ref.SectionName, "custom-listener")
+	if ref.SectionName == nil || *ref.SectionName != testGatewayListener {
+		t.Errorf("targetRef.SectionName:\ngot:  %v\nwant: %q", ref.SectionName, testGatewayListener)
 	}
 
 	traffic := policy.Spec.Traffic
