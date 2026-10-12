@@ -32,5 +32,5 @@ permissions:
 
 jobs:
   cortex-agents:
-    uses: cobaltcore-dev/cortex/.github/workflows/cortex-agents-entry.yaml@7d02a7a1187ff03fb7562a611691385f2ea27923
+    uses: cobaltcore-dev/cortex/.github/workflows/cortex-agents-entry.yaml@4b55055cca236490ebcdf7a0e2c5de43f6860146
     secrets: inherit
