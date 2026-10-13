@@ -33,7 +33,7 @@ type ModelListReconciler struct {
 func (r *ModelListReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	gateway, err := getGateway(ctx, r.Client, req.NamespacedName)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("reconcile model-list: %w", err)
+		return ctrl.Result{}, err
 	}
 	if gateway == nil {
 		return ctrl.Result{}, nil
@@ -50,10 +50,10 @@ func (r *ModelListReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	if err := applyOwnedNonBlocking(ctx, r.Client, r.Scheme, gateway, native.BuildModelListRoute(gateway)); err != nil {
-		return ctrl.Result{}, fmt.Errorf("apply model-list route: %w", err)
+		return ctrl.Result{}, err
 	}
 	if err := applyOwnedNonBlocking(ctx, r.Client, r.Scheme, gateway, native.BuildModelListPolicy(req.Namespace, body)); err != nil {
-		return ctrl.Result{}, fmt.Errorf("apply model-list policy: %w", err)
+		return ctrl.Result{}, err
 	}
 
 	log.FromContext(ctx).Info("synced model-list route and policy", "namespace", req.Namespace, "models", len(modelList.Items))

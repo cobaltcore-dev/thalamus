@@ -5,7 +5,6 @@ package native
 
 import (
 	"encoding/json"
-	"fmt"
 	"sort"
 	"strings"
 
@@ -65,10 +64,7 @@ func BuildModelListResponse(models []v1alpha1.Model) (string, error) {
 	})
 
 	body, err := json.Marshal(modelListResponse{Object: "list", Data: entries})
-	if err != nil {
-		return "", fmt.Errorf("marshal model-list response: %w", err)
-	}
-	return string(body), nil
+	return string(body), err
 }
 
 // BuildModelListRoute returns the HTTPRoute exposing /v1/models on the gateway's API listener.
