@@ -50,7 +50,7 @@ go-test: ## Run Go tests.
 .PHONY: helm-unittest
 helm-unittest: ## Run Helm unit tests for the thalamus chart.
 # On newer macOS the installation breaks: https://github.com/helm-unittest/helm-unittest/issues/949
-# TODO: remove the workaround when the fix is released, or install with OCI when Helm4 supporting Helm4 in GH Actions
+# TODO: remove the workaround when the fix is released, or install with OCI when Helm4 is supported in GH Actions
 	@set -e; \
 	if ! helm plugin list | grep -q "^unittest"; then \
 		SHIM=""; \
