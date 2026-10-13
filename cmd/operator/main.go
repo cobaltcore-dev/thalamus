@@ -43,12 +43,18 @@ func main() {
 	var watchNamespace string
 	var gatewayName string
 	var gatewayListener string
+	var leaderElection bool
+	var leaderElectionID string
+	var leaderElectionNamespace string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. Use :8080 for HTTP or 0 to disable.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.StringVar(&watchNamespace, "namespace", "", "Namespace to watch. Must match the namespace the operator is deployed in.")
 	flag.StringVar(&gatewayName, "gateway-name", "", "Name of the gateway the operator attaches its routes to. Required.")
 	flag.StringVar(&gatewayListener, "gateway-listener", "", "Name of the gateway listener the operator attaches its routes to. Required.")
+	flag.BoolVar(&leaderElection, "leader-election", true, "Enable leader election for the controller manager.")
+	flag.StringVar(&leaderElectionID, "leader-election-id", "thalamus-operator", "Name of the Lease resource used for leader election.")
+	flag.StringVar(&leaderElectionNamespace, "leader-election-namespace", "", "Namespace of the Lease resource. Defaults to --namespace, then POD_NAMESPACE.")
 	// TODO: set to false before GA
 	opts := zap.Options{Development: true}
 	opts.BindFlags(flag.CommandLine)
@@ -65,17 +71,33 @@ func main() {
 		os.Exit(1)
 	}
 
+	if leaderElectionNamespace == "" {
+		leaderElectionNamespace = watchNamespace
+	}
+	if leaderElectionNamespace == "" {
+		leaderElectionNamespace = os.Getenv("POD_NAMESPACE")
+	}
+	if leaderElection && leaderElectionNamespace == "" {
+		setupLog.Error(nil, "--leader-election-namespace (or --namespace / POD_NAMESPACE env) must be set")
+		os.Exit(1)
+	}
+
 	cacheOpts := cache.Options{}
 	if watchNamespace != "" {
 		cacheOpts.DefaultNamespaces = map[string]cache.Config{watchNamespace: {}}
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		Metrics:                metricsserver.Options{BindAddress: metricsAddr},
-		HealthProbeBindAddress: probeAddr,
-		Cache:                  cacheOpts,
-	})
+	mgrOpts := ctrl.Options{
+		Scheme:                        scheme,
+		Metrics:                       metricsserver.Options{BindAddress: metricsAddr},
+		HealthProbeBindAddress:        probeAddr,
+		Cache:                         cacheOpts,
+		LeaderElection:                leaderElection,
+		LeaderElectionID:              leaderElectionID,
+		LeaderElectionNamespace:       leaderElectionNamespace,
+		LeaderElectionReleaseOnCancel: true,
+	}
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), mgrOpts)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)

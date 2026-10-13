@@ -1,5 +1,5 @@
 {{- define "thalamus.operator.name" -}}
-{{- printf "%s-operator" .Release.Name }}
+{{- printf "%s-operator" .Release.Name | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{- define "thalamus.operator.serviceAccountName" -}}

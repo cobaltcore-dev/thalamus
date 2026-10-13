@@ -1,7 +1,4 @@
 {{- $metricsEnabled := dig "enabled" .Values.monitoring.enabled (.Values.monitoring.operator | default dict) }}
-{{- if gt (int .Values.operator.replicas) 1 }}
-{{- fail "operator.replicas > 1 is not supported: the operator has no leader election" }}
-{{- end }}
 {{- if .Values.operator.serviceAccount.create }}
 ---
 apiVersion: v1
@@ -58,6 +55,12 @@ rules:
   - apiGroups: [agentgateway.dev]
     resources: [agentgatewaypolicies]
     verbs: [get, list, watch, create, update, patch]
+  - apiGroups: [coordination.k8s.io]
+    resources: [leases]
+    verbs: [get, list, watch, create, update, patch, delete]
+  - apiGroups: [""]
+    resources: [events]
+    verbs: [create, patch]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -127,6 +130,8 @@ spec:
             {{- if $metricsEnabled }}
             - --metrics-bind-address=:8080
             {{- end }}
+            - --leader-election-id={{ include "thalamus.operator.name" . }}
+            - --leader-election-namespace={{ .Release.Namespace }}
           {{- with .Values.operator.resources }}
           resources: {{ toYaml . | nindent 12 }}
           {{- end }}

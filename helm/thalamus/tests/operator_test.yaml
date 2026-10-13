@@ -89,3 +89,55 @@ tests:
           path: metadata.labels["app.kubernetes.io/name"]
           value: my-release-operator
         documentIndex: 4
+
+  - it: should always enable leader election, even with a single replica
+    set:
+      operator.replicas: 1
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 1
+        documentIndex: 4
+      - notContains:
+          path: spec.template.spec.containers[0].args
+          content: --leader-elect
+        documentIndex: 4
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --leader-election-id=thalamus-operator
+        documentIndex: 4
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --leader-election-namespace=thalamus
+        documentIndex: 4
+      - contains:
+          path: rules
+          content:
+            apiGroups: [coordination.k8s.io]
+            resources: [leases]
+            verbs: [get, list, watch, create, update, patch, delete]
+        documentIndex: 1
+      - contains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [events]
+            verbs: [create, patch]
+        documentIndex: 1
+
+  - it: should keep leader-election identity when replicas > 1
+    set:
+      operator.replicas: 2
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 2
+        documentIndex: 4
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --leader-election-id=thalamus-operator
+        documentIndex: 4
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --leader-election-namespace=thalamus
+        documentIndex: 4
