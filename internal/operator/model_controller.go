@@ -59,7 +59,11 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("reconcile model %s: %w", req.NamespacedName, r.setFailedStatus(ctx, model, err))
 	}
-	return ctrl.Result{}, r.syncStatus(ctx, model)
+	if err := r.syncStatus(ctx, model); err != nil {
+		return ctrl.Result{}, err
+	}
+	log.FromContext(ctx).V(levelDebug).Info("reconciled model", "namespace", model.Namespace, "name", model.Name, "backend", model.Spec.Backend, "phase", model.Status.Phase)
+	return ctrl.Result{}, nil
 }
 
 // reconcileKServe is a stub — not yet implemented.
@@ -95,6 +99,7 @@ func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.M
 
 	if model.Spec.Replicas == 0 {
 		// Delete in reverse order so consumers are removed before their dependencies.
+		log.FromContext(ctx).V(levelDebug).Info("deleting owned resources", "namespace", model.Namespace, "name", model.Name, "resources", len(objs))
 		for _, obj := range slices.Backward(objs) {
 			if err := r.deleteOwned(ctx, model, obj); err != nil {
 				return err
@@ -153,6 +158,9 @@ func (r *ModelReconciler) syncStatus(ctx context.Context, model *v1alpha1.Model)
 
 	if apiequality.Semantic.DeepEqual(before, &model.Status) {
 		return nil
+	}
+	if cond := meta.FindStatusCondition(model.Status.Conditions, v1alpha1.ModelConditionReady); cond != nil {
+		log.FromContext(ctx).V(levelInfo).Info("model status changed", "namespace", model.Namespace, "name", model.Name, "phase", model.Status.Phase, "reason", cond.Reason, "message", cond.Message)
 	}
 	if err := r.Status().Patch(ctx, model, patch); err != nil {
 		return fmt.Errorf("patch model status %s/%s: %w", model.Namespace, model.Name, err)
