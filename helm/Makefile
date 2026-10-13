@@ -3,6 +3,11 @@ GATEWAY_API_VERSION                     ?= v1.6.2
 # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api-inference-extension
 GATEWAY_API_INFERENCE_EXTENSION_VERSION ?= v1.6.2
 
+.PHONY: build
+build: vendor-crds ## Build local chart dependencies.
+	helm dependency build thalamus-crds
+	helm dependency build thalamus
+
 .PHONY: vendor-crds
 vendor-crds: ## Re-download vendored upstream CRDs from their pinned release tags.
 	curl -fsSL -o gateway-api/templates/crds.yaml \

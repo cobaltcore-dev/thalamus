@@ -1,5 +1,14 @@
 ---
 title: Getting Started
+format:
+  gfm:
+    toc: false
+execute:
+  enabled: true
+  timeout: 660
+jupyter: bash
+filters:
+  - _filters/substitute-env.lua
 ---
 
 # Getting Started
@@ -35,16 +44,23 @@ bundled with the install (Step 1).
 
 ### Accounts
 
-- A [Hugging Face](https://huggingface.co) account with a [read token](https://huggingface.co/settings/tokens) and access to the models you want to serve
+- A [Hugging Face](https://huggingface.co) account with a [read token](https://huggingface.co/settings/tokens) and access to the models you want to serve (optional for public models, helps avoid anonymous rate limits)
 
 ## Step 1 — Deploy the stack
 
 Thalamus installs as a single Helm chart bundling the Thalamus operator, the agentgateway controller, and all required CRDs (Thalamus, Gateway API, inference extension, agentgateway). Everything is enabled by default:
 
-```bash
-helm upgrade --install thalamus oci://ghcr.io/cobaltcore-dev/charts/thalamus \
-  --namespace thalamus --create-namespace --wait \
-  --version @@CHART_VERSION@@
+```{bash}
+#| include: false
+#| label: guard-kind-context
+set -uo pipefail
+kubectl config current-context | grep -q '^kind-'
+```
+
+```{bash}
+#| label: install-thalamus
+helm upgrade --install thalamus "${THALAMUS_CHART_LOCATION}/thalamus" \
+  --namespace thalamus --create-namespace --wait --timeout=600s --version "$THALAMUS_CHART_VERSION" --set operator.image.tag="$OPERATOR_IMAGE_TAG"
 ```
 
 > **Caution:** the CRDs are installed as ordinary release resources, not via
@@ -63,10 +79,11 @@ disable the matching dependencies:
 - `gateway-api-inference-extension` — provides the `InferencePool` CRD
   Thalamus needs; disable only if your cluster already provides it
 
-```bash
-helm upgrade --install thalamus oci://ghcr.io/cobaltcore-dev/charts/thalamus \
+```{bash}
+#| eval: false
+helm upgrade --install thalamus "${THALAMUS_CHART_LOCATION}/thalamus" \
   --namespace thalamus --create-namespace --wait \
-  --version @@CHART_VERSION@@ \
+  --version "$THALAMUS_CHART_VERSION" \
   --set gateway-api.enabled=false
 ```
 
@@ -76,9 +93,12 @@ disable its bundled controller with `--set agentgateway.enabled=false`.
 
 ## Step 2 — Create the Hugging Face secret
 
-Model pods pull their weights from Hugging Face at startup. `tokenSecret` is optional — public models work without it — but providing a token avoids anonymous rate limits. To create a secret named `hf-token` with key `HF_TOKEN` in the `thalamus` namespace:
+Model pods pull their weights from Hugging Face at startup. `tokenSecret` is optional: public models work without it, but providing a token avoids anonymous rate limits. If you have a token, create a secret named `hf-token`
+with key `HF_TOKEN` in the `thalamus` namespace:
 
-```bash
+```{bash}
+#| label: create-hf-secret
+#| eval: false
 kubectl create secret generic hf-token \
   --from-literal=HF_TOKEN="$HF_TOKEN" \
   --namespace thalamus
@@ -102,13 +122,15 @@ and `api`); set them if yours differ.
 
 Apply the example gateway:
 
-```bash
-kubectl apply -f https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/gateway.yaml
+```{bash}
+#| label: apply-gateway
+kubectl apply -f "${ROOT:-$(git rev-parse --show-toplevel)}/examples/gateway.yaml"
 ```
 
 Wait for it to become programmed:
 
-```bash
+```{bash}
+#| label: wait-gateway
 kubectl wait gateway/inference-gateway \
   --namespace thalamus \
   --for=condition=Programmed=True \
@@ -126,34 +148,34 @@ The example also shows how to configure the data plane through an
 ## Step 4 — Deploy a model
 
 Models are declared as `thalamus.cloud/v1alpha1 Model` resources and applied
-independently of the helm release. See [`examples/model-qwen3-6-27b-gpu.yaml`](https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/model-qwen3-6-27b-gpu.yaml)
-for a GPU example and [`examples/model-smollm2-cpu.yaml`](https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/model-smollm2-cpu.yaml) for a
+independently of the helm release. See [`examples/model-qwen3-6-27b-gpu.yaml`](https://raw.githubusercontent.com/{{< env REPOSITORY >}}/{{< env REF >}}/examples/model-qwen3-6-27b-gpu.yaml)
+for a GPU example and [`examples/model-smollm2-cpu.yaml`](https://raw.githubusercontent.com/{{< env REPOSITORY >}}/{{< env REF >}}/examples/model-smollm2-cpu.yaml) for a
 CPU example.
 
-```bash
-kubectl apply -f https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/model-qwen3-6-27b-gpu.yaml
+```{bash}
+#| eval: false
+kubectl apply -f https://raw.githubusercontent.com/${REPOSITORY}/${REF}/examples/model-qwen3-6-27b-gpu.yaml
 ```
 
 Wait for the model to become ready:
 
-```bash
+```{bash}
+#| eval: false
 kubectl wait model/qwen3-6-27b --namespace thalamus --for=condition=Ready --timeout=600s
 ```
 
-::: details GPU example manifest
-<<< ../examples/model-qwen3-6-27b-gpu.yaml{yml}
-:::
-
 For a CPU-only or local development setup, use the SmolLM2 example:
 
-```bash
-kubectl apply -f https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/model-smollm2-cpu.yaml
+```{bash}
+#| label: deploy-model-cpu
+kubectl apply -f "${ROOT:-$(git rev-parse --show-toplevel)}/examples/model-smollm2-cpu.yaml"
 ```
 
 Wait for the model to become ready:
 
-```bash
-kubectl wait model/smollm2-135m --namespace thalamus --for=condition=Ready --timeout=600s
+```{bash}
+#| label: wait-model-ready
+kubectl wait model --all --namespace thalamus --for=condition=Ready --timeout=600s
 ```
 
 ::: details CPU example manifest
@@ -176,25 +198,111 @@ progress with `kubectl get svc inference-gateway -n thalamus`.
 
 **With port-forward (local clusters without a `LoadBalancer`):**
 
-```bash
-kubectl port-forward svc/inference-gateway 8080:80 -n thalamus &
-GATEWAY_HOST=localhost:8080
+```{bash}
+#| label: port-forward-gateway
+kubectl port-forward svc/inference-gateway 8080:80 --namespace thalamus &
+sleep 3
+export GATEWAY_HOST="localhost:8080"
 ```
 
-Then test the API:
+The checks below read the model id from `$MODEL`, derived from the deployed
+`Model` resource:
 
-```bash
-curl "http://$GATEWAY_HOST/v1/models"
+```{bash}
+#| label: export-model-id
+export MODEL="$(kubectl get model --namespace thalamus -o json | jq -r '.items[0].spec.weights.hf.repoId')"
 ```
 
-```bash
-curl "http://$GATEWAY_HOST/v1/chat/completions" \
+```{bash}
+#| include: false
+#| label: wait-gateway-programmed
+kubectl wait gateway/inference-gateway --namespace thalamus --for=condition=Programmed=True --timeout=120s
+```
+
+Then test the API (against the port-forward here; on a cloud cluster swap in
+`$GATEWAY_HOST`):
+
+```{bash}
+#| label: curl-models
+curl -s "http://$GATEWAY_HOST/v1/models"
+```
+
+```{bash}
+#| label: curl-chat
+curl -s "http://$GATEWAY_HOST/v1/chat/completions" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "<model-id>",
+    "model": "'"$MODEL"'",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
 ```
+
+::: details Verify with the Python SDK
+```{bash}
+#| label: verify-openai-chat
+python3 -m pip install "openai>=2,<3" "anthropic>=0.49" && python3 - <<'EOF'
+import os
+from openai import OpenAI
+
+model = os.environ["MODEL"]
+gateway = os.environ["GATEWAY_HOST"]
+client = OpenAI(base_url=f"http://{gateway}/v1", api_key="e2e", timeout=120.0)
+ids = [m.id for m in client.models.list()]
+assert model in ids, f"model {model!r} not in /v1/models: {ids}"
+print("PASS: GET /v1/models")
+
+prompt = "What is the capital of France? Answer with a single word."
+completion = client.chat.completions.create(
+    model=model,
+    messages=[{"role": "user", "content": prompt}],
+    max_tokens=8,
+    temperature=0,
+)
+content = completion.choices[0].message.content or ""
+assert "paris" in content.lower(), f"expected 'Paris' in chat completion, got: {content!r}"
+print(f"PASS: POST /v1/chat/completions -> {content!r}")
+EOF
+```
+
+```{bash}
+#| label: verify-openai-responses
+python3 - <<'EOF'
+import os
+from openai import OpenAI
+
+model = os.environ["MODEL"]
+gateway = os.environ["GATEWAY_HOST"]
+client = OpenAI(base_url=f"http://{gateway}/v1", api_key="e2e", timeout=120.0)
+prompt = "What is the capital of France? Answer with a single word."
+response = client.responses.create(model=model, input=prompt)
+content = response.output_text
+assert "paris" in content.lower(), f"expected 'Paris' in response, got: {content!r}"
+print(f"PASS: POST /v1/responses -> {content!r}")
+EOF
+```
+
+```{bash}
+#| label: verify-anthropic-messages
+python3 - <<'EOF'
+import os
+from anthropic import Anthropic
+
+model = os.environ["MODEL"]
+gateway = os.environ["GATEWAY_HOST"]
+client = Anthropic(base_url=f"http://{gateway}", api_key="e2e", timeout=120.0)
+prompt = "What is the capital of France? Answer with a single word."
+message = client.messages.create(
+    model=model,
+    max_tokens=64,
+    messages=[{"role": "user", "content": prompt}],
+)
+content = "".join(block.text for block in message.content if block.type == "text")
+assert "paris" in content.lower(), f"expected 'Paris' in message, got: {content!r}"
+print(f"PASS: POST /v1/messages -> {content!r}")
+EOF
+```
+
+:::
 
 ## API key authentication (optional)
 
