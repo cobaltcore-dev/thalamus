@@ -49,9 +49,17 @@ go-test: ## Run Go tests.
 
 .PHONY: helm-unittest
 helm-unittest: ## Run Helm unit tests for the thalamus chart.
+# On newer macOS the install hook breaks due to the sha256sum command
 	@set -e; \
 	if ! helm plugin list | grep -q "^unittest"; then \
-		helm plugin install https://github.com/helm-unittest/helm-unittest.git --version $(HELM_UNITTEST_VERSION); \
+		SHIM=""; \
+		if [ "$$(uname -s)" = Darwin ]; then \
+			SHIM=$$(mktemp -d); \
+			printf '#!/bin/sh\nexec /usr/bin/shasum -a 256 "$$@"\n' > "$$SHIM/sha256sum"; \
+			chmod +x "$$SHIM/sha256sum"; \
+		fi; \
+		PATH="$${SHIM:+$$SHIM:}$$PATH" helm plugin install https://github.com/helm-unittest/helm-unittest.git --version $(HELM_UNITTEST_VERSION) --verify=false; \
+		if [ -n "$$SHIM" ]; then rm -rf "$$SHIM"; fi; \
 	fi
 	helm unittest helm/thalamus
 
