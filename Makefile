@@ -49,12 +49,11 @@ go-test: ## Run Go tests.
 
 .PHONY: helm-unittest
 helm-unittest: ## Run Helm unit tests for the thalamus chart.
-# TODO: use OCI installation and add --verify=false for Helm4
-	@set -e; \
-	if ! helm plugin list | grep -q "^unittest"; then \
-		helm plugin install https://github.com/helm-unittest/helm-unittest.git --version $(HELM_UNITTEST_VERSION); \
-	fi
-	helm unittest helm/thalamus
+	$(MAKE) -C helm unittest
+
+.PHONY: helm-deps
+helm-deps: ## Build the helm dependencies of the thalamus chart.
+	$(MAKE) -C helm deps
 
 .PHONY: testsum
 testsum: gotestsum ## Run all tests (clean output for passing, verbose for failing). Options: WATCH=1, RUN=<pattern>, PACKAGE=<pkg>, FORMAT=<fmt>
@@ -66,6 +65,49 @@ testsum: gotestsum ## Run all tests (clean output for passing, verbose for faili
 		$(if $(VERBOSE),-v) \
 		$(if $(RUN),-run $(RUN)) \
 		$(if $(PACKAGE),$(PACKAGE),./...)
+
+
+E2E_CLUSTER ?= thalamus
+E2E_VENV ?= $(CURDIR)/.venv
+REPOSITORY ?= cobaltcore-dev/thalamus
+OPERATOR_IMAGE_TAG ?= dev
+
+.PHONY: e2e-kind
+e2e-kind: ## Ensure a kind cluster exists and point kubectl at it.
+	@kind get clusters 2>/dev/null | grep -qx "$(E2E_CLUSTER)" || \
+		kind create cluster --name "$(E2E_CLUSTER)"
+	@kubectl config use-context "kind-$(E2E_CLUSTER)" >/dev/null
+
+.PHONY: e2e-kernel
+e2e-kernel: ## Ensure the Jupyter bash kernel is available.
+	@if ! "$(E2E_VENV)/bin/python" -c "import bash_kernel" >/dev/null 2>&1; then \
+		rm -rf "$(E2E_VENV)"; \
+		python3 -m venv "$(E2E_VENV)"; \
+		"$(E2E_VENV)/bin/pip" install --quiet jupyter bash_kernel; \
+		"$(E2E_VENV)/bin/python" -m bash_kernel.install; \
+	fi
+
+.PHONY: e2e-image
+e2e-image: e2e-kind ## Build the operator image and load it into the kind cluster.
+	docker build $(DOCKER_BUILD_ARGS) -t "ghcr.io/$(REPOSITORY):$(OPERATOR_IMAGE_TAG)" -f Dockerfile .
+	kind load docker-image "ghcr.io/$(REPOSITORY):$(OPERATOR_IMAGE_TAG)" --name "$(E2E_CLUSTER)"
+
+.PHONY: e2e-build
+e2e-build: e2e-image helm-deps ## Build from source what the guides install (operator image, chart deps).
+
+.PHONY: e2e-docs
+e2e-docs: e2e-kernel ## Execute a docs guide end-to-end.
+	@if [ ! -f "docs/$(E2E_GUIDE).qmd" ]; then \
+		echo "ERROR: E2E_GUIDE not set or invalid: '$(E2E_GUIDE)'. Available guides:" >&2; \
+		ls docs/*.qmd | grep -v '/_' | sed 's|^docs/|  |; s|\.qmd$$||' >&2; \
+		exit 1; \
+	fi
+	REPOSITORY="$(REPOSITORY)" OPERATOR_IMAGE_TAG="$(OPERATOR_IMAGE_TAG)" \
+	REF="$${REF:-$$(git rev-parse --abbrev-ref HEAD)}" \
+	ROOT="$${ROOT:-$(CURDIR)}" \
+	THALAMUS_CHART_LOCATION="$${THALAMUS_CHART_LOCATION:-$(CURDIR)/helm}" \
+	THALAMUS_CHART_VERSION="$${THALAMUS_CHART_VERSION-}" \
+		PATH="$(E2E_VENV)/bin:$$PATH" quarto render "docs/$(E2E_GUIDE).qmd" --to gfm --execute -o -
 
 LOCALBIN ?= $(shell pwd)/bin
 $(LOCALBIN):
@@ -81,8 +123,6 @@ CONTROLLER_TOOLS_VERSION  ?= v0.22.0
 GOLANGCI_LINT_VERSION     ?= v2.14.0
 # renovate: datasource=go depName=gotest.tools/gotestsum
 GOTESTSUM_VERSION         ?= v1.13.0
-# renovate: datasource=github-releases depName=helm-unittest/helm-unittest
-HELM_UNITTEST_VERSION     ?= v1.2.1
 
 CRD_REF_DOCS              ?= $(shell command -v crd-ref-docs 2>/dev/null || echo $(LOCALBIN)/crd-ref-docs)
 # renovate: datasource=go depName=github.com/elastic/crd-ref-docs
