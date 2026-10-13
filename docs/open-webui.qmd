@@ -35,6 +35,7 @@ The `thalamus` chart does not bundle Open WebUI. Install it separately once Thal
 #| label: install-open-webui
 helm upgrade --install open-webui oci://ghcr.io/open-webui/helm-charts/open-webui \
   --namespace open-webui --create-namespace \
+  --wait \
   --version 16.6.0 \
   --set ollama.enabled=false \
   --set pipelines.enabled=false \
@@ -66,8 +67,7 @@ Then open `http://localhost:8081` in your browser.
 #| label: wait-open-webui-route
 kubectl wait httproute/open-webui \
   --namespace open-webui \
-  --for=jsonpath='{.status.parents[*].conditions[?(@.type=="Accepted")].status}'=True \
-  --timeout=300s
+  --for=jsonpath='{.status.parents[*].conditions[?(@.type=="Accepted")].status}'=True
 ```
 
 ```{bash}
@@ -95,8 +95,7 @@ Check that the route was created and accepted:
 kubectl get httproute -n open-webui
 kubectl wait httproute/open-webui \
   --namespace open-webui \
-  --for=jsonpath='{.status.parents[*].conditions[?(@.type=="Accepted")].status}'=True \
-  --timeout=120s
+  --for=jsonpath='{.status.parents[*].conditions[?(@.type=="Accepted")].status}'=True
 ```
 
 Check that the Gateway has the `frontend` listener:

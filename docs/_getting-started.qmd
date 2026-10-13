@@ -50,7 +50,7 @@ kubectl config current-context | grep -q '^kind-'
 ```{bash}
 #| label: install-thalamus
 helm upgrade --install thalamus "${THALAMUS_CHART_LOCATION}/thalamus" \
-  --namespace thalamus --create-namespace --wait --timeout=600s --version "$THALAMUS_CHART_VERSION" --set operator.image.tag="$OPERATOR_IMAGE_TAG"
+  --namespace thalamus --create-namespace --wait --version "$THALAMUS_CHART_VERSION" --set operator.image.tag="$OPERATOR_IMAGE_TAG"
 ```
 
 > **Caution:** the CRDs are installed as ordinary release resources, not via
@@ -122,8 +122,7 @@ Wait for it to become programmed:
 #| label: wait-gateway
 kubectl wait gateway/inference-gateway \
   --namespace thalamus \
-  --for=condition=Programmed=True \
-  --timeout=120s
+  --for=condition=Programmed=True
 ```
 
 The example also shows how to configure the data plane through an
