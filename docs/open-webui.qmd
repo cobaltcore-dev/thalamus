@@ -45,7 +45,11 @@ helm upgrade --install open-webui oci://ghcr.io/open-webui/helm-charts/open-webu
   --set route.enabled=true \
   --set route.parentRefs[0].name=inference-gateway \
   --set route.parentRefs[0].namespace=thalamus \
-  --set route.parentRefs[0].sectionName=frontend
+  --set route.parentRefs[0].sectionName=frontend \
+  --set startupProbe.httpGet.path=/health \
+  --set startupProbe.httpGet.port=http \
+  --set startupProbe.periodSeconds=5 \
+  --set startupProbe.failureThreshold=60
 ```
 
 ## Access
@@ -73,6 +77,26 @@ kubectl wait httproute/open-webui \
 ```{bash}
 #| label: curl-open-webui
 curl -sf http://localhost:8081/ > /dev/null
+```
+
+```{bash}
+#| label: webui-signin
+#| include: false
+export WEBUI_TOKEN="$(curl -s -X POST http://localhost:8081/api/v1/auths/signin \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"","password":""}' | jq -r .token)"
+```
+
+```{bash}
+#| label: curl-webui-chat
+#| include: false
+curl -s http://localhost:8081/api/chat/completions \
+  -H "Authorization: Bearer $WEBUI_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "'"$MODEL"'",
+    "messages": [{"role": "user", "content": "What is the capital of France? Answer with a single word."}]
+  }' | jq -e '.choices[0].message.content | test("(?i)paris")' > /dev/null
 ```
 
 :::
