@@ -66,7 +66,7 @@ Then open `http://localhost:8081` in your browser.
 #| label: wait-open-webui-route
 kubectl wait httproute/open-webui \
   --namespace open-webui \
-  --for=condition=Accepted \
+  --for=jsonpath='{.status.parents[*].conditions[?(@.type=="Accepted")].status}'=True \
   --timeout=300s
 ```
 
@@ -95,7 +95,7 @@ Check that the route was created and accepted:
 kubectl get httproute -n open-webui
 kubectl wait httproute/open-webui \
   --namespace open-webui \
-  --for=condition=Accepted \
+  --for=jsonpath='{.status.parents[*].conditions[?(@.type=="Accepted")].status}'=True \
   --timeout=120s
 ```
 

@@ -112,9 +112,3 @@ jobs:
           ROOT: https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}
         run: |
           quarto render "docs/${{ matrix.guide }}.qmd" --to gfm --execute -o -
-
-      - name: Debug on failure
-        if: failure()
-        run: |
-          kubectl get pods -A || true
-          kubectl get gateway,httproutes,inferencepools,models -n thalamus -o yaml || true
