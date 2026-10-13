@@ -231,3 +231,8 @@ html {
 .footer-legal-links .sep {
   color: var(--vp-c-divider);
 }
+
+/* Executable-docs bootstrap: runs in CI, hidden on the site. */
+.vp-doc .doc-bootstrap {
+  display: none;
+}

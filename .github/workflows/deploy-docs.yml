@@ -10,6 +10,7 @@ on:
     tags:
       - 'v*'
     paths:
+      - 'docs/**'
       - 'website/**'
       - 'api/**'
       - '.github/workflows/deploy-docs.yml'
@@ -83,6 +84,7 @@ jobs:
       - name: Render executable docs
         run: |
           for qmd in docs/*.qmd; do
+            [[ "$qmd" == docs/_* ]] && continue # shared include partial, not a page
             quarto render "$qmd" --to gfm --no-execute -o - > "website/$(basename "$qmd" .qmd).md"
           done
         env:

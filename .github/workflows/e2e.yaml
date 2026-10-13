@@ -7,6 +7,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
   pull_request:
   workflow_dispatch:
 
@@ -19,12 +21,20 @@ concurrency:
 
 jobs:
   e2e:
-    name: E2E
+    name: E2E (${{ matrix.guide }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        guide: [getting-started, open-webui]
+    permissions:
+      contents: read
+      actions: read
     env:
       REF: ${{ github.head_ref || github.ref_name }}
       REPOSITORY: ${{ github.repository }}
+      OPERATOR_IMAGE_TAG: dev
     steps:
       - name: Check out code
         uses: actions/checkout@v7.0.1
@@ -51,28 +61,57 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Execute docs (PR)
+      - name: Install bash kernel
+        run: |
+          pip install jupyter bash_kernel
+          python -m bash_kernel.install --user
+
+      - name: Build from source
+        if: ${{ !(github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
+        env:
+          DOCKER_BUILD_ARGS: --cache-from type=gha --cache-to type=gha,mode=max
+        run: |
+          docker build $DOCKER_BUILD_ARGS -t "ghcr.io/${REPOSITORY}:${OPERATOR_IMAGE_TAG}" -f Dockerfile .
+          kind load docker-image "ghcr.io/${REPOSITORY}:${OPERATOR_IMAGE_TAG}" --name thalamus
+          helm dependency build helm/thalamus
+
+      - name: Wait for publish workflows
+        # main/tags validate published artifacts; wait for this commit's runs.
+        if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        timeout-minutes: 20
+        run: |
+          for wf in "Helm Charts" "Docker Images"; do
+            id=""
+            until [ -n "$id" ]; do
+              id="$(gh run list --workflow "$wf" --commit "$GITHUB_SHA" --limit 1 --json databaseId --jq '.[0].databaseId // empty')"
+              [ -n "$id" ] || sleep 5
+            done
+            gh run watch "$id" --exit-status
+          done
+
+      - name: Execute docs (build from source)
         if: ${{ !(github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          DOCKER_BUILD_ARGS: --cache-from type=gha --cache-to type=gha,mode=max
-        run: make kind-load helm-build quarto
+          THALAMUS_CHART_LOCATION: ${{ github.workspace }}/helm
+          THALAMUS_CHART_VERSION: ''
+          ROOT: ${{ github.workspace }}
+        run: |
+          quarto render "docs/${{ matrix.guide }}.qmd" --to gfm --execute -o "$(mktemp -d)/${{ matrix.guide }}.md"
 
-      - name: Execute docs (release)
+      - name: Execute docs (published)
         if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           THALAMUS_CHART_LOCATION: oci://ghcr.io/${{ github.repository_owner }}/charts
           THALAMUS_CHART_VERSION: ${{ github.ref == 'refs/heads/main' && '0.0.0-main' || github.ref_name }}
-          OPERATOR_IMAGE_TAG: ${{ github.ref == 'refs/heads/main' && 'main' || github.ref_name }}
+          # Empty: exercise chart default tag ("" -> appVersion).
+          OPERATOR_IMAGE_TAG: ''
           ROOT: https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}
         run: |
-          until helm show chart "${THALAMUS_CHART_LOCATION}/thalamus" --version "$THALAMUS_CHART_VERSION" >/dev/null 2>&1 \
-            && docker manifest inspect "ghcr.io/${REPOSITORY}:${OPERATOR_IMAGE_TAG}" >/dev/null 2>&1; do
-            sleep 15
-          done
-          # Exercise chart default tag ("" -> appVersion).
-          OPERATOR_IMAGE_TAG= make quarto
+          quarto render "docs/${{ matrix.guide }}.qmd" --to gfm --execute -o "$(mktemp -d)/${{ matrix.guide }}.md"
 
       - name: Debug on failure
         if: failure()

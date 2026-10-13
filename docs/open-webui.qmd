@@ -1,5 +1,14 @@
 ---
 title: Open WebUI
+format:
+  gfm:
+    toc: false
+execute:
+  enabled: true
+  timeout: 660
+jupyter: bash
+filters:
+  - _filters/substitute-env.lua
 ---
 
 # Open WebUI
@@ -7,15 +16,22 @@ title: Open WebUI
 [Open WebUI](https://github.com/open-webui/open-webui) is a self-hostable web interface for LLMs.
 The `thalamus` chart does not bundle Open WebUI. Install it separately once Thalamus and your Gateway are running.
 
+::: doc-bootstrap
+
+{{< include _getting-started.qmd >}}
+
+:::
+
 ## Prerequisites
 
-1. Thalamus installed per [Getting Started, Step 1](/getting-started).
+1. Thalamus installed per [Getting Started](/getting-started), with the example Gateway and model from that guide.
 2. A Gateway with a `frontend` listener (already included in the example). If you use your own Gateway, make sure to
    adjust any `route` related configuration below.
 
 ## Install
 
-```bash
+```{bash}
+#| label: install-open-webui
 helm upgrade --install open-webui oci://ghcr.io/open-webui/helm-charts/open-webui \
   --namespace open-webui --create-namespace \
   --version 16.6.0 \
@@ -35,11 +51,30 @@ helm upgrade --install open-webui oci://ghcr.io/open-webui/helm-charts/open-webu
 When using the example Gateway Open WebUI is served on the gateway's `frontend` listener (port 8080). For
 local clusters without a `LoadBalancer`, use port-forward:
 
-```bash
-kubectl port-forward svc/inference-gateway 8081:8080 -n thalamus
+```{bash}
+#| label: port-forward-open-webui
+kubectl port-forward svc/inference-gateway 8081:8080 -n thalamus &
+sleep 3
 ```
 
 Then open `http://localhost:8081` in your browser.
+
+::: details Verify the installation
+
+```{bash}
+#| label: wait-open-webui-route
+kubectl wait httproute/open-webui \
+  --namespace open-webui \
+  --for=condition=Accepted \
+  --timeout=300s
+```
+
+```{bash}
+#| label: curl-open-webui
+curl -sf http://localhost:8081/ > /dev/null
+```
+
+:::
 
 ## API key authentication
 
