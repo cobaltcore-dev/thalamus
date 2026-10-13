@@ -9,6 +9,7 @@ execute:
 jupyter: bash
 filters:
   - _filters/substitute-env.lua
+  - _filters/fold-cell-output.lua
 ---
 
 # Open WebUI

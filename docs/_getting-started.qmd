@@ -218,8 +218,14 @@ curl -s "http://$GATEWAY_HOST/v1/chat/completions" \
 
 ::: details Verify with the Python SDK
 ```{bash}
+#| label: install-python-sdks
+#| output: false
+python3 -m pip install "openai>=2,<3" "anthropic>=0.49"
+```
+
+```{bash}
 #| label: verify-openai-chat
-python3 -m pip install "openai>=2,<3" "anthropic>=0.49" && python3 - <<'EOF'
+python3 - <<'EOF'
 import os
 from openai import OpenAI
 
