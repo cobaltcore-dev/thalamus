@@ -99,7 +99,7 @@ jobs:
           THALAMUS_CHART_VERSION: ''
           ROOT: ${{ github.workspace }}
         run: |
-          quarto render "docs/${{ matrix.guide }}.qmd" --to gfm --execute -o "$(mktemp -d)/${{ matrix.guide }}.md"
+          quarto render "docs/${{ matrix.guide }}.qmd" --to gfm --execute -o -
 
       - name: Execute docs (published)
         if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
@@ -111,7 +111,7 @@ jobs:
           OPERATOR_IMAGE_TAG: ''
           ROOT: https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}
         run: |
-          quarto render "docs/${{ matrix.guide }}.qmd" --to gfm --execute -o "$(mktemp -d)/${{ matrix.guide }}.md"
+          quarto render "docs/${{ matrix.guide }}.qmd" --to gfm --execute -o -
 
       - name: Debug on failure
         if: failure()
