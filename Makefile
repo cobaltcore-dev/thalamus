@@ -49,18 +49,10 @@ go-test: ## Run Go tests.
 
 .PHONY: helm-unittest
 helm-unittest: ## Run Helm unit tests for the thalamus chart.
-# On newer macOS the installation breaks: https://github.com/helm-unittest/helm-unittest/issues/949
-# TODO: remove the workaround when the fix is released, or install with OCI when Helm4 is supported in GH Actions; add --verify=false for Helm4
+# TODO: use OCI installation and add --verify=false for Helm4
 	@set -e; \
 	if ! helm plugin list | grep -q "^unittest"; then \
-		SHIM=""; \
-		if [ "$$(uname -s)" = Darwin ]; then \
-			SHIM=$$(mktemp -d); \
-			printf '#!/bin/sh\nexec /usr/bin/shasum -a 256 "$$@"\n' > "$$SHIM/sha256sum"; \
-			chmod +x "$$SHIM/sha256sum"; \
-		fi; \
-		PATH="$${SHIM:+$$SHIM:}$$PATH" helm plugin install https://github.com/helm-unittest/helm-unittest.git --version $(HELM_UNITTEST_VERSION); \
-		if [ -n "$$SHIM" ]; then rm -rf "$$SHIM"; fi; \
+		helm plugin install https://github.com/helm-unittest/helm-unittest.git --version $(HELM_UNITTEST_VERSION); \
 	fi
 	helm unittest helm/thalamus
 
