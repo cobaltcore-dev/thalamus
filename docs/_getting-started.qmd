@@ -1,5 +1,3 @@
-# Getting Started
-
 Thalamus is a vendor-neutral, Kubernetes-native inference service based on
 [llm-d](https://llm-d.ai/), the [Gateway API inference extension](https://github.com/kubernetes-sigs/gateway-api-inference-extension),
 and [Cortex](https://github.com/cobaltcore-dev/cortex).
@@ -37,7 +35,7 @@ bundled with the install (Step 1).
 
 Thalamus installs as a single Helm chart bundling the Thalamus operator, the agentgateway controller, and all required CRDs (Thalamus, Gateway API, inference extension, agentgateway). Everything is enabled by default:
 
-::: details Confirm the kind cluster
+::: {details="Confirm the kind cluster"}
 
 ```{bash}
 #| label: guard-kind-context
@@ -129,7 +127,7 @@ The example also shows how to configure the data plane through an
 `AgentgatewayParameters` resource, e.g. to expose the gateway via a
 `LoadBalancer` instead of the default `ClusterIP`.
 
-::: details Gateway example manifest
+::: {details="Gateway example manifest"}
 <<< ../examples/gateway.yaml{yml}
 :::
 
@@ -166,7 +164,7 @@ Wait for the model to become ready:
 kubectl wait model --all --namespace thalamus --for=condition=Ready --timeout=600s
 ```
 
-::: details CPU example manifest
+::: {details="CPU example manifest"}
 <<< ../examples/model-smollm2-cpu.yaml{yml}
 :::
 
@@ -215,7 +213,7 @@ curl -s "http://$GATEWAY_HOST/v1/chat/completions" \
   }'
 ```
 
-::: details Verify with the Python SDK
+::: {details="Verify with the Python SDK"}
 ```{bash}
 #| label: install-python-sdks
 #| output: false

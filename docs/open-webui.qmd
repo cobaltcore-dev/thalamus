@@ -12,12 +12,10 @@ filters:
   - _filters/fold-cell-output.lua
 ---
 
-# Open WebUI
-
 [Open WebUI](https://github.com/open-webui/open-webui) is a self-hostable web interface for LLMs.
 The `thalamus` chart does not bundle Open WebUI. Install it separately once Thalamus and your Gateway are running.
 
-::: doc-bootstrap
+::: {.content-hidden}
 
 {{< include _getting-started.qmd >}}
 
@@ -65,7 +63,7 @@ sleep 3
 
 Then open `http://localhost:8081` in your browser.
 
-::: details Verify the installation
+::: {details="Verify the installation"}
 
 ```{bash}
 #| label: wait-open-webui-route
