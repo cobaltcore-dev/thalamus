@@ -3,6 +3,7 @@
 -- Never list secrets here (e.g. HF_TOKEN stays as $HF_TOKEN).
 local allowlist = {
   "REF",
+  "ROOT",
   "REPOSITORY",
   "THALAMUS_CHART_LOCATION",
   "THALAMUS_CHART_VERSION",

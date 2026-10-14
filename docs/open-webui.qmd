@@ -63,7 +63,10 @@ sleep 3
 
 Then open `http://localhost:8081` in your browser.
 
-::: {details="Verify the installation"}
+```{=html}
+<details>
+<summary>Verify the installation</summary>
+```
 
 ```{bash}
 #| label: wait-open-webui-route
@@ -97,7 +100,9 @@ curl -s http://localhost:8081/api/chat/completions \
   }' | jq -e '.choices[0].message.content | test("(?i)paris")' > /dev/null
 ```
 
-:::
+```{=html}
+</details>
+```
 
 ## API key authentication
 
