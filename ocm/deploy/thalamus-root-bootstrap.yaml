@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: Copyright 2026 SAP SE or an SAP affiliate company and cobaltcore-dev contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Flavored root component that uses SAP specific components.
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Component
+metadata:
+  name: thalamus-root-component
+  namespace: thalamus
+spec:
+  component: github.com/cobaltcore-dev/thalamus
+  repositoryRef:
+    name: thalamus-repository
+  semver: "0.1.0"
+  interval: 1m
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Resource
+metadata:
+  name: thalamus-root-rgd-resource
+  namespace: thalamus
+spec:
+  componentRef:
+    name: thalamus-root-component
+  resource:
+    byReference:
+      resource:
+        name: thalamus-root-rgd
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Deployer
+metadata:
+  name: thalamus-root-rgd-deployer
+  namespace: thalamus
+spec:
+  resourceRef:
+    name: thalamus-root-rgd-resource
+    namespace: thalamus
