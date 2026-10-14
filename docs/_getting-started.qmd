@@ -154,6 +154,18 @@ Wait for the model to become ready:
 kubectl wait model/qwen3-6-27b --namespace thalamus --for=condition=Ready --timeout=600s
 ```
 
+````{=markdown}
+<details>
+<summary>GPU example manifest</summary>
+
+```yaml
+{{< include ../examples/model-qwen3-6-27b-gpu.yaml >}}
+```
+
+</details>
+````
+
+
 For a CPU-only or local development setup, use the SmolLM2 example:
 
 ```{bash}
@@ -205,13 +217,13 @@ export GATEWAY_HOST="localhost:8080"
 Then test the API:
 
 ```{bash}
-#| label: export-model-id
-export MODEL="$(kubectl get model --namespace thalamus -o json | jq -r '.items[0].spec.weights.hf.repoId')"
-```
-
-```{bash}
 #| label: curl-models
-curl -s "http://$GATEWAY_HOST/v1/models"
+export MODEL="$(
+  curl -s "http://$GATEWAY_HOST/v1/models" |
+    tee >(jq . >&2) |
+    jq -r '.data[0].id'
+)"
+export "MODEL=$MODEL"
 ```
 
 ```{bash}
