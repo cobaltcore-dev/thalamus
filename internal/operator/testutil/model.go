@@ -18,21 +18,25 @@ func NewModel(name, namespace string) *v1alpha1.Model {
 			Backend:  v1alpha1.BackendTypeNative,
 			Replicas: 1,
 			Serving: v1alpha1.ServingSpec{
-				Engine: v1alpha1.EngineSpec{
-					Image: "test/engine:latest",
-					Args:  []string{"--max-model-len=512"},
-					Env:   []corev1.EnvVar{{Name: "EXTRA", Value: "val"}},
-					Resources: &corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceCPU:    resource.MustParse("2"),
-							corev1.ResourceMemory: resource.MustParse("6Gi"),
+				Engine: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:  "engine",
+						Image: "test/vllm:latest",
+						Args:  []string{"--max-model-len=512"},
+						Env:   []corev1.EnvVar{{Name: "EXTRA", Value: "val"}},
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceCPU:    resource.MustParse("2"),
+								corev1.ResourceMemory: resource.MustParse("6Gi"),
+							},
 						},
-					},
+					}},
 				},
-				EPP: &v1alpha1.EPPSpec{
-					Image: "test/epp:latest",
-					Args:  []string{},
-					Env:   []corev1.EnvVar{},
+				EPP: &corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:  "epp",
+						Image: "test/epp:latest",
+					}},
 				},
 			},
 			Weights: v1alpha1.WeightsSpec{

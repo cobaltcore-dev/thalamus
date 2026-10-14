@@ -84,8 +84,8 @@ func TestBuildEPPDeployment(t *testing.T) {
 		t.Errorf("Name:\ngot:  %q\nwant: %q", dep.Name, model.EPPName())
 	}
 	c := dep.Spec.Template.Spec.Containers[0]
-	if c.Image != model.Spec.Serving.EPP.Image {
-		t.Errorf("Image:\ngot:  %q\nwant: %q", c.Image, model.Spec.Serving.EPP.Image)
+	if c.Image != model.Spec.Serving.EPP.Containers[0].Image {
+		t.Errorf("Image:\ngot:  %q\nwant: %q", c.Image, model.Spec.Serving.EPP.Containers[0].Image)
 	}
 	if dep.Spec.Template.Spec.ServiceAccountName != model.EPPName() {
 		t.Errorf("ServiceAccountName:\ngot:  %q\nwant: %q", dep.Spec.Template.Spec.ServiceAccountName, model.EPPName())
@@ -98,6 +98,57 @@ func TestBuildEPPDeployment(t *testing.T) {
 	}
 	if c.LivenessProbe == nil || c.ReadinessProbe == nil {
 		t.Error("missing probes")
+	}
+}
+
+func TestBuildEPPDeployment_ImageDefault(t *testing.T) {
+	model := testutil.NewModel("tiny-llm", "default")
+	model.Spec.Serving.EPP = &corev1.PodSpec{
+		Containers: []corev1.Container{{Name: "epp"}},
+	}
+	dep := BuildEPPDeployment(model)
+	c := dep.Spec.Template.Spec.Containers[0]
+	if c.Image != defaultEPPImage {
+		t.Errorf("Image:\ngot:  %q\nwant: %q", c.Image, defaultEPPImage)
+	}
+}
+
+func TestBuildEPPDeployment_UserArgOverride(t *testing.T) {
+	model := testutil.NewModel("tiny-llm", "default")
+	model.Spec.Serving.EPP.Containers[0].Args = []string{"--config-file=/custom/config.yaml"}
+	dep := BuildEPPDeployment(model)
+	c := dep.Spec.Template.Spec.Containers[0]
+
+	count := 0
+	for _, a := range c.Args {
+		if a == "--config-file=/custom/config.yaml" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("--config-file occurrences:\ngot:  %d\nwant: 1 (args=%v)", count, c.Args)
+	}
+	for _, a := range c.Args {
+		if a == "--config-file=/config/"+eppConfigKey {
+			t.Errorf("platform --config-file must not be added when the user sets one (args=%v)", c.Args)
+		}
+	}
+}
+
+func TestBuildEPPDeployment_UserEnvNoDuplicate(t *testing.T) {
+	model := testutil.NewModel("tiny-llm", "default")
+	model.Spec.Serving.EPP.Containers[0].Env = []corev1.EnvVar{{Name: "NAMESPACE", Value: "static"}}
+	dep := BuildEPPDeployment(model)
+	c := dep.Spec.Template.Spec.Containers[0]
+
+	count := 0
+	for _, e := range c.Env {
+		if e.Name == "NAMESPACE" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("NAMESPACE occurrences:\ngot:  %d\nwant: 1 (env=%v)", count, c.Env)
 	}
 }
 
