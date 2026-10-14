@@ -21,7 +21,7 @@ concurrency:
 jobs:
   e2e:
     name: E2E (${{ matrix.gateway_api }} gateway-api, ${{ matrix.inference_extension }} inference-extension, ${{ matrix.agentgateway }} agentgateway)
-    runs-on: large_runner_16core_64gb
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       fail-fast: false
