@@ -85,7 +85,7 @@ e2e-kernel: ## Ensure the Jupyter bash kernel is available.
 		python3 -m venv "$(E2E_VENV)"; \
 		"$(E2E_VENV)/bin/pip" install --quiet jupyter bash_kernel; \
 		"$(E2E_VENV)/bin/python" -m bash_kernel.install; \
-	fi
+	fi 1>&2
 
 .PHONY: e2e-image
 e2e-image: e2e-kind ## Build the operator image and load it into the kind cluster.
@@ -102,7 +102,7 @@ e2e-docs: e2e-kernel ## Execute a docs guide end-to-end.
 		ls docs/*.qmd | grep -v '/_' | sed 's|^docs/|  |; s|\.qmd$$||' >&2; \
 		exit 1; \
 	fi
-	REPOSITORY="$(REPOSITORY)" OPERATOR_IMAGE_TAG="$(OPERATOR_IMAGE_TAG)" \
+	@REPOSITORY="$(REPOSITORY)" OPERATOR_IMAGE_TAG="$(OPERATOR_IMAGE_TAG)" \
 	REF="$${REF:-$$(git rev-parse --abbrev-ref HEAD)}" \
 	ROOT="$${ROOT:-$(CURDIR)}" \
 	THALAMUS_CHART_LOCATION="$${THALAMUS_CHART_LOCATION:-$(CURDIR)/helm}" \

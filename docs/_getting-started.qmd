@@ -35,15 +35,12 @@ bundled with the install (Step 1).
 
 Thalamus installs as a single Helm chart bundling the Thalamus operator, the agentgateway controller, and all required CRDs (Thalamus, Gateway API, inference extension, agentgateway). Everything is enabled by default:
 
-::: {details="Confirm the kind cluster"}
-
 ```{bash}
 #| label: guard-kind-context
+#| include: false
 set -uo pipefail
 kubectl config current-context | grep -q '^kind-'
 ```
-
-:::
 
 ```{bash}
 #| label: install-thalamus
