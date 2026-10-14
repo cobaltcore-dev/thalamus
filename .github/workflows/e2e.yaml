@@ -81,8 +81,6 @@ jobs:
 
       - name: Execute docs (build from source)
         if: ${{ !(github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           set -o pipefail
           make e2e-docs E2E_GUIDE="${{ matrix.guide }}" | tee "${{ matrix.guide }}.md"
