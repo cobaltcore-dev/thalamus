@@ -12,9 +12,6 @@ on:
   pull_request:
   workflow_dispatch:
 
-permissions:
-  contents: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -29,12 +26,11 @@ jobs:
       matrix:
         guide: [getting-started, open-webui, perses-dashboards]
     permissions:
-      contents: read
       actions: read
+      contents: read
     env:
-      REF: ${{ github.head_ref || github.ref_name }}
       REPOSITORY: ${{ github.repository }}
-      OPERATOR_IMAGE_TAG: dev
+      THALAMUS_IMAGE_TAG: dev
     steps:
       - name: Check out code
         uses: actions/checkout@v7.0.1
@@ -94,12 +90,13 @@ jobs:
       - name: Execute docs (published)
         if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
         env:
+          REF: ${{ github.head_ref || github.ref_name }}
+          ROOT: https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           THALAMUS_CHART_LOCATION: oci://ghcr.io/${{ github.repository_owner }}/charts
           THALAMUS_CHART_VERSION: ${{ github.ref == 'refs/heads/main' && '0.0.0-main' || github.ref_name }}
           # Empty: exercise chart default tag ("" -> appVersion).
-          OPERATOR_IMAGE_TAG: ''
-          ROOT: https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}
+          THALAMUS_IMAGE_TAG: ''
         run: |
           set -o pipefail
           make e2e-docs E2E_GUIDE="${{ matrix.guide }}" | tee "${{ matrix.guide }}.md"

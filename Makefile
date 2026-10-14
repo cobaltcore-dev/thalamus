@@ -70,7 +70,9 @@ testsum: gotestsum ## Run all tests (clean output for passing, verbose for faili
 E2E_CLUSTER ?= thalamus
 E2E_VENV ?= $(CURDIR)/.venv
 REPOSITORY ?= cobaltcore-dev/thalamus
-OPERATOR_IMAGE_TAG ?= dev
+THALAMUS_IMAGE_TAG ?= dev
+THALAMUS_CHART_LOCATION ?= $(CURDIR)/helm
+THALAMUS_CHART_VERSION ?=
 
 .PHONY: e2e-kind
 e2e-kind: ## Ensure a kind cluster exists and point kubectl at it.
@@ -89,8 +91,8 @@ e2e-kernel: ## Ensure the Jupyter bash kernel is available.
 
 .PHONY: e2e-image
 e2e-image: e2e-kind ## Build the operator image and load it into the kind cluster.
-	docker build $(DOCKER_BUILD_ARGS) -t "ghcr.io/$(REPOSITORY):$(OPERATOR_IMAGE_TAG)" -f Dockerfile .
-	kind load docker-image "ghcr.io/$(REPOSITORY):$(OPERATOR_IMAGE_TAG)" --name "$(E2E_CLUSTER)"
+	docker build $(DOCKER_BUILD_ARGS) -t "ghcr.io/$(REPOSITORY):$(THALAMUS_IMAGE_TAG)" -f Dockerfile .
+	kind load docker-image "ghcr.io/$(REPOSITORY):$(THALAMUS_IMAGE_TAG)" --name "$(E2E_CLUSTER)"
 
 .PHONY: e2e-build
 e2e-build: e2e-image helm-deps ## Build from source what the guides install (operator image, chart deps).
@@ -102,11 +104,12 @@ e2e-docs: e2e-kernel ## Execute a docs guide end-to-end.
 		ls docs/*.qmd | grep -v '/_' | sed 's|^docs/|  |; s|\.qmd$$||' >&2; \
 		exit 1; \
 	fi
-	@REPOSITORY="$(REPOSITORY)" OPERATOR_IMAGE_TAG="$(OPERATOR_IMAGE_TAG)" \
+	@REPOSITORY="$(REPOSITORY)" \
 	REF="$${REF:-$$(git rev-parse --abbrev-ref HEAD)}" \
 	ROOT="$${ROOT:-$(CURDIR)}" \
-	THALAMUS_CHART_LOCATION="$${THALAMUS_CHART_LOCATION:-$(CURDIR)/helm}" \
-	THALAMUS_CHART_VERSION="$${THALAMUS_CHART_VERSION-}" \
+	THALAMUS_IMAGE_TAG="$(THALAMUS_IMAGE_TAG)" \
+	THALAMUS_CHART_LOCATION="$(THALAMUS_CHART_LOCATION)" \
+	THALAMUS_CHART_VERSION="$(THALAMUS_CHART_VERSION)" \
 		PATH="$(E2E_VENV)/bin:$$PATH" quarto render "docs/$(E2E_GUIDE).qmd" --to gfm --execute -o -
 
 LOCALBIN ?= $(shell pwd)/bin

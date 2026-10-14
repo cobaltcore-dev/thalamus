@@ -6,7 +6,7 @@ local allowlist = {
   "REPOSITORY",
   "THALAMUS_CHART_LOCATION",
   "THALAMUS_CHART_VERSION",
-  "OPERATOR_IMAGE_TAG",
+  "THALAMUS_IMAGE_TAG",
 }
 
 function CodeBlock(block)
