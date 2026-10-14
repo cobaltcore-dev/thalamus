@@ -12,4 +12,6 @@ filters:
   - _filters/fold-cell-output.lua
 ---
 
+{{< include _ci-pill.html >}}
+
 {{< include _getting-started.qmd >}}
