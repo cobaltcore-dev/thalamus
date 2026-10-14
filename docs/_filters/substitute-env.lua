@@ -26,6 +26,8 @@ function CodeBlock(block)
   -- Omit flags left empty: identical semantics to executing with "".
   text = text:gsub('%s+%-%-set%s+%S-=""', "")
   text = text:gsub('%s+%-%-version%s+""', "")
+  -- Keep the repository pin for forks; drop it on upstream.
+  text = text:gsub('%s+%-%-set%s+operator%.image%.repository="cobaltcore%-dev/thalamus"', "")
   block.text = text
   return block
 end

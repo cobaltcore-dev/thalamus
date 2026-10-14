@@ -45,7 +45,7 @@ kubectl config current-context | grep -q '^kind-'
 ```{bash}
 #| label: install-thalamus
 helm upgrade --install thalamus "${THALAMUS_CHART_LOCATION}/thalamus" \
-  --namespace thalamus --create-namespace --wait --version "$THALAMUS_CHART_VERSION" --set operator.image.tag="$THALAMUS_IMAGE_TAG"
+  --namespace thalamus --create-namespace --wait --version "$THALAMUS_CHART_VERSION" --set operator.image.tag="$THALAMUS_IMAGE_TAG" --set operator.image.repository="$REPOSITORY"
 ```
 
 > **Caution:** the CRDs are installed as ordinary release resources, not via
@@ -117,15 +117,15 @@ Wait for it to become programmed:
 #| label: wait-gateway
 kubectl wait gateway/inference-gateway \
   --namespace thalamus \
-  --for=condition=Programmed=True
+  --for=condition=Programmed=True \
+  --timeout=120s
 ```
 
 The example also shows how to configure the data plane through an
 `AgentgatewayParameters` resource, e.g. to expose the gateway via a
 `LoadBalancer` instead of the default `ClusterIP`.
 
-````{=markdown}
-<details>
+<details class="custom-block details">
 <summary>Gateway example manifest</summary>
 
 ```yaml
@@ -133,7 +133,6 @@ The example also shows how to configure the data plane through an
 ```
 
 </details>
-````
 
 ## Step 4 — Deploy a model
 
@@ -154,8 +153,7 @@ Wait for the model to become ready:
 kubectl wait model/qwen3-6-27b --namespace thalamus --for=condition=Ready --timeout=600s
 ```
 
-````{=markdown}
-<details>
+<details class="custom-block details">
 <summary>GPU example manifest</summary>
 
 ```yaml
@@ -163,7 +161,6 @@ kubectl wait model/qwen3-6-27b --namespace thalamus --for=condition=Ready --time
 ```
 
 </details>
-````
 
 
 For a CPU-only or local development setup, use the SmolLM2 example:
@@ -177,11 +174,10 @@ Wait for the model to become ready:
 
 ```{bash}
 #| label: wait-model-ready
-kubectl wait model --all --namespace thalamus --for=condition=Ready --timeout=600s
+kubectl wait model/smollm2-135m --namespace thalamus --for=condition=Ready --timeout=600s
 ```
 
-````{=markdown}
-<details>
+<details class="custom-block details">
 <summary>CPU example manifest</summary>
 
 ```yaml
@@ -189,7 +185,6 @@ kubectl wait model --all --namespace thalamus --for=condition=Ready --timeout=60
 ```
 
 </details>
-````
 
 ## Step 5 — Access the stack
 
@@ -217,17 +212,12 @@ export GATEWAY_HOST="localhost:8080"
 Then test the API:
 
 ```{bash}
-#| label: curl-models
+#| label: test-api
 export MODEL="$(
   curl -s "http://$GATEWAY_HOST/v1/models" |
     tee >(jq . >&2) |
     jq -r '.data[0].id'
 )"
-export "MODEL=$MODEL"
-```
-
-```{bash}
-#| label: curl-chat
 curl -s "http://$GATEWAY_HOST/v1/chat/completions" \
   -H "Content-Type: application/json" \
   -d '{
@@ -236,19 +226,16 @@ curl -s "http://$GATEWAY_HOST/v1/chat/completions" \
   }'
 ```
 
-```{=html}
-<details>
+<details class="custom-block details">
 <summary>Verify with the Python SDK</summary>
-```
+
+The gateway speaks the OpenAI API, so the official SDKs work unchanged. Any API key will do.
+
+**OpenAI SDK** — verify model listing, chat completions, and the responses API:
 
 ```{bash}
-#| label: install-python-sdks
-#| output: false
-python3 -m pip install "openai>=2,<3" "anthropic>=0.49"
-```
-
-```{bash}
-#| label: verify-openai-chat
+#| label: verify-openai
+python3 -m pip install -q "openai>=2,<3"
 python3 - <<'EOF'
 import os
 from openai import OpenAI
@@ -270,19 +257,7 @@ completion = client.chat.completions.create(
 content = completion.choices[0].message.content or ""
 assert "paris" in content.lower(), f"expected 'Paris' in chat completion, got: {content!r}"
 print(f"PASS: POST /v1/chat/completions -> {content!r}")
-EOF
-```
 
-```{bash}
-#| label: verify-openai-responses
-python3 - <<'EOF'
-import os
-from openai import OpenAI
-
-model = os.environ["MODEL"]
-gateway = os.environ["GATEWAY_HOST"]
-client = OpenAI(base_url=f"http://{gateway}/v1", api_key="e2e", timeout=120.0)
-prompt = "What is the capital of France? Answer with a single word."
 response = client.responses.create(model=model, input=prompt)
 content = response.output_text
 assert "paris" in content.lower(), f"expected 'Paris' in response, got: {content!r}"
@@ -290,8 +265,11 @@ print(f"PASS: POST /v1/responses -> {content!r}")
 EOF
 ```
 
+**Anthropic SDK** — same gateway through Anthropic's client:
+
 ```{bash}
 #| label: verify-anthropic-messages
+python3 -m pip install -q "anthropic>=0.49"
 python3 - <<'EOF'
 import os
 from anthropic import Anthropic
@@ -311,9 +289,7 @@ print(f"PASS: POST /v1/messages -> {content!r}")
 EOF
 ```
 
-```{=html}
 </details>
-```
 
 ## API key authentication (optional)
 

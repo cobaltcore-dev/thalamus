@@ -134,6 +134,11 @@ html {
   color: #fff;
 }
 
+.vp-doc details summary p {
+  display: inline;
+  margin: 0;
+}
+
 /* Footer */
 @media (min-width: 960px) {
   .thalamus-footer.has-sidebar,

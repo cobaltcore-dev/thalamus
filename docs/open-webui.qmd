@@ -12,7 +12,7 @@ filters:
   - _filters/fold-cell-output.lua
 ---
 
-{{< include _ci-pill.html >}}
+{{< include ../website/_ci-pill.html >}}
 
 [Open WebUI](https://github.com/open-webui/open-webui) is a self-hostable web interface for LLMs.
 The `thalamus` chart does not bundle Open WebUI. Install it separately once Thalamus and your Gateway are running.
@@ -65,10 +65,8 @@ sleep 3
 
 Then open `http://localhost:8081` in your browser.
 
-```{=html}
-<details>
+<details class="custom-block details">
 <summary>Verify the installation</summary>
-```
 
 ```{bash}
 #| label: wait-open-webui-route
@@ -102,19 +100,19 @@ curl -s http://localhost:8081/api/chat/completions \
   }' | jq -e '.choices[0].message.content | test("(?i)paris")' > /dev/null
 ```
 
-```{=html}
 </details>
-```
 
 ## API key authentication
 
-::: warning
+<div class="warning custom-block">
+
 [API key authentication](/getting-started#api-key-authentication-optional) does
 not work with Open WebUI out of the box. The API key policy requires an
 `Authorization: Bearer <key>` header on every request to the gateway, but
 Open WebUI does not send one by default. If you enable both, configure Open WebUI
 to attach the bearer token to its requests.
-:::
+
+</div>
 
 ## Troubleshooting
 
