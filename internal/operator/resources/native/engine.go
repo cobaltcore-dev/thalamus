@@ -4,8 +4,6 @@
 package native
 
 import (
-	"slices"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,19 +18,23 @@ const engineHTTPPort = 8000
 // ubuntuNobody is the Ubuntu "nobody" uid/gid.
 const ubuntuNobody int64 = 65534
 
-// BuildEngineDeployment returns the desired Deployment for the vLLM inference engine.
+// BuildEngineDeployment returns the desired Deployment for the inference engine.
 func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
-	engine := model.Spec.Serving.Engine
+	podSpec := model.Spec.Serving.Engine.DeepCopy()
+	container := defaultContainer(podSpec, "engine", "")
+	isVLLM := model.DetectedEngineType() == v1alpha1.EngineTypeVLLM
 
-	command := []string{"vllm", "serve"}
-	args := []string{}
-	env := slices.Clone(engine.Env)
-
+	if isVLLM && container.Command == nil {
+		container.Command = []string{"vllm", "serve"}
+	}
 	if model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && model.Spec.Weights.HF != nil {
 		hf := model.Spec.Weights.HF
-		args = append(args, hf.RepoID, "--served-model-name="+hf.RepoID)
+		if isVLLM {
+			container.Args = append([]string{hf.RepoID}, container.Args...)
+			addArgIfAbsent(container, "--served-model-name="+hf.RepoID)
+		}
 		if hf.TokenSecret != nil {
-			env = append(env, corev1.EnvVar{
+			addEnvIfAbsent(container, corev1.EnvVar{
 				Name:      "HF_TOKEN",
 				ValueFrom: &corev1.EnvVarSource{SecretKeyRef: hf.TokenSecret},
 			})
@@ -42,19 +44,16 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 	// Root filesystem read-only; process runs as uid nobody
 	// Point caches at /cache instead of images $HOME (/root)
 	// Appended last so user env can't override the redirection
-	env = append(env,
-		corev1.EnvVar{Name: "HOME", Value: "/cache"},
-		corev1.EnvVar{Name: "HF_HOME", Value: "/cache/huggingface"},
-		corev1.EnvVar{Name: "XDG_CACHE_HOME", Value: "/cache"},
-	)
+	for _, e := range []corev1.EnvVar{
+		{Name: "HOME", Value: "/cache"},
+		{Name: "HF_HOME", Value: "/cache/huggingface"},
+		{Name: "XDG_CACHE_HOME", Value: "/cache"},
+	} {
+		addEnvIfAbsent(container, e)
+	}
 
-	args = append(args, engine.Args...)
-
-	container := corev1.Container{
-		Name:            "engine",
-		Image:           engine.Image,
-		ImagePullPolicy: corev1.PullIfNotPresent,
-		SecurityContext: &corev1.SecurityContext{
+	if container.SecurityContext == nil {
+		container.SecurityContext = &corev1.SecurityContext{
 			AllowPrivilegeEscalation: new(false),
 			ReadOnlyRootFilesystem:   new(true),
 			RunAsNonRoot:             new(true),
@@ -67,19 +66,10 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 			SeccompProfile: &corev1.SeccompProfile{
 				Type: corev1.SeccompProfileTypeRuntimeDefault,
 			},
-		},
-		Command: command,
-		Args:    args,
-		Env:     env,
-		Ports: []corev1.ContainerPort{
-			{Name: "http", ContainerPort: engineHTTPPort, Protocol: corev1.ProtocolTCP},
-		},
-		VolumeMounts: []corev1.VolumeMount{
-			{Name: "cache", MountPath: "/cache"},
-			{Name: "dshm", MountPath: "/dev/shm"},
-			{Name: "tmp", MountPath: "/tmp"},
-		},
-		StartupProbe: &corev1.Probe{
+		}
+	}
+	if isVLLM && container.StartupProbe == nil {
+		container.StartupProbe = &corev1.Probe{
 			HTTPGet: &corev1.HTTPGetAction{
 				Path: "/v1/models",
 				Port: intstr.FromInt32(engineHTTPPort),
@@ -88,8 +78,10 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 			PeriodSeconds:       10,
 			TimeoutSeconds:      5,
 			FailureThreshold:    360,
-		},
-		LivenessProbe: &corev1.Probe{
+		}
+	}
+	if isVLLM && container.LivenessProbe == nil {
+		container.LivenessProbe = &corev1.Probe{
 			HTTPGet: &corev1.HTTPGetAction{
 				Path: "/health",
 				Port: intstr.FromInt32(engineHTTPPort),
@@ -97,8 +89,10 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 			PeriodSeconds:    10,
 			TimeoutSeconds:   5,
 			FailureThreshold: 3,
-		},
-		ReadinessProbe: &corev1.Probe{
+		}
+	}
+	if isVLLM && container.ReadinessProbe == nil {
+		container.ReadinessProbe = &corev1.Probe{
 			HTTPGet: &corev1.HTTPGetAction{
 				Path: "/v1/models",
 				Port: intstr.FromInt32(engineHTTPPort),
@@ -106,20 +100,21 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 			PeriodSeconds:    5,
 			TimeoutSeconds:   2,
 			FailureThreshold: 3,
-		},
+		}
 	}
+	addPortIfAbsent(container, corev1.ContainerPort{
+		Name: "http", ContainerPort: engineHTTPPort, Protocol: corev1.ProtocolTCP,
+	})
 
-	if engine.Resources != nil {
-		container.Resources = *engine.Resources
-	}
+	addMountIfAbsent(container, corev1.VolumeMount{Name: "cache", MountPath: "/cache"})
+	addMountIfAbsent(container, corev1.VolumeMount{Name: "dshm", MountPath: "/dev/shm"})
+	addMountIfAbsent(container, corev1.VolumeMount{Name: "tmp", MountPath: "/tmp"})
+	addVolumeIfAbsent(podSpec, corev1.Volume{Name: "cache", EmptyDir: &corev1.EmptyDirVolumeSource{}})
+	addVolumeIfAbsent(podSpec, corev1.Volume{Name: "dshm", EmptyDir: &corev1.EmptyDirVolumeSource{Medium: corev1.StorageMediumMemory}})
+	addVolumeIfAbsent(podSpec, corev1.Volume{Name: "tmp", EmptyDir: &corev1.EmptyDirVolumeSource{}})
 
-	cacheVolumeSource := corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}
-	if engine.Cache != nil {
-		cacheVolumeSource = *engine.Cache
-	}
-
-	podSpec := corev1.PodSpec{
-		SecurityContext: &corev1.PodSecurityContext{
+	if podSpec.SecurityContext == nil {
+		podSpec.SecurityContext = &corev1.PodSecurityContext{
 			RunAsNonRoot: new(true),
 			RunAsUser:    new(ubuntuNobody),
 			RunAsGroup:   new(ubuntuNobody),
@@ -129,26 +124,7 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 			SeccompProfile: &corev1.SeccompProfile{
 				Type: corev1.SeccompProfileTypeRuntimeDefault,
 			},
-		},
-		Containers: []corev1.Container{container},
-		Volumes: []corev1.Volume{
-			{
-				Name:         "cache",
-				VolumeSource: cacheVolumeSource,
-			},
-			{
-				Name:     "dshm",
-				EmptyDir: &corev1.EmptyDirVolumeSource{Medium: corev1.StorageMediumMemory},
-			},
-			{
-				Name:     "tmp",
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		},
-	}
-
-	if model.Spec.Scheduling != nil {
-		podSpec.NodeSelector = model.Spec.Scheduling.NodeSelector
+		}
 	}
 
 	labels := map[string]string{
@@ -165,7 +141,7 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: labels},
-				Spec:       podSpec,
+				Spec:       *podSpec,
 			},
 		},
 	}

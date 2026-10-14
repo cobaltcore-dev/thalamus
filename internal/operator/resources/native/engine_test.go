@@ -9,7 +9,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
 )
 
@@ -37,15 +36,15 @@ func TestBuildEngineDeployment(t *testing.T) {
 	}
 
 	c := dep.Spec.Template.Spec.Containers[0]
-	if c.Image != model.Spec.Serving.Engine.Image {
-		t.Errorf("Image:\ngot:  %q\nwant: %q", c.Image, model.Spec.Serving.Engine.Image)
+	if c.Image != model.Spec.Serving.Engine.Containers[0].Image {
+		t.Errorf("Image:\ngot:  %q\nwant: %q", c.Image, model.Spec.Serving.Engine.Containers[0].Image)
 	}
 
 	expectedCommand := []string{"vllm", "serve"}
 	if !slices.Equal(c.Command, expectedCommand) {
 		t.Errorf("Command:\ngot:  %v\nwant: %v", c.Command, expectedCommand)
 	}
-	expectedArgs := []string{"arnir0/Tiny-LLM", "--served-model-name=arnir0/Tiny-LLM", "--max-model-len=512"}
+	expectedArgs := []string{"arnir0/Tiny-LLM", "--max-model-len=512", "--served-model-name=arnir0/Tiny-LLM"}
 	if !slices.Equal(c.Args, expectedArgs) {
 		t.Errorf("Args:\ngot:  %v\nwant: %v", c.Args, expectedArgs)
 	}
@@ -103,9 +102,22 @@ func TestBuildEngineDeployment(t *testing.T) {
 	}
 }
 
-func TestBuildEngineDeployment_CacheEnvOverridesUserEnv(t *testing.T) {
+func TestBuildEngineDeployment_Defaults(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
-	model.Spec.Serving.Engine.Env = append(model.Spec.Serving.Engine.Env,
+	model.Spec.Serving.Engine = corev1.PodSpec{}
+	dep := BuildEngineDeployment(model)
+	c := dep.Spec.Template.Spec.Containers[0]
+	if c.Name != "engine" {
+		t.Errorf("Name:\ngot:  %q\nwant: engine", c.Name)
+	}
+	if c.ImagePullPolicy != corev1.PullIfNotPresent {
+		t.Errorf("ImagePullPolicy:\ngot:  %q\nwant: IfNotPresent", c.ImagePullPolicy)
+	}
+}
+
+func TestBuildEngineDeployment_UserEnvWins(t *testing.T) {
+	model := testutil.NewModel("tiny-llm", "default")
+	model.Spec.Serving.Engine.Containers[0].Env = append(model.Spec.Serving.Engine.Containers[0].Env,
 		corev1.EnvVar{Name: "HOME", Value: "/root"},
 		corev1.EnvVar{Name: "XDG_CACHE_HOME", Value: "/root/.cache"},
 	)
@@ -116,11 +128,59 @@ func TestBuildEngineDeployment_CacheEnvOverridesUserEnv(t *testing.T) {
 	for _, e := range c.Env {
 		got[e.Name] = e.Value
 	}
-	if got["HOME"] != "/cache" {
-		t.Errorf("HOME:\ngot:  %q\nwant: /cache", got["HOME"])
+	if got["HOME"] != "/root" {
+		t.Errorf("HOME:\ngot:  %q\nwant: /root", got["HOME"])
 	}
-	if got["XDG_CACHE_HOME"] != "/cache" {
-		t.Errorf("XDG_CACHE_HOME:\ngot:  %q\nwant: /cache", got["XDG_CACHE_HOME"])
+	if got["XDG_CACHE_HOME"] != "/root/.cache" {
+		t.Errorf("XDG_CACHE_HOME:\ngot:  %q\nwant: /root/.cache", got["XDG_CACHE_HOME"])
+	}
+}
+
+func TestBuildEngineDeployment_NonVLLM(t *testing.T) {
+	model := testutil.NewModel("tiny-llm", "default")
+	model.Spec.Serving.Engine.Containers[0].Image = "test/other-engine:latest"
+	dep := BuildEngineDeployment(model)
+	c := dep.Spec.Template.Spec.Containers[0]
+
+	if !slices.Equal(c.Args, []string{"--max-model-len=512"}) {
+		t.Errorf("Args:\ngot:  %v\nwant: only the user args, no vllm platform args", c.Args)
+	}
+	if c.Command != nil {
+		t.Errorf("Command:\ngot:  %v\nwant: nil (engine is not vllm)", c.Command)
+	}
+	if c.StartupProbe != nil || c.LivenessProbe != nil || c.ReadinessProbe != nil {
+		t.Error("probes must not be injected for non-vllm engines")
+	}
+	hasToken := false
+	for _, e := range c.Env {
+		if e.Name == "HF_TOKEN" {
+			hasToken = true
+		}
+	}
+	if !hasToken {
+		t.Error("HF_TOKEN must still be injected for non-vllm engines")
+	}
+}
+
+func TestBuildEngineDeployment_ServedModelNameOverride(t *testing.T) {
+	model := testutil.NewModel("tiny-llm", "default")
+	model.Spec.Serving.Engine.Containers[0].Args = append(model.Spec.Serving.Engine.Containers[0].Args, "--served-model-name=custom")
+	dep := BuildEngineDeployment(model)
+	c := dep.Spec.Template.Spec.Containers[0]
+
+	count := 0
+	for _, a := range c.Args {
+		if a == "--served-model-name=custom" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("--served-model-name occurrences:\ngot:  %d\nwant: 1 (args=%v)", count, c.Args)
+	}
+	for _, a := range c.Args {
+		if a == "--served-model-name=arnir0/Tiny-LLM" {
+			t.Errorf("platform --served-model-name must not be added when the user sets one (args=%v)", c.Args)
+		}
 	}
 }
 
@@ -198,19 +258,17 @@ func TestBuildEngineDeployment_ZeroReplicas(t *testing.T) {
 
 func TestBuildEngineDeployment_NodeSelector(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
-	model.Spec.Scheduling = &v1alpha1.SchedulingSpec{
-		NodeSelector: map[string]string{"kubernetes.io/arch": "amd64"},
-	}
+	model.Spec.Serving.Engine.NodeSelector = map[string]string{"kubernetes.io/arch": "amd64"}
 	dep := BuildEngineDeployment(model)
 	if dep.Spec.Template.Spec.NodeSelector["kubernetes.io/arch"] != "amd64" {
 		t.Error("NodeSelector not applied")
 	}
 }
 
-func TestBuildEngineDeployment_NoScheduling(t *testing.T) {
+func TestBuildEngineDeployment_NoNodeSelector(t *testing.T) {
 	dep := BuildEngineDeployment(testutil.NewModel("tiny-llm", "default"))
 	if dep.Spec.Template.Spec.NodeSelector != nil {
-		t.Error("expected nil NodeSelector when scheduling not set")
+		t.Error("expected nil NodeSelector when not set")
 	}
 }
 
@@ -242,8 +300,11 @@ func TestBuildEngineDeployment_CacheDefaultsToEmptyDir(t *testing.T) {
 
 func TestBuildEngineDeployment_CachePVC(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
-	model.Spec.Serving.Engine.Cache = &corev1.VolumeSource{
-		PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: "my-model-cache"},
+	model.Spec.Serving.Engine.Volumes = []corev1.Volume{
+		{
+			Name:                  "cache",
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: "my-model-cache"},
+		},
 	}
 	dep := BuildEngineDeployment(model)
 	for _, v := range dep.Spec.Template.Spec.Volumes {

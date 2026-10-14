@@ -35,6 +35,9 @@ const (
 
 	// distrolessNobody is the distroless "nobody" uid/gid.
 	distrolessNobody int64 = 65532
+
+	// defaultEPPImage is used when the EPP container image is not set.
+	defaultEPPImage = "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0"
 )
 
 //go:embed epp_config.yaml
@@ -101,24 +104,43 @@ func BuildEPPConfigMap(model *v1alpha1.Model) *corev1.ConfigMap {
 
 // BuildEPPDeployment returns the Deployment for the Endpoint Picker Proxy.
 func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
-	epp := model.Spec.Serving.EPP
+	podSpec := model.Spec.Serving.EPP.DeepCopy()
+	container := defaultContainer(podSpec, "epp", defaultEPPImage)
 
-	args := []string{
+	// Pool identity is the contract between EPP and the operator-created
+	// InferencePool and is not overridable.
+	container.Args = append([]string{
 		"--pool-name", model.EngineName(),
 		"--pool-namespace", model.Namespace,
 		"--pool-group", inferencev1.GroupName,
-		"--zap-encoder", "json",
-		"--config-file", "/config/" + eppConfigKey,
+	}, container.Args...)
+	for _, arg := range []string{
+		"--zap-encoder=json",
+		"--config-file=/config/" + eppConfigKey,
 		"--metrics-endpoint-auth=false",
+	} {
+		addArgIfAbsent(container, arg)
 	}
-	args = append(args, epp.Args...)
 
-	eppService := eppHealthService
-	container := corev1.Container{
-		Name:            "epp",
-		Image:           epp.Image,
-		ImagePullPolicy: corev1.PullIfNotPresent,
-		SecurityContext: &corev1.SecurityContext{
+	for _, e := range []corev1.EnvVar{
+		{
+			Name: "NAMESPACE",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
+			},
+		},
+		{
+			Name: "POD_NAME",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+			},
+		},
+	} {
+		addEnvIfAbsent(container, e)
+	}
+
+	if container.SecurityContext == nil {
+		container.SecurityContext = &corev1.SecurityContext{
 			AllowPrivilegeEscalation: new(false),
 			ReadOnlyRootFilesystem:   new(true),
 			RunAsNonRoot:             new(true),
@@ -131,43 +153,45 @@ func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 			SeccompProfile: &corev1.SeccompProfile{
 				Type: corev1.SeccompProfileTypeRuntimeDefault,
 			},
-		},
-		Args: args,
-		Env: append([]corev1.EnvVar{
-			{
-				Name: "NAMESPACE",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
-				},
+		}
+	}
+	addPortIfAbsent(container, corev1.ContainerPort{Name: eppGRPCExtProcPortName, ContainerPort: eppGRPCExtProcPort, Protocol: corev1.ProtocolTCP})
+	addPortIfAbsent(container, corev1.ContainerPort{Name: eppGRPCHealthPortName, ContainerPort: eppGRPCHealthPort, Protocol: corev1.ProtocolTCP})
+	addPortIfAbsent(container, corev1.ContainerPort{Name: eppMetricsPortName, ContainerPort: eppMetricsPort, Protocol: corev1.ProtocolTCP})
+	addMountIfAbsent(container, corev1.VolumeMount{Name: "config", MountPath: "/config", ReadOnly: true})
+	addVolumeIfAbsent(podSpec, corev1.Volume{
+		Name:      "config",
+		ConfigMap: &corev1.ConfigMapVolumeSource{Name: model.EPPName()},
+	})
+
+	if podSpec.SecurityContext == nil {
+		podSpec.SecurityContext = &corev1.PodSecurityContext{
+			RunAsNonRoot: new(true),
+			RunAsUser:    new(distrolessNobody),
+			RunAsGroup:   new(distrolessNobody),
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
 			},
-			{
-				Name: "POD_NAME",
-				ValueFrom: &corev1.EnvVarSource{
-					FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-				},
-			},
-		}, epp.Env...),
-		Ports: []corev1.ContainerPort{
-			{Name: eppGRPCExtProcPortName, ContainerPort: eppGRPCExtProcPort, Protocol: corev1.ProtocolTCP},
-			{Name: eppGRPCHealthPortName, ContainerPort: eppGRPCHealthPort, Protocol: corev1.ProtocolTCP},
-			{Name: eppMetricsPortName, ContainerPort: eppMetricsPort, Protocol: corev1.ProtocolTCP},
-		},
-		VolumeMounts: []corev1.VolumeMount{
-			{Name: "config", MountPath: "/config", ReadOnly: true},
-		},
-		LivenessProbe: &corev1.Probe{
-			GRPC:                &corev1.GRPCAction{Port: eppGRPCHealthPort, Service: &eppService},
+		}
+	}
+	if podSpec.ServiceAccountName == "" {
+		podSpec.ServiceAccountName = model.EPPName()
+	}
+	if podSpec.TerminationGracePeriodSeconds == nil {
+		podSpec.TerminationGracePeriodSeconds = new(int64(130))
+	}
+	if container.LivenessProbe == nil {
+		container.LivenessProbe = &corev1.Probe{
+			GRPC:                &corev1.GRPCAction{Port: eppGRPCHealthPort, Service: new(eppHealthService)},
 			InitialDelaySeconds: 5,
 			PeriodSeconds:       10,
-		},
-		ReadinessProbe: &corev1.Probe{
-			GRPC:          &corev1.GRPCAction{Port: eppGRPCHealthPort, Service: &eppService},
-			PeriodSeconds: 2,
-		},
+		}
 	}
-
-	if epp.Resources != nil {
-		container.Resources = *epp.Resources
+	if container.ReadinessProbe == nil {
+		container.ReadinessProbe = &corev1.Probe{
+			GRPC:          &corev1.GRPCAction{Port: eppGRPCHealthPort, Service: new(eppHealthService)},
+			PeriodSeconds: 2,
+		}
 	}
 
 	recreate := appsv1.RecreateDeploymentStrategyType
@@ -184,27 +208,7 @@ func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"thalamus.cloud/epp": model.EPPName()},
 				},
-				Spec: corev1.PodSpec{
-					ServiceAccountName:            model.EPPName(),
-					TerminationGracePeriodSeconds: new(int64(130)),
-					SecurityContext: &corev1.PodSecurityContext{
-						RunAsNonRoot: new(true),
-						RunAsUser:    new(distrolessNobody),
-						RunAsGroup:   new(distrolessNobody),
-						SeccompProfile: &corev1.SeccompProfile{
-							Type: corev1.SeccompProfileTypeRuntimeDefault,
-						},
-					},
-					Containers: []corev1.Container{container},
-					Volumes: []corev1.Volume{
-						{
-							Name: "config",
-							ConfigMap: &corev1.ConfigMapVolumeSource{
-								Name: model.EPPName(),
-							},
-						},
-					},
-				},
+				Spec: *podSpec,
 			},
 		},
 	}

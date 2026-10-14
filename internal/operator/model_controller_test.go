@@ -86,7 +86,9 @@ func TestReconcile_Native(t *testing.T) {
 
 func TestReconcile_NativeWithEPP(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", testNamespace)
-	model.Spec.Serving.EPP = &v1alpha1.EPPSpec{Image: "test/epp:latest"}
+	model.Spec.Serving.EPP = &corev1.PodSpec{
+		Containers: []corev1.Container{{Name: "epp", Image: "test/epp:latest"}},
+	}
 	r, c := newTestReconciler(t, model)
 
 	reconcileModelOnce(t, r, "tiny-llm")

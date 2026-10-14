@@ -40,25 +40,6 @@ _Appears in:_
 | `kaito` |  |
 
 
-#### EPPSpec
-
-
-
-EPPSpec configures the Endpoint Picker Proxy (EPP).
-
-
-
-_Appears in:_
-- [ServingSpec](#servingspec)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `image` _string_ | Image is the container image for the EPP. |  |  |
-| `args` _string array_ | Args are passed directly to the EPP as CLI arguments. |  | Optional: \{\} <br /> |
-| `env` _[EnvVar](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#envvar-v1-core) array_ | Env defines environment variables for the EPP container. |  | Optional: \{\} <br /> |
-| `resources` _[ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#resourcerequirements-v1-core)_ | Resources defines the compute resources required by the EPP. |  | Optional: \{\} <br /> |
-
-
 #### EPPType
 
 _Underlying type:_ _string_
@@ -75,26 +56,6 @@ _Appears in:_
 | --- | --- |
 | `llm-d` |  |
 | `unknown` |  |
-
-
-#### EngineSpec
-
-
-
-EngineSpec configures the inference engine instance.
-
-
-
-_Appears in:_
-- [ServingSpec](#servingspec)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `image` _string_ | Image is the container image for the inference engine. |  |  |
-| `args` _string array_ | Args are passed directly to the inference engine as CLI arguments. |  | Optional: \{\} <br /> |
-| `env` _[EnvVar](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#envvar-v1-core) array_ | Env defines environment variables for the inference engine container. |  | Optional: \{\} <br /> |
-| `resources` _[ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#resourcerequirements-v1-core)_ | Resources defines the compute resources required by the inference engine. |  | Optional: \{\} <br /> |
-| `cache` _[VolumeSource](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#volumesource-v1-core)_ | Cache defines the volume source for the engine cache directory (/cache).<br />Defaults to an emptyDir. Accepts any Kubernetes volume source. |  | Optional: \{\} <br /> |
 
 
 #### EngineType
@@ -209,7 +170,6 @@ _Appears in:_
 | `replicas` _integer_ | Replicas defines the number of engine replicas to deploy for this model.<br />Defaults to 1. | 1 | Minimum: 0 <br />Optional: \{\} <br /> |
 | `serving` _[ServingSpec](#servingspec)_ | Serving defines how the model is served. |  |  |
 | `weights` _[WeightsSpec](#weightsspec)_ | Weights defines where the model weights are sourced from. |  |  |
-| `scheduling` _[SchedulingSpec](#schedulingspec)_ | Scheduling defines scheduling constraints for the model's pods. |  | Optional: \{\} <br /> |
 
 
 #### ModelStatus
@@ -231,22 +191,6 @@ _Appears in:_
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | Conditions represent the latest observations of the model's state. |  | Optional: \{\} <br /> |
 
 
-#### SchedulingSpec
-
-
-
-SchedulingSpec defines scheduling constraints for the model's pods.
-
-
-
-_Appears in:_
-- [ModelSpec](#modelspec)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `nodeSelector` _object (keys:string, values:string)_ | NodeSelector constrains the nodes onto which the model's pods may be scheduled. |  | Optional: \{\} <br /> |
-
-
 #### ServingSpec
 
 
@@ -260,8 +204,8 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `engine` _[EngineSpec](#enginespec)_ | Engine configures the inference engine container. |  |  |
-| `epp` _[EPPSpec](#eppspec)_ | EPP configures the optional Endpoint Picker Proxy. |  | Optional: \{\} <br /> |
+| `engine` _[PodSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#podspec-v1-core)_ | Engine is the pod spec for the inference engine. The first container is<br />the engine and must set an image. |  |  |
+| `epp` _[PodSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#podspec-v1-core)_ | EPP is the pod spec for the optional Endpoint Picker Proxy.<br />The first container's image defaults when unset. |  | Optional: \{\} <br /> |
 
 
 #### WeightsSpec
