@@ -20,7 +20,7 @@ unittest: ## Run Helm unit tests for the thalamus chart.
 	if ! helm plugin list | grep -q "^unittest"; then \
 		helm plugin install https://github.com/helm-unittest/helm-unittest.git --version $(HELM_UNITTEST_VERSION); \
 	fi
-	helm unittest helm/thalamus
+	helm unittest thalamus
 
 .PHONY: vendor-crds
 vendor-crds: ## Re-download vendored upstream CRDs from their pinned release tags.
