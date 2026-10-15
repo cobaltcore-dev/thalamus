@@ -1,5 +1,5 @@
 # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api
-GATEWAY_API_VERSION                     ?= v1.6.2
+GATEWAY_API_VERSION                     ?= v1.6.3
 # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api-inference-extension
 GATEWAY_API_INFERENCE_EXTENSION_VERSION ?= v1.6.2
 
