@@ -7,12 +7,10 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
   pull_request:
   workflow_dispatch:
-
-permissions:
-  contents: read
-  actions: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -20,16 +18,19 @@ concurrency:
 
 jobs:
   e2e:
-    name: E2E (${{ matrix.gateway_api }} gateway-api, ${{ matrix.inference_extension }} inference-extension, ${{ matrix.agentgateway }} agentgateway)
+    name: E2E (${{ matrix.guide }})
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        gateway_api: [bundled, preinstalled]
-        inference_extension: [bundled, preinstalled]
-        agentgateway: [bundled, preinstalled]
-
+        guide: [getting-started, open-webui, perses-dashboards]
+    permissions:
+      actions: read
+      contents: read
+    env:
+      REPOSITORY: ${{ github.repository }}
+      THALAMUS_IMAGE_TAG: dev
     steps:
       - name: Check out code
         uses: actions/checkout@v7.0.1
@@ -45,223 +46,179 @@ jobs:
         with:
           version: v3.22.0
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
-
-      - name: Build and load operator image
-        run: |
-          docker build -t ghcr.io/cobaltcore-dev/thalamus:pr -f Dockerfile .
-          kind load docker-image ghcr.io/cobaltcore-dev/thalamus:pr \
-            --name thalamus
-
-      - name: Pre-install gateway-api CRDs from upstream
-        if: matrix.gateway_api == 'preinstalled'
-        run: |
-          version="$(sed -n 's/^GATEWAY_API_VERSION[[:space:]]*?=[[:space:]]*//p' helm/Makefile)"
-          curl -fsSL -o /tmp/gateway-api-standard-install.yaml \
-            "https://github.com/kubernetes-sigs/gateway-api/releases/download/${version}/standard-install.yaml"
-          kubectl apply -f /tmp/gateway-api-standard-install.yaml
-          kubectl wait \
-            --for=condition=Established \
-            --timeout=120s \
-            crd/gateways.gateway.networking.k8s.io \
-            crd/httproutes.gateway.networking.k8s.io
-
-      - name: Pre-install gateway-api-inference-extension CRDs from upstream
-        if: matrix.inference_extension == 'preinstalled'
-        run: |
-          version="$(sed -n 's/^GATEWAY_API_INFERENCE_EXTENSION_VERSION[[:space:]]*?=[[:space:]]*//p' helm/Makefile)"
-          curl -fsSL -o /tmp/ie-v1-manifests.yaml \
-            "https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/${version}/v1-manifests.yaml"
-          kubectl apply -f /tmp/ie-v1-manifests.yaml
-          kubectl wait \
-            --for=condition=Established \
-            --timeout=120s \
-            crd/inferencepools.inference.networking.k8s.io
-
-      - name: Pre-install agentgateway CRDs from upstream
-        if: matrix.agentgateway == 'preinstalled'
-        run: |
-          version="$(awk '/^  - name: agentgateway-crds$/ { f = 1; next } f && /^    version:/ { print $2; exit }' helm/thalamus/Chart.yaml)"
-          if [ -z "$version" ]; then
-            echo "FAIL: could not parse agentgateway-crds chart version from helm/thalamus/Chart.yaml"
-            exit 1
-          fi
-          helm upgrade --install agentgateway-crds oci://cr.agentgateway.dev/charts/agentgateway-crds \
-            --version "$version" \
-            --namespace thalamus \
-            --create-namespace \
-            --wait \
-            --timeout=600s
-          helm get manifest agentgateway-crds --namespace thalamus > /tmp/agw-crds.yaml
-          kubectl wait \
-            --for=condition=Established \
-            --timeout=120s \
-            crd/agentgatewaybackends.agentgateway.dev \
-            crd/agentgatewayparameters.agentgateway.dev \
-            crd/agentgatewaypolicies.agentgateway.dev
-
-      - name: Pre-install agentgateway from upstream
-        if: matrix.agentgateway == 'preinstalled'
-        run: |
-          version="$(awk '/^  - name: agentgateway$/ { f = 1; next } f && /^    version:/ { print $2; exit }' helm/thalamus/Chart.yaml)"
-          if [ -z "$version" ]; then
-            echo "FAIL: could not parse agentgateway chart version from helm/thalamus/Chart.yaml"
-            exit 1
-          fi
-          helm upgrade --install agentgateway oci://cr.agentgateway.dev/charts/agentgateway \
-            --version "$version" \
-            --namespace thalamus \
-            --set inferenceExtension.enabled=true \
-            --wait \
-            --timeout=600s
-
-      - name: Deploy Thalamus
-        working-directory: helm
-        run: |
-          flags=()
-          if [ "${{ matrix.gateway_api }}" = "preinstalled" ]; then
-            flags+=(--set gateway-api.enabled=false)
-          fi
-          if [ "${{ matrix.inference_extension }}" = "preinstalled" ]; then
-            flags+=(--set gateway-api-inference-extension.enabled=false)
-          fi
-          if [ "${{ matrix.agentgateway }}" = "preinstalled" ]; then
-            flags+=(--set agentgateway-crds.enabled=false)
-            flags+=(--set agentgateway.enabled=false)
-          fi
-          helm dependency build thalamus
-          helm upgrade --install thalamus ./thalamus \
-            --namespace thalamus \
-            --create-namespace \
-            --wait \
-            --timeout=600s \
-            --set operator.image.tag=pr \
-            "${flags[@]}"
-
-      - name: Verify disabled CRD dependencies were skipped
-        if: matrix.gateway_api == 'preinstalled' || matrix.inference_extension == 'preinstalled' || matrix.agentgateway == 'preinstalled'
-        run: |
-          manifest="$(helm get manifest thalamus --namespace thalamus)"
-          assert_skipped() {
-            for name in $(awk '/^  name: / { print $2 }' "$1" | tr -d '"'); do
-              if printf '%s' "$manifest" | grep -q "^  name: ${name}$"; then
-                echo "FAIL: thalamus installed ${name} despite its dependency being disabled"
-                exit 1
-              fi
-            done
-          }
-          if [ "${{ matrix.gateway_api }}" = "preinstalled" ]; then
-            assert_skipped /tmp/gateway-api-standard-install.yaml
-          fi
-          if [ "${{ matrix.inference_extension }}" = "preinstalled" ]; then
-            assert_skipped /tmp/ie-v1-manifests.yaml
-          fi
-          if [ "${{ matrix.agentgateway }}" = "preinstalled" ]; then
-            assert_skipped /tmp/agw-crds.yaml
-          fi
-          printf '%s' "$manifest" | grep -q '^  name: models.thalamus.cloud'
-          echo "PASS: thalamus skipped all disabled CRD dependencies"
-
-      - name: Verify disabled agentgateway controller was skipped
-        if: matrix.agentgateway == 'preinstalled'
-        run: |
-          thalamus_manifest="$(helm get manifest thalamus --namespace thalamus)"
-          if printf '%s' "$thalamus_manifest" | grep -q 'app.kubernetes.io/name: agentgateway'; then
-            echo "FAIL: thalamus installed the agentgateway controller despite its dependency being disabled"
-            exit 1
-          fi
-          echo "PASS: thalamus skipped the bundled agentgateway controller"
-
-      - name: Verify CRDs
-        run: |
-          kubectl wait \
-            --for=condition=Established \
-            --timeout=120s \
-            crd/gateways.gateway.networking.k8s.io \
-            crd/httproutes.gateway.networking.k8s.io \
-            crd/inferencepools.inference.networking.k8s.io \
-            crd/agentgatewaypolicies.agentgateway.dev \
-            crd/models.thalamus.cloud
-
-      - name: Create inference gateway
-        run: |
-          kubectl apply -f ${{ github.workspace }}/examples/gateway.yaml
-
-      - name: Wait for Gateway
-        run: |
-          kubectl wait gateway/inference-gateway \
-            --namespace thalamus \
-            --for=condition=Programmed=True \
-            --timeout=120s
-
-      - name: Create huggingface Secret
-        run: |
-          kubectl create secret generic hf-token \
-            --namespace thalamus \
-            --from-literal=HF_TOKEN=${{ secrets.HF_TOKEN }}
-
-      - name: Apply Model
-        run: |
-          kubectl apply -f ${{ github.workspace }}/examples/model-smollm2-cpu.yaml
-
-      - name: Wait for Model readiness
-        run: |
-          kubectl wait model/smollm2-135m \
-            --namespace thalamus \
-            --for=condition=Ready \
-            --timeout=600s
-
-      - name: Port-forward Gateway
-        run: |
-          kubectl port-forward svc/inference-gateway \
-            8080:80 --namespace thalamus &
-          sleep 3
-
-      - name: Run e2e validation
-        env:
-          GATEWAY_HOST: localhost
-          GATEWAY_PORT: "8080"
-          MODEL: HuggingFaceTB/SmolLM2-135M-Instruct
-        run: uv run test/e2e/validate.py
-
-      - name: Debug on failure
-        if: failure()
-        run: |
-          echo "=== Node resources ==="
-          kubectl describe node thalamus-control-plane | grep -A20 "Allocated resources"
-          echo "=== Pods ==="
-          kubectl get pods -A -o json \
-            | jq -r '
-              .items[]
-              | select(
-                  any(.status.containerStatuses[]?;
-                      .ready == false
-                  )
-              )
-              | "\(.metadata.namespace) \(.metadata.name)"
-            ' \
-            | while read ns pod; do
-                echo "===== $ns/$pod (current) ====="
-                kubectl logs -n "$ns" "$pod" --all-containers=true --prefix=true || true
-
-                echo "===== $ns/$pod (previous) ====="
-                kubectl logs -n "$ns" "$pod" --all-containers=true --previous --prefix=true || true
-
-                echo
-              done
-          echo "=== Gateway / HTTPRoutes / InferencePools ==="
-          kubectl get gateway,httproutes,inferencepools -n thalamus -o yaml
-          echo "=== Collecting complete Kind node logs ==="
-          mkdir -p debug-logs
-          docker exec thalamus-control-plane sh -c \
-            'tar -czhf - /var/log/containers/ 2>/dev/null' \
-            > debug-logs/node-logs.tar.gz
-
-      - name: Upload debug logs
-        if: failure()
-        uses: actions/upload-artifact@v7
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
         with:
-          name: e2e-debug-logs-gwapi-${{ matrix.gateway_api }}-ie-${{ matrix.inference_extension }}-agw-${{ matrix.agentgateway }}
-          path: debug-logs/
-          retention-days: 1
+          install: true
+
+      - name: Set up Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build from source
+        if: ${{ !(github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
+        env:
+          DOCKER_BUILD_ARGS: --load --cache-from type=gha --cache-to type=gha,mode=max
+        run: make e2e-build
+
+      - name: Wait for publish workflows
+        # main/tags validate published artifacts; wait for this commit's runs.
+        if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        timeout-minutes: 20
+        run: |
+          for wf in "Helm Charts" "Docker Images"; do
+            id=""
+            until [ -n "$id" ]; do
+              id="$(gh run list --workflow "$wf" --commit "$GITHUB_SHA" --limit 1 --json databaseId --jq '.[0].databaseId // empty')"
+              [ -n "$id" ] || sleep 5
+            done
+            gh run watch "$id" --exit-status
+          done
+
+      - name: Execute docs (build from source)
+        if: ${{ !(github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) }}
+        run: |
+          set -o pipefail
+          make e2e-docs E2E_GUIDE="${{ matrix.guide }}" | tee "${{ matrix.guide }}.md"
+
+      - name: Execute docs (published)
+        if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
+        env:
+          REF: ${{ github.head_ref || github.ref_name }}
+          ROOT: https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          THALAMUS_CHART_LOCATION: oci://ghcr.io/${{ github.repository_owner }}/charts
+          THALAMUS_CHART_VERSION: ${{ github.ref == 'refs/heads/main' && '0.0.0-main' || github.ref_name }}
+          # Empty: exercise chart default tag ("" -> appVersion).
+          THALAMUS_IMAGE_TAG: ''
+        run: |
+          set -o pipefail
+          make e2e-docs E2E_GUIDE="${{ matrix.guide }}" | tee "${{ matrix.guide }}.md"
+
+      - name: Save rendered guide
+        if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-${{ matrix.guide }}
+          path: ${{ matrix.guide }}.md
+          if-no-files-found: error
+
+  publish-docs:
+    name: Publish docs
+    needs: e2e
+    if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      REF: ${{ github.ref_name }}
+    concurrency:
+      group: pages-${{ github.ref_name }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Generate API reference docs
+        run: make docs
+
+      - name: Download rendered guides
+        uses: actions/download-artifact@v4
+        with:
+          pattern: docs-*
+          path: website/
+          merge-multiple: true
+
+      - name: Set release metadata
+        id: set-version
+        run: |
+          # Latest released tag, or "main" when no release exists yet.
+          latest_release="$(git tag --list 'v*' --sort=-v:refname | head -n 1)"
+          [[ -n "$latest_release" ]] || latest_release="main"
+          # All release tags, newest first, comma separated (e.g. "v0.2.0,v0.1.0").
+          versions="$(git tag --list 'v*' --sort=-v:refname | paste -sd, -)"
+          # Absolute origin of the GitHub Pages site (owner must be lowercase).
+          owner_lc="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          docs_base_url="https://${owner_lc}.github.io"
+          echo "latest_release=$latest_release" >> $GITHUB_OUTPUT
+          echo "versions=$versions" >> $GITHUB_OUTPUT
+          echo "docs_base_url=$docs_base_url" >> $GITHUB_OUTPUT
+
+      - name: Install dependencies
+        working-directory: website
+        run: npm ci
+
+      - name: Build VitePress site
+        working-directory: website
+        run: npm run docs:build
+        env:
+          PAGES_BASE: ${{ github.event.repository.name }}
+          DOCS_BASE_URL: ${{ steps.set-version.outputs.docs_base_url }}
+          DOCUMENTATION_REPOSITORY_URL: https://github.com/${{ github.repository }}
+
+      - name: Generate root redirect and version manifest
+        id: root-redirect
+        run: |
+          target="${{ steps.set-version.outputs.latest_release }}"
+          versions="${{ steps.set-version.outputs.versions }}"
+          url="/${{ github.event.repository.name }}/${target}/"
+          out="${RUNNER_TEMP}/root-redirect"
+          mkdir -p "$out"
+          touch "$out/.nojekyll"
+          cat > "$out/index.html" <<-EOF
+          	<!DOCTYPE html>
+          	<html>
+          	  <head>
+          	    <meta charset="utf-8">
+          	    <meta http-equiv="refresh" content="0; url=${url}">
+          	    <link rel="canonical" href="${{ steps.set-version.outputs.docs_base_url }}${url}">
+          	    <title>Thalamus Documentation</title>
+          	  </head>
+          	  <body>
+          	    <p>Redirecting to the latest documentation at <a href="${url}">${url}</a>…</p>
+          	  </body>
+          	</html>
+          	EOF
+          jq -n --arg latest "$target" --arg csv "$versions" \
+            '{ latest: $latest, versions: ($csv | split(",") | map(select(. != ""))) }' \
+            > "$out/versions.json"
+          echo "path=$out" >> $GITHUB_OUTPUT
+
+      - name: Deploy versioned docs
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: website/.vitepress/dist
+          branch: gh-pages
+          target-folder: ${{ github.ref_name }}
+          clean-exclude: pr-preview
+          force: false
+
+      - name: Deploy root redirect
+        if: ${{ steps.root-redirect.outputs.path != '' }}
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: ${{ steps.root-redirect.outputs.path }}
+          branch: gh-pages
+          target-folder: .
+          clean: false
+          force: false
