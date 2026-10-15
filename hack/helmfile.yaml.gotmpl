@@ -5,10 +5,6 @@
 {{- $version := dig "thalamus" "version" (printf "0.0.0-sha-%s" $sha) .Values }}
 
 releases:
-  - name: gateway-api-crds
-    namespace: default
-    chart: ../helm/gateway-api
-
   - name: node-feature-discovery
     namespace: node-feature-discovery
     createNamespace: true
@@ -46,7 +42,6 @@ releases:
     version: "v1.5.0"
     installed: {{ dig "agentgateway" "enabled" true .Values }}
     needs:
-      - default/gateway-api-crds
       - agentgateway-system/agentgateway-crds
     values:
       - inferenceExtension:
@@ -85,13 +80,10 @@ releases:
     createNamespace: true
     takeOwnership: true
     needs:
-      - default/gateway-api-crds
       - agentgateway-system/agentgateway-crds
       - agentgateway-system/agentgateway
     values:
-      - gateway-api:
-          enabled: false
-        agentgateway-crds:
+      - agentgateway-crds:
           enabled: false
         agentgateway:
           enabled: false
