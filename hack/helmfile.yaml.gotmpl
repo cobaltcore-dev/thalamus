@@ -9,10 +9,6 @@ releases:
     namespace: default
     chart: ../helm/gateway-api
 
-  - name: gateway-api-inference-extension-crds
-    namespace: default
-    chart: ../helm/gateway-api-inference-extension
-
   - name: node-feature-discovery
     namespace: node-feature-discovery
     createNamespace: true
@@ -51,7 +47,6 @@ releases:
     installed: {{ dig "agentgateway" "enabled" true .Values }}
     needs:
       - default/gateway-api-crds
-      - default/gateway-api-inference-extension-crds
       - agentgateway-system/agentgateway-crds
     values:
       - inferenceExtension:
@@ -88,9 +83,9 @@ releases:
     version: "{{ $version }}"
     namespace: thalamus
     createNamespace: true
+    takeOwnership: true
     needs:
       - default/gateway-api-crds
-      - default/gateway-api-inference-extension-crds
       - agentgateway-system/agentgateway-crds
       - agentgateway-system/agentgateway
     values:
