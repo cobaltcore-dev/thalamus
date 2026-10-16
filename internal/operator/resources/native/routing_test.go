@@ -6,12 +6,12 @@ package native
 import (
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	agentgatewayv1alpha1 "github.com/agentgateway/agentgateway/controller/api/v1alpha1/agentgateway"
 
-	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
 )
 
@@ -22,7 +22,9 @@ const (
 
 func TestBuildInferencePool(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
-	model.Spec.Serving.EPP = &v1alpha1.EPPSpec{Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0"}
+	model.Spec.Serving.EPP = &corev1.PodSpec{
+		Containers: []corev1.Container{{Name: "epp", Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0"}},
+	}
 	pool := BuildInferencePool(model)
 
 	if pool.Name != model.EngineName() {

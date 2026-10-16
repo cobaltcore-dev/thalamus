@@ -93,66 +93,21 @@ type WeightsSpec struct {
 	HF *HFWeightsSpec `json:"hf,omitempty"`
 }
 
-// EngineSpec configures the inference engine instance.
-type EngineSpec struct {
-	// Image is the container image for the inference engine.
-	Image string `json:"image"`
-
-	// Args are passed directly to the inference engine as CLI arguments.
-	// +kubebuilder:validation:Optional
-	Args []string `json:"args,omitempty"`
-
-	// Env defines environment variables for the inference engine container.
-	// +kubebuilder:validation:Optional
-	Env []corev1.EnvVar `json:"env,omitempty"`
-
-	// Resources defines the compute resources required by the inference engine.
-	// +kubebuilder:validation:Optional
-	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
-
-	// Cache defines the volume source for the engine cache directory (/cache).
-	// Defaults to an emptyDir. Accepts any Kubernetes volume source.
-	// +kubebuilder:validation:Optional
-	Cache *corev1.VolumeSource `json:"cache,omitempty"`
-}
-
-// EPPSpec configures the Endpoint Picker Proxy (EPP).
-type EPPSpec struct {
-	// Image is the container image for the EPP.
-	Image string `json:"image"`
-
-	// Args are passed directly to the EPP as CLI arguments.
-	// +kubebuilder:validation:Optional
-	Args []string `json:"args,omitempty"`
-
-	// Env defines environment variables for the EPP container.
-	// +kubebuilder:validation:Optional
-	Env []corev1.EnvVar `json:"env,omitempty"`
-
-	// Resources defines the compute resources required by the EPP.
-	// +kubebuilder:validation:Optional
-	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
-}
-
 // ServingSpec defines the serving configuration for the model instance.
 type ServingSpec struct {
-	// Engine configures the inference engine container.
-	Engine EngineSpec `json:"engine"`
+	// Engine is the pod spec for the inference engine. The first container is
+	// the engine and must set an image.
+	Engine corev1.PodSpec `json:"engine"`
 
-	// EPP configures the optional Endpoint Picker Proxy.
+	// EPP is the pod spec for the Endpoint Picker Proxy. The first container
+	// is the EPP and must set an image.
 	// +kubebuilder:validation:Optional
-	EPP *EPPSpec `json:"epp,omitempty"`
-}
-
-// SchedulingSpec defines scheduling constraints for the model's pods.
-type SchedulingSpec struct {
-	// NodeSelector constrains the nodes onto which the model's pods may be scheduled.
-	// +kubebuilder:validation:Optional
-	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+	EPP *corev1.PodSpec `json:"epp,omitempty"`
 }
 
 // ModelSpec defines the configuration for the model instance.
-// +kubebuilder:validation:XValidation:rule="self.backend != 'native' || has(self.serving.epp)",message="spec.serving.epp is required when backend is native"
+// +kubebuilder:validation:XValidation:rule="self.backend != 'native' || (has(self.serving.epp) && self.serving.epp.containers.size() > 0 && has(self.serving.epp.containers[0].image) && self.serving.epp.containers[0].image.size() > 0)",message="spec.serving.epp.containers[0].image is required when backend is native"
+// +kubebuilder:validation:XValidation:rule="self.serving.engine.containers.size() > 0 && has(self.serving.engine.containers[0].image) && self.serving.engine.containers[0].image.size() > 0",message="spec.serving.engine.containers[0].image is required"
 type ModelSpec struct {
 	// Backend selects which inference backend manages this model's resources.
 	// Defaults to "native".
@@ -172,10 +127,6 @@ type ModelSpec struct {
 
 	// Weights defines where the model weights are sourced from.
 	Weights WeightsSpec `json:"weights"`
-
-	// Scheduling defines scheduling constraints for the model's pods.
-	// +kubebuilder:validation:Optional
-	Scheduling *SchedulingSpec `json:"scheduling,omitempty"`
 }
 
 // ModelStatus defines the observed state of a Model.
@@ -232,9 +183,17 @@ func (m *Model) EngineName() string { return m.Name + "-engine" }
 // EPPName returns the Kubernetes resource name for the model's Endpoint Picker Proxy.
 func (m *Model) EPPName() string { return m.Name + "-epp" }
 
+// mainContainerImage returns the image of the first container of the pod spec.
+func mainContainerImage(pod *corev1.PodSpec) string {
+	if pod == nil || len(pod.Containers) == 0 {
+		return ""
+	}
+	return pod.Containers[0].Image
+}
+
 // DetectedEngineType derives the engine type from the engine container image.
 func (m *Model) DetectedEngineType() EngineType {
-	if strings.Contains(m.Spec.Serving.Engine.Image, "vllm") {
+	if strings.Contains(mainContainerImage(&m.Spec.Serving.Engine), "vllm") {
 		return EngineTypeVLLM
 	}
 	return EngineTypeUnknown
@@ -242,10 +201,7 @@ func (m *Model) DetectedEngineType() EngineType {
 
 // DetectedEPPType derives the EPP type from the EPP container image.
 func (m *Model) DetectedEPPType() EPPType {
-	if m.Spec.Serving.EPP == nil {
-		return EPPTypeUnknown
-	}
-	if strings.Contains(m.Spec.Serving.EPP.Image, "llm-d") {
+	if strings.Contains(mainContainerImage(m.Spec.Serving.EPP), "llm-d") {
 		return EPPTypeLLMD
 	}
 	return EPPTypeUnknown

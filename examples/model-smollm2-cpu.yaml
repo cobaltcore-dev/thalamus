@@ -13,35 +13,39 @@ spec:
   replicas: 1
   serving:
     engine:
-      image: docker.io/vllm/vllm-openai-cpu:v0.27.0
-      args:
-        - --max-model-len=512
-        - --max-num-seqs=1
-        - --enforce-eager
-        - --enable-auto-tool-choice
-        - --tool-call-parser=apertus
-        - --override-generation-config={"temperature":0}
-      env:
-        - name: VLLM_CPU_KVCACHE_SPACE
-          value: "1"
-        - name: VLLM_CPU_OMP_THREADS_BIND
-          value: nobind
-      resources:
-        requests:
-          cpu: 2000m
-          memory: 6Gi
-        limits:
-          cpu: 4000m
-          memory: 6Gi
+      containers:
+        - name: engine
+          image: docker.io/vllm/vllm-openai-cpu:v0.27.0
+          args:
+            - --max-model-len=512
+            - --max-num-seqs=1
+            - --enforce-eager
+            - --enable-auto-tool-choice
+            - --tool-call-parser=apertus
+            - --override-generation-config={"temperature":0}
+          env:
+            - name: VLLM_CPU_KVCACHE_SPACE
+              value: "1"
+            - name: VLLM_CPU_OMP_THREADS_BIND
+              value: nobind
+          resources:
+            requests:
+              cpu: 2000m
+              memory: 6Gi
+            limits:
+              cpu: 4000m
+              memory: 6Gi
     epp:
-      image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0
-      resources:
-        requests:
-          cpu: 100m
-          memory: 256Mi
-        limits:
-          cpu: 200m
-          memory: 512Mi
+      containers:
+        - name: epp
+          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 200m
+              memory: 512Mi
   weights:
     type: hf
     hf:

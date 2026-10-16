@@ -21,7 +21,7 @@ docs: crd-ref-docs ## Generate API reference documentation from Go types.
 
 .PHONY: crds
 crds: controller-gen ## Generate CRD manifests from type annotations.
-	$(CONTROLLER_GEN) crd:allowDangerousTypes=true paths="./..." \
+	$(CONTROLLER_GEN) crd:allowDangerousTypes=true,maxDescLen=0 paths="./..." \
 		output:crd:artifacts:config=helm/thalamus/templates
 
 .PHONY: deepcopy
