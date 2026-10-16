@@ -35,9 +35,6 @@ const (
 
 	// distrolessNobody is the distroless "nobody" uid/gid.
 	distrolessNobody int64 = 65532
-
-	// defaultEPPImage is used when the EPP container image is not set.
-	defaultEPPImage = "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0"
 )
 
 //go:embed epp_config.yaml
@@ -104,95 +101,22 @@ func BuildEPPConfigMap(model *v1alpha1.Model) *corev1.ConfigMap {
 
 // BuildEPPDeployment returns the Deployment for the Endpoint Picker Proxy.
 func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
-	podSpec := model.Spec.Serving.EPP.DeepCopy()
-	container := defaultContainer(podSpec, "epp", defaultEPPImage)
+	// TODO: defaulted fields can't be cleared from the epp configuration in the Model CR
+	podSpec := mergePodSpecs(defaultEPPPodSpec(model), model.Spec.Serving.EPP)
 
-	// Pool identity is the contract between EPP and the operator-created
-	// InferencePool and is not overridable.
-	container.Args = append([]string{
+	// Pool identity and flags are the contract with the operator-created
+	// InferencePool and ConfigMap. They are applied after the merge so user
+	// args can't drop them.
+	c := &podSpec.Containers[0]
+	c.Args = append([]string{
 		"--pool-name", model.EngineName(),
 		"--pool-namespace", model.Namespace,
 		"--pool-group", inferencev1.GroupName,
-	}, container.Args...)
-	for _, arg := range []string{
-		"--zap-encoder=json",
-		"--config-file=/config/" + eppConfigKey,
+		"--zap-encoder", "json",
+		"--config-file", "/config/" + eppConfigKey,
 		"--metrics-endpoint-auth=false",
-	} {
-		addArgIfAbsent(container, arg)
-	}
-
-	for _, e := range []corev1.EnvVar{
-		{
-			Name: "NAMESPACE",
-			ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
-			},
-		},
-		{
-			Name: "POD_NAME",
-			ValueFrom: &corev1.EnvVarSource{
-				FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
-			},
-		},
-	} {
-		addEnvIfAbsent(container, e)
-	}
-
-	if container.SecurityContext == nil {
-		container.SecurityContext = &corev1.SecurityContext{
-			AllowPrivilegeEscalation: new(false),
-			ReadOnlyRootFilesystem:   new(true),
-			RunAsNonRoot:             new(true),
-			RunAsUser:                new(distrolessNobody),
-			RunAsGroup:               new(distrolessNobody),
-			Privileged:               new(false),
-			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{"ALL"},
-			},
-			SeccompProfile: &corev1.SeccompProfile{
-				Type: corev1.SeccompProfileTypeRuntimeDefault,
-			},
-		}
-	}
-	addPortIfAbsent(container, corev1.ContainerPort{Name: eppGRPCExtProcPortName, ContainerPort: eppGRPCExtProcPort, Protocol: corev1.ProtocolTCP})
-	addPortIfAbsent(container, corev1.ContainerPort{Name: eppGRPCHealthPortName, ContainerPort: eppGRPCHealthPort, Protocol: corev1.ProtocolTCP})
-	addPortIfAbsent(container, corev1.ContainerPort{Name: eppMetricsPortName, ContainerPort: eppMetricsPort, Protocol: corev1.ProtocolTCP})
-	addMountIfAbsent(container, corev1.VolumeMount{Name: "config", MountPath: "/config", ReadOnly: true})
-	addVolumeIfAbsent(podSpec, corev1.Volume{
-		Name:      "config",
-		ConfigMap: &corev1.ConfigMapVolumeSource{Name: model.EPPName()},
-	})
-
-	if podSpec.SecurityContext == nil {
-		podSpec.SecurityContext = &corev1.PodSecurityContext{
-			RunAsNonRoot: new(true),
-			RunAsUser:    new(distrolessNobody),
-			RunAsGroup:   new(distrolessNobody),
-			SeccompProfile: &corev1.SeccompProfile{
-				Type: corev1.SeccompProfileTypeRuntimeDefault,
-			},
-		}
-	}
-	if podSpec.ServiceAccountName == "" {
-		podSpec.ServiceAccountName = model.EPPName()
-	}
-	if podSpec.TerminationGracePeriodSeconds == nil {
-		podSpec.TerminationGracePeriodSeconds = new(int64(130))
-	}
-	if container.LivenessProbe == nil {
-		container.LivenessProbe = &corev1.Probe{
-			GRPC:                &corev1.GRPCAction{Port: eppGRPCHealthPort, Service: new(eppHealthService)},
-			InitialDelaySeconds: 5,
-			PeriodSeconds:       10,
-		}
-	}
-	if container.ReadinessProbe == nil {
-		container.ReadinessProbe = &corev1.Probe{
-			GRPC:          &corev1.GRPCAction{Port: eppGRPCHealthPort, Service: new(eppHealthService)},
-			PeriodSeconds: 2,
-		}
-	}
+	}, c.Args...)
+	podSpec.ServiceAccountName = model.EPPName()
 
 	recreate := appsv1.RecreateDeploymentStrategyType
 	return &appsv1.Deployment{
@@ -208,7 +132,86 @@ func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"thalamus.cloud/epp": model.EPPName()},
 				},
-				Spec: *podSpec,
+				Spec: podSpec,
+			},
+		},
+	}
+}
+
+// defaultEPPPodSpec is the out-of-the-box EPP pod spec; the user's
+// configuration from spec.serving.epp is merged on top of it.
+func defaultEPPPodSpec(model *v1alpha1.Model) *corev1.PodSpec {
+	name := "epp"
+	if e := model.Spec.Serving.EPP; e != nil && len(e.Containers) > 0 {
+		name = e.Containers[0].Name
+	}
+
+	return &corev1.PodSpec{
+		ServiceAccountName:            model.EPPName(),
+		TerminationGracePeriodSeconds: new(int64(130)),
+		SecurityContext: &corev1.PodSecurityContext{
+			RunAsNonRoot: new(true),
+			RunAsUser:    new(distrolessNobody),
+			RunAsGroup:   new(distrolessNobody),
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
+			},
+		},
+		Containers: []corev1.Container{
+			{
+				Name:            name,
+				ImagePullPolicy: corev1.PullIfNotPresent,
+				Env: []corev1.EnvVar{
+					{
+						Name: "NAMESPACE",
+						ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
+						},
+					},
+					{
+						Name: "POD_NAME",
+						ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+						},
+					},
+				},
+				Ports: []corev1.ContainerPort{
+					{Name: eppGRPCExtProcPortName, ContainerPort: eppGRPCExtProcPort, Protocol: corev1.ProtocolTCP},
+					{Name: eppGRPCHealthPortName, ContainerPort: eppGRPCHealthPort, Protocol: corev1.ProtocolTCP},
+					{Name: eppMetricsPortName, ContainerPort: eppMetricsPort, Protocol: corev1.ProtocolTCP},
+				},
+				VolumeMounts: []corev1.VolumeMount{
+					{Name: "config", MountPath: "/config", ReadOnly: true},
+				},
+				LivenessProbe: &corev1.Probe{
+					GRPC:                &corev1.GRPCAction{Port: eppGRPCHealthPort, Service: new(eppHealthService)},
+					InitialDelaySeconds: 5,
+					PeriodSeconds:       10,
+				},
+				ReadinessProbe: &corev1.Probe{
+					GRPC:          &corev1.GRPCAction{Port: eppGRPCHealthPort, Service: new(eppHealthService)},
+					PeriodSeconds: 2,
+				},
+				SecurityContext: &corev1.SecurityContext{
+					AllowPrivilegeEscalation: new(false),
+					ReadOnlyRootFilesystem:   new(true),
+					RunAsNonRoot:             new(true),
+					RunAsUser:                new(distrolessNobody),
+					RunAsGroup:               new(distrolessNobody),
+					Privileged:               new(false),
+					Capabilities: &corev1.Capabilities{
+						Drop: []corev1.Capability{"ALL"},
+					},
+					SeccompProfile: &corev1.SeccompProfile{
+						Type: corev1.SeccompProfileTypeRuntimeDefault,
+					},
+				},
+			},
+		},
+		Volumes: []corev1.Volume{
+			{
+				Name:      "config",
+				ConfigMap: &corev1.ConfigMapVolumeSource{Name: model.EPPName()},
 			},
 		},
 	}

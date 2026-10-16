@@ -99,14 +99,14 @@ type ServingSpec struct {
 	// the engine and must set an image.
 	Engine corev1.PodSpec `json:"engine"`
 
-	// EPP is the pod spec for the optional Endpoint Picker Proxy.
-	// The first container's image defaults when unset.
+	// EPP is the pod spec for the Endpoint Picker Proxy. The first container
+	// is the EPP and must set an image.
 	// +kubebuilder:validation:Optional
 	EPP *corev1.PodSpec `json:"epp,omitempty"`
 }
 
 // ModelSpec defines the configuration for the model instance.
-// +kubebuilder:validation:XValidation:rule="self.backend != 'native' || has(self.serving.epp)",message="spec.serving.epp is required when backend is native"
+// +kubebuilder:validation:XValidation:rule="self.backend != 'native' || (has(self.serving.epp) && self.serving.epp.containers.size() > 0 && has(self.serving.epp.containers[0].image) && self.serving.epp.containers[0].image.size() > 0)",message="spec.serving.epp.containers[0].image is required when backend is native"
 // +kubebuilder:validation:XValidation:rule="self.serving.engine.containers.size() > 0 && has(self.serving.engine.containers[0].image) && self.serving.engine.containers[0].image.size() > 0",message="spec.serving.engine.containers[0].image is required"
 type ModelSpec struct {
 	// Backend selects which inference backend manages this model's resources.

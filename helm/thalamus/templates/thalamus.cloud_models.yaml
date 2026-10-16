@@ -7905,8 +7905,11 @@ spec:
             - weights
             type: object
             x-kubernetes-validations:
-            - message: spec.serving.epp is required when backend is native
-              rule: self.backend != 'native' || has(self.serving.epp)
+            - message: spec.serving.epp.containers[0].image is required when backend
+                is native
+              rule: self.backend != 'native' || (has(self.serving.epp) && self.serving.epp.containers.size()
+                > 0 && has(self.serving.epp.containers[0].image) && self.serving.epp.containers[0].image.size()
+                > 0)
             - message: spec.serving.engine.containers[0].image is required
               rule: self.serving.engine.containers.size() > 0 && has(self.serving.engine.containers[0].image)
                 && self.serving.engine.containers[0].image.size() > 0
