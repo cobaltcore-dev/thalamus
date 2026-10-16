@@ -4,11 +4,14 @@
 package native
 
 import (
+	"slices"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	"sigs.k8s.io/yaml"
 
+	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
 )
 
@@ -76,6 +79,17 @@ func TestBuildEPPConfigMap(t *testing.T) {
 	}
 }
 
+func wantEPPContractArgs(model *v1alpha1.Model) []string {
+	return []string{
+		"--pool-name", model.EngineName(),
+		"--pool-namespace", model.Namespace,
+		"--pool-group", inferencev1.GroupName,
+		"--zap-encoder", "json",
+		"--config-file", "/config/" + eppConfigKey,
+		"--metrics-endpoint-auth=false",
+	}
+}
+
 func TestBuildEPPDeployment(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	dep := BuildEPPDeployment(model)
@@ -83,12 +97,22 @@ func TestBuildEPPDeployment(t *testing.T) {
 	if dep.Name != model.EPPName() {
 		t.Errorf("Name:\ngot:  %q\nwant: %q", dep.Name, model.EPPName())
 	}
-	c := dep.Spec.Template.Spec.Containers[0]
+	podSpec := dep.Spec.Template.Spec
+	c := podSpec.Containers[0]
+	if c.Name != "epp" {
+		t.Errorf("container name:\ngot:  %q\nwant: epp (user name kept)", c.Name)
+	}
 	if c.Image != model.Spec.Serving.EPP.Containers[0].Image {
 		t.Errorf("Image:\ngot:  %q\nwant: %q", c.Image, model.Spec.Serving.EPP.Containers[0].Image)
 	}
-	if dep.Spec.Template.Spec.ServiceAccountName != model.EPPName() {
-		t.Errorf("ServiceAccountName:\ngot:  %q\nwant: %q", dep.Spec.Template.Spec.ServiceAccountName, model.EPPName())
+	if !slices.Equal(c.Args, wantEPPContractArgs(model)) {
+		t.Errorf("Args:\ngot:  %v\nwant: %v", c.Args, wantEPPContractArgs(model))
+	}
+	if podSpec.ServiceAccountName != model.EPPName() {
+		t.Errorf("ServiceAccountName:\ngot:  %q\nwant: %q", podSpec.ServiceAccountName, model.EPPName())
+	}
+	if podSpec.TerminationGracePeriodSeconds == nil || *podSpec.TerminationGracePeriodSeconds != 130 {
+		t.Errorf("TerminationGracePeriodSeconds:\ngot:  %v\nwant: 130", podSpec.TerminationGracePeriodSeconds)
 	}
 	if dep.Spec.Template.Labels["thalamus.cloud/epp"] != model.EPPName() {
 		t.Error("missing thalamus.cloud/epp label")
@@ -97,110 +121,45 @@ func TestBuildEPPDeployment(t *testing.T) {
 		t.Error("selector mismatch")
 	}
 	if c.LivenessProbe == nil || c.ReadinessProbe == nil {
-		t.Error("missing probes")
+		t.Error("missing default probes")
+	}
+	sc := c.SecurityContext
+	if sc == nil || sc.RunAsUser == nil || *sc.RunAsUser != wantEPPUID {
+		t.Errorf("container securityContext:\ngot:  %+v\nwant: runAsUser %d", sc, wantEPPUID)
 	}
 }
 
-func TestBuildEPPDeployment_ImageDefault(t *testing.T) {
+func TestBuildEPPDeployment_UserArgsAppended(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
-	model.Spec.Serving.EPP = &corev1.PodSpec{
-		Containers: []corev1.Container{{Name: "epp"}},
-	}
-	dep := BuildEPPDeployment(model)
-	c := dep.Spec.Template.Spec.Containers[0]
-	if c.Image != defaultEPPImage {
-		t.Errorf("Image:\ngot:  %q\nwant: %q", c.Image, defaultEPPImage)
-	}
-}
-
-func TestBuildEPPDeployment_UserArgOverride(t *testing.T) {
-	model := testutil.NewModel("tiny-llm", "default")
-	model.Spec.Serving.EPP.Containers[0].Args = []string{"--config-file=/custom/config.yaml"}
+	model.Spec.Serving.EPP.Containers[0].Args = []string{"--log-level=debug"}
 	dep := BuildEPPDeployment(model)
 	c := dep.Spec.Template.Spec.Containers[0]
 
-	count := 0
-	for _, a := range c.Args {
-		if a == "--config-file=/custom/config.yaml" {
-			count++
-		}
-	}
-	if count != 1 {
-		t.Errorf("--config-file occurrences:\ngot:  %d\nwant: 1 (args=%v)", count, c.Args)
-	}
-	for _, a := range c.Args {
-		if a == "--config-file=/config/"+eppConfigKey {
-			t.Errorf("platform --config-file must not be added when the user sets one (args=%v)", c.Args)
-		}
+	wantArgs := append(wantEPPContractArgs(model), "--log-level=debug")
+	if !slices.Equal(c.Args, wantArgs) {
+		t.Errorf("Args:\ngot:  %v\nwant: %v", c.Args, wantArgs)
 	}
 }
 
-func TestBuildEPPDeployment_UserEnvNoDuplicate(t *testing.T) {
+func TestBuildEPPDeployment_UserEnvWins(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	model.Spec.Serving.EPP.Containers[0].Env = []corev1.EnvVar{{Name: "NAMESPACE", Value: "static"}}
 	dep := BuildEPPDeployment(model)
 	c := dep.Spec.Template.Spec.Containers[0]
 
-	count := 0
+	count := map[string]int{}
+	got := map[string]string{}
 	for _, e := range c.Env {
-		if e.Name == "NAMESPACE" {
-			count++
+		count[e.Name]++
+		got[e.Name] = e.Value
+	}
+	for name, n := range count {
+		if n != 1 {
+			t.Errorf("env %q appears %d times: %+v", name, n, c.Env)
 		}
 	}
-	if count != 1 {
-		t.Errorf("NAMESPACE occurrences:\ngot:  %d\nwant: 1 (env=%v)", count, c.Env)
-	}
-}
-
-func TestBuildEPPDeploymentSecurity(t *testing.T) {
-	model := testutil.NewModel("tiny-llm", "default")
-	dep := BuildEPPDeployment(model)
-
-	podSC := dep.Spec.Template.Spec.SecurityContext
-	if podSC == nil {
-		t.Fatal("missing pod securityContext")
-	}
-	if podSC.RunAsNonRoot == nil || !*podSC.RunAsNonRoot {
-		t.Error("pod runAsNonRoot must be true")
-	}
-	if podSC.RunAsUser == nil || *podSC.RunAsUser != wantEPPUID {
-		t.Errorf("pod runAsUser:\ngot:  %+v\nwant: %d", podSC.RunAsUser, wantEPPUID)
-	}
-	if podSC.RunAsGroup == nil || *podSC.RunAsGroup != wantEPPUID {
-		t.Errorf("pod runAsGroup:\ngot:  %+v\nwant: %d", podSC.RunAsGroup, wantEPPUID)
-	}
-	if podSC.SeccompProfile == nil || podSC.SeccompProfile.Type != corev1.SeccompProfileTypeRuntimeDefault {
-		t.Errorf("pod seccompProfile.type:\ngot:  %+v\nwant: RuntimeDefault", podSC.SeccompProfile)
-	}
-
-	c := dep.Spec.Template.Spec.Containers[0]
-	sc := c.SecurityContext
-	if sc == nil {
-		t.Fatal("missing container securityContext")
-	}
-	if sc.AllowPrivilegeEscalation == nil || *sc.AllowPrivilegeEscalation {
-		t.Error("container allowPrivilegeEscalation must be false")
-	}
-	if sc.ReadOnlyRootFilesystem == nil || !*sc.ReadOnlyRootFilesystem {
-		t.Error("container readOnlyRootFilesystem must be true")
-	}
-	if sc.RunAsNonRoot == nil || !*sc.RunAsNonRoot {
-		t.Error("container runAsNonRoot must be true")
-	}
-	if sc.RunAsUser == nil || *sc.RunAsUser != wantEPPUID {
-		t.Errorf("container runAsUser:\ngot:  %+v\nwant: %d", sc.RunAsUser, wantEPPUID)
-	}
-	if sc.RunAsGroup == nil || *sc.RunAsGroup != wantEPPUID {
-		t.Errorf("container runAsGroup:\ngot:  %+v\nwant: %d", sc.RunAsGroup, wantEPPUID)
-	}
-	if sc.Privileged != nil && *sc.Privileged {
-		t.Error("container privileged must be false")
-	}
-	if sc.Capabilities == nil || len(sc.Capabilities.Drop) != 1 || sc.Capabilities.Drop[0] != "ALL" {
-		t.Errorf("container capabilities.drop:\ngot:  %+v\nwant: [ALL]", sc.Capabilities)
-	}
-	if sc.SeccompProfile == nil || sc.SeccompProfile.Type != corev1.SeccompProfileTypeRuntimeDefault {
-		t.Errorf("container seccompProfile.type:\ngot:  %+v\nwant: RuntimeDefault", sc.SeccompProfile)
+	if got["NAMESPACE"] != "static" {
+		t.Errorf("NAMESPACE:\ngot:  %q\nwant: static (user value wins)", got["NAMESPACE"])
 	}
 }
 

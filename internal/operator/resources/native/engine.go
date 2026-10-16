@@ -12,7 +12,7 @@ import (
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 )
 
-// engineHTTPPort is the TCP port the vLLM engine listens on.
+// engineHTTPPort is the TCP port the engine listens on.
 const engineHTTPPort = 8000
 
 // ubuntuNobody is the Ubuntu "nobody" uid/gid.
@@ -20,111 +20,16 @@ const ubuntuNobody int64 = 65534
 
 // BuildEngineDeployment returns the desired Deployment for the inference engine.
 func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
-	podSpec := model.Spec.Serving.Engine.DeepCopy()
-	container := defaultContainer(podSpec, "engine", "")
-	isVLLM := model.DetectedEngineType() == v1alpha1.EngineTypeVLLM
+	// TODO: defaulted fields can't be cleared from the engine configuration in the Model CR
+	podSpec := mergePodSpecs(defaultEnginePodSpec(model), &model.Spec.Serving.Engine)
 
-	if isVLLM && container.Command == nil {
-		container.Command = []string{"vllm", "serve"}
-	}
-	if model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && model.Spec.Weights.HF != nil {
-		hf := model.Spec.Weights.HF
-		if isVLLM {
-			container.Args = append([]string{hf.RepoID}, container.Args...)
-			addArgIfAbsent(container, "--served-model-name="+hf.RepoID)
-		}
-		if hf.TokenSecret != nil {
-			addEnvIfAbsent(container, corev1.EnvVar{
-				Name:      "HF_TOKEN",
-				ValueFrom: &corev1.EnvVarSource{SecretKeyRef: hf.TokenSecret},
-			})
-		}
-	}
-
-	// Root filesystem read-only; process runs as uid nobody
-	// Point caches at /cache instead of images $HOME (/root)
-	// Appended last so user env can't override the redirection
-	for _, e := range []corev1.EnvVar{
-		{Name: "HOME", Value: "/cache"},
-		{Name: "HF_HOME", Value: "/cache/huggingface"},
-		{Name: "XDG_CACHE_HOME", Value: "/cache"},
-	} {
-		addEnvIfAbsent(container, e)
-	}
-
-	if container.SecurityContext == nil {
-		container.SecurityContext = &corev1.SecurityContext{
-			AllowPrivilegeEscalation: new(false),
-			ReadOnlyRootFilesystem:   new(true),
-			RunAsNonRoot:             new(true),
-			RunAsUser:                new(ubuntuNobody),
-			RunAsGroup:               new(ubuntuNobody),
-			Privileged:               new(false),
-			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{"ALL"},
-			},
-			SeccompProfile: &corev1.SeccompProfile{
-				Type: corev1.SeccompProfileTypeRuntimeDefault,
-			},
-		}
-	}
-	if isVLLM && container.StartupProbe == nil {
-		container.StartupProbe = &corev1.Probe{
-			HTTPGet: &corev1.HTTPGetAction{
-				Path: "/v1/models",
-				Port: intstr.FromInt32(engineHTTPPort),
-			},
-			InitialDelaySeconds: 60,
-			PeriodSeconds:       10,
-			TimeoutSeconds:      5,
-			FailureThreshold:    360,
-		}
-	}
-	if isVLLM && container.LivenessProbe == nil {
-		container.LivenessProbe = &corev1.Probe{
-			HTTPGet: &corev1.HTTPGetAction{
-				Path: "/health",
-				Port: intstr.FromInt32(engineHTTPPort),
-			},
-			PeriodSeconds:    10,
-			TimeoutSeconds:   5,
-			FailureThreshold: 3,
-		}
-	}
-	if isVLLM && container.ReadinessProbe == nil {
-		container.ReadinessProbe = &corev1.Probe{
-			HTTPGet: &corev1.HTTPGetAction{
-				Path: "/v1/models",
-				Port: intstr.FromInt32(engineHTTPPort),
-			},
-			PeriodSeconds:    5,
-			TimeoutSeconds:   2,
-			FailureThreshold: 3,
-		}
-	}
-	addPortIfAbsent(container, corev1.ContainerPort{
-		Name: "http", ContainerPort: engineHTTPPort, Protocol: corev1.ProtocolTCP,
-	})
-
-	addMountIfAbsent(container, corev1.VolumeMount{Name: "cache", MountPath: "/cache"})
-	addMountIfAbsent(container, corev1.VolumeMount{Name: "dshm", MountPath: "/dev/shm"})
-	addMountIfAbsent(container, corev1.VolumeMount{Name: "tmp", MountPath: "/tmp"})
-	addVolumeIfAbsent(podSpec, corev1.Volume{Name: "cache", EmptyDir: &corev1.EmptyDirVolumeSource{}})
-	addVolumeIfAbsent(podSpec, corev1.Volume{Name: "dshm", EmptyDir: &corev1.EmptyDirVolumeSource{Medium: corev1.StorageMediumMemory}})
-	addVolumeIfAbsent(podSpec, corev1.Volume{Name: "tmp", EmptyDir: &corev1.EmptyDirVolumeSource{}})
-
-	if podSpec.SecurityContext == nil {
-		podSpec.SecurityContext = &corev1.PodSecurityContext{
-			RunAsNonRoot: new(true),
-			RunAsUser:    new(ubuntuNobody),
-			RunAsGroup:   new(ubuntuNobody),
-			// Chowns cache volume to group nobody; pre-populated PVC
-			// stays writable regardless of seeding uid
-			FSGroup: new(ubuntuNobody),
-			SeccompProfile: &corev1.SeccompProfile{
-				Type: corev1.SeccompProfileTypeRuntimeDefault,
-			},
-		}
+	// Model path and served name are the contract with the weights source and
+	// the gateway routing. They are applied after the merge so user args
+	// can't drop them.
+	// TODO: append other default arguments
+	if hf := model.Spec.Weights.HF; model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && hf != nil && model.DetectedEngineType() == v1alpha1.EngineTypeVLLM {
+		c := &podSpec.Containers[0]
+		c.Args = append([]string{hf.RepoID}, append(c.Args, "--served-model-name="+hf.RepoID)...)
 	}
 
 	labels := map[string]string{
@@ -141,7 +46,105 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: labels},
-				Spec:       *podSpec,
+				Spec:       podSpec,
+			},
+		},
+	}
+}
+
+// defaultEnginePodSpec is the out-of-the-box engine pod spec,
+// configuration from spec.serving.engine is merged on top of it.
+func defaultEnginePodSpec(model *v1alpha1.Model) *corev1.PodSpec {
+	name := "engine"
+	if c := model.Spec.Serving.Engine.Containers; len(c) > 0 {
+		name = c[0].Name
+	}
+
+	env := []corev1.EnvVar{
+		// Point the engine caches at the cache volume instead of $HOME.
+		{Name: "HOME", Value: "/cache"},
+		{Name: "HF_HOME", Value: "/cache/huggingface"},
+		{Name: "XDG_CACHE_HOME", Value: "/cache"},
+	}
+	if hf := model.Spec.Weights.HF; model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && hf != nil && hf.TokenSecret != nil {
+		env = append(env, corev1.EnvVar{
+			Name:      "HF_TOKEN",
+			ValueFrom: &corev1.EnvVarSource{SecretKeyRef: hf.TokenSecret},
+		})
+	}
+
+	container := corev1.Container{
+		Name:            name,
+		ImagePullPolicy: corev1.PullIfNotPresent,
+		Env:             env,
+		Ports:           []corev1.ContainerPort{{Name: "http", ContainerPort: engineHTTPPort, Protocol: corev1.ProtocolTCP}},
+		VolumeMounts: []corev1.VolumeMount{
+			{Name: "cache", MountPath: "/cache"},
+			{Name: "dshm", MountPath: "/dev/shm"},
+			{Name: "tmp", MountPath: "/tmp"},
+		},
+		SecurityContext: &corev1.SecurityContext{
+			AllowPrivilegeEscalation: new(false),
+			ReadOnlyRootFilesystem:   new(true),
+			RunAsNonRoot:             new(true),
+			RunAsUser:                new(ubuntuNobody),
+			RunAsGroup:               new(ubuntuNobody),
+			Privileged:               new(false),
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{"ALL"},
+			},
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
+			},
+		},
+	}
+	if model.DetectedEngineType() == v1alpha1.EngineTypeVLLM {
+		container.StartupProbe = &corev1.Probe{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/v1/models",
+				Port: intstr.FromInt32(engineHTTPPort),
+			},
+			InitialDelaySeconds: 60,
+			PeriodSeconds:       10,
+			TimeoutSeconds:      5,
+			FailureThreshold:    360,
+		}
+		container.LivenessProbe = &corev1.Probe{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/health",
+				Port: intstr.FromInt32(engineHTTPPort),
+			},
+			PeriodSeconds:    10,
+			TimeoutSeconds:   5,
+			FailureThreshold: 3,
+		}
+		container.ReadinessProbe = &corev1.Probe{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/v1/models",
+				Port: intstr.FromInt32(engineHTTPPort),
+			},
+			PeriodSeconds:    5,
+			TimeoutSeconds:   2,
+			FailureThreshold: 3,
+		}
+	}
+
+	return &corev1.PodSpec{
+		Containers: []corev1.Container{container},
+		Volumes: []corev1.Volume{
+			{Name: "cache", EmptyDir: &corev1.EmptyDirVolumeSource{}},
+			{Name: "dshm", EmptyDir: &corev1.EmptyDirVolumeSource{Medium: corev1.StorageMediumMemory}},
+			{Name: "tmp", EmptyDir: &corev1.EmptyDirVolumeSource{}},
+		},
+		SecurityContext: &corev1.PodSecurityContext{
+			RunAsNonRoot: new(true),
+			RunAsUser:    new(ubuntuNobody),
+			RunAsGroup:   new(ubuntuNobody),
+			// Chowns cache volume to group nobody; pre-populated PVC
+			// stays writable regardless of seeding uid
+			FSGroup: new(ubuntuNobody),
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
 			},
 		},
 	}
