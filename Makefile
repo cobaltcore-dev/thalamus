@@ -76,7 +76,7 @@ GOLANGCI_LINT             ?= $(LOCALBIN)/golangci-lint
 GOTESTSUM                 ?= $(LOCALBIN)/gotestsum
 
 # renovate: datasource=go depName=sigs.k8s.io/controller-tools
-CONTROLLER_TOOLS_VERSION  ?= v0.22.0
+CONTROLLER_TOOLS_VERSION  ?= v0.23.0
 # renovate: datasource=github-releases depName=golangci/golangci-lint
 GOLANGCI_LINT_VERSION     ?= v2.15.0
 # renovate: datasource=go depName=gotest.tools/gotestsum
