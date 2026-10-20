@@ -7919,11 +7919,11 @@ spec:
             - message: spec.serving.engine.restartPolicy must be 'Always' (Deployments
                 do not support other policies)
               rule: '!has(self.serving.engine.restartPolicy) || self.serving.engine.restartPolicy
-                in ['''', ''Always'']'
+                in [”, ''Always'']'
             - message: spec.serving.router.restartPolicy must be 'Always' (Deployments
                 do not support other policies)
               rule: '!has(self.serving.router.restartPolicy) || self.serving.router.restartPolicy
-                in ['''', ''Always'']'
+                in [”, ''Always'']'
           status:
             properties:
               conditions:
