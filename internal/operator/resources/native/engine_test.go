@@ -27,7 +27,10 @@ func TestModelNames(t *testing.T) {
 
 func TestBuildEngineDeployment(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
-	dep := BuildEngineDeployment(model)
+	dep, err := BuildEngineDeployment(model)
+	if err != nil {
+		t.Fatalf("BuildEngineDeployment: %v", err)
+	}
 
 	if dep.Name != model.EngineName() {
 		t.Errorf("Name:\ngot:  %q\nwant: %q", dep.Name, model.EngineName())
@@ -115,7 +118,10 @@ func TestBuildEngineDeployment_UserOverrides(t *testing.T) {
 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: "my-model-cache"},
 		},
 	}
-	dep := BuildEngineDeployment(model)
+	dep, err := BuildEngineDeployment(model)
+	if err != nil {
+		t.Fatalf("BuildEngineDeployment: %v", err)
+	}
 	c := dep.Spec.Template.Spec.Containers[0]
 
 	if c.SecurityContext == nil || c.SecurityContext.RunAsUser == nil || *c.SecurityContext.RunAsUser != userUID {
@@ -137,7 +143,10 @@ func TestBuildEngineDeployment_UserEnvWins(t *testing.T) {
 	model.Spec.Serving.Engine.Containers[0].Env = append(model.Spec.Serving.Engine.Containers[0].Env,
 		corev1.EnvVar{Name: "HOME", Value: "/root"},
 	)
-	dep := BuildEngineDeployment(model)
+	dep, err := BuildEngineDeployment(model)
+	if err != nil {
+		t.Fatalf("BuildEngineDeployment: %v", err)
+	}
 	c := dep.Spec.Template.Spec.Containers[0]
 
 	count := map[string]int{}
@@ -159,7 +168,10 @@ func TestBuildEngineDeployment_UserEnvWins(t *testing.T) {
 func TestBuildEngineDeployment_NonVLLM(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	model.Spec.Serving.Engine.Containers[0].Image = "test/other-engine:latest"
-	dep := BuildEngineDeployment(model)
+	dep, err := BuildEngineDeployment(model)
+	if err != nil {
+		t.Fatalf("BuildEngineDeployment: %v", err)
+	}
 	c := dep.Spec.Template.Spec.Containers[0]
 
 	if !slices.Equal(c.Args, []string{"--max-model-len=512"}) {
@@ -182,7 +194,10 @@ func TestBuildEngineDeployment_NonVLLM(t *testing.T) {
 func TestBuildEngineDeployment_MultipleReplicas(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	model.Spec.Replicas = 3
-	dep := BuildEngineDeployment(model)
+	dep, err := BuildEngineDeployment(model)
+	if err != nil {
+		t.Fatalf("BuildEngineDeployment: %v", err)
+	}
 	if dep.Spec.Replicas == nil || *dep.Spec.Replicas != 3 {
 		t.Errorf("Replicas:\ngot:  %v\nwant: 3", dep.Spec.Replicas)
 	}
@@ -191,7 +206,10 @@ func TestBuildEngineDeployment_MultipleReplicas(t *testing.T) {
 func TestBuildEngineDeployment_ZeroReplicas(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	model.Spec.Replicas = 0
-	dep := BuildEngineDeployment(model)
+	dep, err := BuildEngineDeployment(model)
+	if err != nil {
+		t.Fatalf("BuildEngineDeployment: %v", err)
+	}
 	if dep.Spec.Replicas == nil || *dep.Spec.Replicas != 0 {
 		t.Errorf("Replicas:\ngot:  %v\nwant: 0", dep.Spec.Replicas)
 	}
@@ -200,14 +218,20 @@ func TestBuildEngineDeployment_ZeroReplicas(t *testing.T) {
 func TestBuildEngineDeployment_NodeSelector(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	model.Spec.Serving.Engine.NodeSelector = map[string]string{"kubernetes.io/arch": "amd64"}
-	dep := BuildEngineDeployment(model)
+	dep, err := BuildEngineDeployment(model)
+	if err != nil {
+		t.Fatalf("BuildEngineDeployment: %v", err)
+	}
 	if dep.Spec.Template.Spec.NodeSelector["kubernetes.io/arch"] != "amd64" {
 		t.Error("NodeSelector not applied")
 	}
 }
 
 func TestBuildEngineDeployment_NoNodeSelector(t *testing.T) {
-	dep := BuildEngineDeployment(testutil.NewModel("tiny-llm", "default"))
+	dep, err := BuildEngineDeployment(testutil.NewModel("tiny-llm", "default"))
+	if err != nil {
+		t.Fatalf("BuildEngineDeployment: %v", err)
+	}
 	if dep.Spec.Template.Spec.NodeSelector != nil {
 		t.Error("expected nil NodeSelector when not set")
 	}
@@ -216,7 +240,10 @@ func TestBuildEngineDeployment_NoNodeSelector(t *testing.T) {
 func TestBuildEngineDeployment_PublicModel(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	model.Spec.Weights.HF.TokenSecret = nil
-	dep := BuildEngineDeployment(model)
+	dep, err := BuildEngineDeployment(model)
+	if err != nil {
+		t.Fatalf("BuildEngineDeployment: %v", err)
+	}
 	c := dep.Spec.Template.Spec.Containers[0]
 
 	for _, e := range c.Env {
@@ -230,7 +257,10 @@ func TestBuildEngineDeployment_SidecarContainer(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	model.Spec.Serving.Engine.Containers = append(model.Spec.Serving.Engine.Containers,
 		corev1.Container{Name: "metrics-agent", Image: "test/agent:latest"})
-	dep := BuildEngineDeployment(model)
+	dep, err := BuildEngineDeployment(model)
+	if err != nil {
+		t.Fatalf("BuildEngineDeployment: %v", err)
+	}
 
 	if len(dep.Spec.Template.Spec.Containers) != 2 {
 		t.Fatalf("containers:\ngot:  %d\nwant: 2", len(dep.Spec.Template.Spec.Containers))
@@ -245,7 +275,10 @@ func TestBuildEngineDeployment_SidecarBeforeMain(t *testing.T) {
 	model.Spec.Serving.Engine.Containers = append([]corev1.Container{
 		{Name: "metrics-agent", Image: "test/agent:latest"},
 	}, model.Spec.Serving.Engine.Containers...)
-	dep := BuildEngineDeployment(model)
+	dep, err := BuildEngineDeployment(model)
+	if err != nil {
+		t.Fatalf("BuildEngineDeployment: %v", err)
+	}
 
 	c := helpers.GetContainerByName(&dep.Spec.Template.Spec, "engine")
 	if c == nil {

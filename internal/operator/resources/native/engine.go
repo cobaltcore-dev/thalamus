@@ -20,9 +20,12 @@ const engineHTTPPort = 8000
 const ubuntuNobody int64 = 65534
 
 // BuildEngineDeployment returns the desired Deployment for the inference engine.
-func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
+func BuildEngineDeployment(model *v1alpha1.Model) (*appsv1.Deployment, error) {
 	// TODO: defaulted fields can't be cleared from the engine configuration in the Model CR
-	podSpec := helpers.MergePodSpecs(defaultEnginePodSpec(model), &model.Spec.Serving.Engine)
+	podSpec, err := helpers.MergePodSpecs(defaultEnginePodSpec(model), &model.Spec.Serving.Engine)
+	if err != nil {
+		return nil, err
+	}
 
 	// Model path and served name are the contract with the weights source and
 	// the gateway routing. They are applied after the merge so user args
@@ -50,7 +53,7 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 				Spec:       podSpec,
 			},
 		},
-	}
+	}, nil
 }
 
 // defaultEnginePodSpec is the out-of-the-box engine pod spec,

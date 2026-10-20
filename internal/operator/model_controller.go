@@ -81,13 +81,23 @@ func (r *ModelReconciler) reconcileKAITO(_ context.Context, _ *v1alpha1.Model) e
 
 // reconcileNative creates, updates, or deletes all child resources for the native backend.
 func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.Model) error {
+	engineDeployment, err := native.BuildEngineDeployment(model)
+	if err != nil {
+		return fmt.Errorf("build engine deployment: %w", err)
+	}
+
 	// Engine stack.
 	objs := []client.Object{
-		native.BuildEngineDeployment(model),
+		engineDeployment,
 		native.BuildEngineService(model),
 		native.BuildInferencePool(model),
 		native.BuildAIBackend(model),
 		native.BuildHTTPRoute(model, r.GatewayName, r.ListenerName),
+	}
+
+	eppDeployment, err := native.BuildEPPDeployment(model)
+	if err != nil {
+		return fmt.Errorf("build epp deployment: %w", err)
 	}
 
 	// EPP stack.
@@ -96,7 +106,7 @@ func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.M
 		native.BuildEPPRole(model),
 		native.BuildEPPRoleBinding(model),
 		native.BuildEPPConfigMap(model),
-		native.BuildEPPDeployment(model),
+		eppDeployment,
 		native.BuildEPPService(model),
 	)
 

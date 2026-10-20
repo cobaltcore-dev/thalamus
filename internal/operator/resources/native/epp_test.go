@@ -92,7 +92,10 @@ func wantEPPContractArgs(model *v1alpha1.Model) []string {
 
 func TestBuildEPPDeployment(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
-	dep := BuildEPPDeployment(model)
+	dep, err := BuildEPPDeployment(model)
+	if err != nil {
+		t.Fatalf("BuildEPPDeployment: %v", err)
+	}
 
 	if dep.Name != model.EPPName() {
 		t.Errorf("Name:\ngot:  %q\nwant: %q", dep.Name, model.EPPName())
@@ -132,7 +135,10 @@ func TestBuildEPPDeployment(t *testing.T) {
 func TestBuildEPPDeployment_UserArgsAppended(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	model.Spec.Serving.Router.Containers[0].Args = []string{"--log-level=debug"}
-	dep := BuildEPPDeployment(model)
+	dep, err := BuildEPPDeployment(model)
+	if err != nil {
+		t.Fatalf("BuildEPPDeployment: %v", err)
+	}
 	c := dep.Spec.Template.Spec.Containers[0]
 
 	wantArgs := append(wantEPPContractArgs(model), "--log-level=debug")
@@ -144,7 +150,10 @@ func TestBuildEPPDeployment_UserArgsAppended(t *testing.T) {
 func TestBuildEPPDeployment_UserEnvWins(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	model.Spec.Serving.Router.Containers[0].Env = []corev1.EnvVar{{Name: "NAMESPACE", Value: "static"}}
-	dep := BuildEPPDeployment(model)
+	dep, err := BuildEPPDeployment(model)
+	if err != nil {
+		t.Fatalf("BuildEPPDeployment: %v", err)
+	}
 	c := dep.Spec.Template.Spec.Containers[0]
 
 	count := map[string]int{}

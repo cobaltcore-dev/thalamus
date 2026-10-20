@@ -101,9 +101,12 @@ func BuildEPPConfigMap(model *v1alpha1.Model) *corev1.ConfigMap {
 }
 
 // BuildEPPDeployment returns the Deployment for the Endpoint Picker Proxy.
-func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
+func BuildEPPDeployment(model *v1alpha1.Model) (*appsv1.Deployment, error) {
 	// TODO: defaulted fields can't be cleared from the epp configuration in the Model CR
-	podSpec := helpers.MergePodSpecs(defaultEPPPodSpec(model), model.Spec.Serving.Router)
+	podSpec, err := helpers.MergePodSpecs(defaultEPPPodSpec(model), model.Spec.Serving.Router)
+	if err != nil {
+		return nil, err
+	}
 
 	// Pool identity and flags are the contract with the operator-created
 	// InferencePool and ConfigMap. They are applied after the merge so user
@@ -136,7 +139,7 @@ func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 				Spec: podSpec,
 			},
 		},
-	}
+	}, nil
 }
 
 // defaultEPPPodSpec is the out-of-the-box EPP pod spec; the user's

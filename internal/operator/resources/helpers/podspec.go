@@ -27,9 +27,9 @@ func GetContainerByName(pod *corev1.PodSpec, name string) *corev1.Container {
 // MergePodSpecs merges patch on top of base using a strategic merge patch:
 // keyed lists such as containers merge by name, unset fields keep the base
 // value. An empty patch container list keeps the base containers.
-func MergePodSpecs(base, patch *corev1.PodSpec) corev1.PodSpec {
+func MergePodSpecs(base, patch *corev1.PodSpec) (corev1.PodSpec, error) {
 	if patch == nil {
-		return *base.DeepCopy()
+		return *base.DeepCopy(), nil
 	}
 	p := patch.DeepCopy()
 	if len(p.Containers) == 0 {
@@ -37,19 +37,19 @@ func MergePodSpecs(base, patch *corev1.PodSpec) corev1.PodSpec {
 	}
 	baseJSON, err := json.Marshal(base)
 	if err != nil {
-		panic(err)
+		return corev1.PodSpec{}, err
 	}
 	patchJSON, err := json.Marshal(p)
 	if err != nil {
-		panic(err)
+		return corev1.PodSpec{}, err
 	}
 	merged, err := strategicpatch.StrategicMergePatch(baseJSON, patchJSON, corev1.PodSpec{})
 	if err != nil {
-		panic(err)
+		return corev1.PodSpec{}, err
 	}
 	var out corev1.PodSpec
 	if err := json.Unmarshal(merged, &out); err != nil {
-		panic(err)
+		return corev1.PodSpec{}, err
 	}
-	return out
+	return out, nil
 }
