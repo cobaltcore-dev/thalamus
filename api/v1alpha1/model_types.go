@@ -106,8 +106,9 @@ type ServingSpec struct {
 }
 
 // ModelSpec defines the configuration for the model instance.
-// +kubebuilder:validation:XValidation:rule="self.backend != 'native' || (has(self.serving.router) && self.serving.router.containers.size() > 0 && has(self.serving.router.containers[0].image) && self.serving.router.containers[0].image.size() > 0)",message="spec.serving.router.containers[0].image is required when backend is native"
+// +kubebuilder:validation:XValidation:rule="self.backend == 'native'",message="spec.backend must be native"
 // +kubebuilder:validation:XValidation:rule="self.serving.engine.containers.size() > 0 && has(self.serving.engine.containers[0].image) && self.serving.engine.containers[0].image.size() > 0",message="spec.serving.engine.containers[0].image is required"
+// +kubebuilder:validation:XValidation:rule="has(self.serving.router) && self.serving.router.containers.size() > 0 && has(self.serving.router.containers[0].image) && self.serving.router.containers[0].image.size() > 0",message="spec.serving.router.containers[0].image is required"
 type ModelSpec struct {
 	// Backend selects which inference backend manages this model's resources.
 	// Defaults to "native".
