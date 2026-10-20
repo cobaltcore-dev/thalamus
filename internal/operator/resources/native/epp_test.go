@@ -132,7 +132,7 @@ func TestBuildEPPDeployment(t *testing.T) {
 	}
 }
 
-func TestBuildEPPDeployment_UserArgsAppended(t *testing.T) {
+func TestBuildEPPDeployment_UserArgsBeforeContract(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	model.Spec.Serving.Router.Containers[0].Args = []string{"--log-level=debug"}
 	dep, err := BuildEPPDeployment(model)
@@ -141,7 +141,7 @@ func TestBuildEPPDeployment_UserArgsAppended(t *testing.T) {
 	}
 	c := dep.Spec.Template.Spec.Containers[0]
 
-	wantArgs := append(wantEPPContractArgs(model), "--log-level=debug")
+	wantArgs := slices.Concat([]string{"--log-level=debug"}, wantEPPContractArgs(model))
 	if !slices.Equal(c.Args, wantArgs) {
 		t.Errorf("Args:\ngot:  %v\nwant: %v", c.Args, wantArgs)
 	}
