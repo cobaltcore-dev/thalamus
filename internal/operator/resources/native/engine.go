@@ -70,10 +70,9 @@ func defaultEnginePodSpec(model *v1alpha1.Model) *corev1.PodSpec {
 	}
 
 	container := corev1.Container{
-		Name:            "engine",
-		ImagePullPolicy: corev1.PullIfNotPresent,
-		Env:             env,
-		Ports:           []corev1.ContainerPort{{Name: "http", ContainerPort: engineHTTPPort, Protocol: corev1.ProtocolTCP}},
+		Name:  "engine",
+		Env:   env,
+		Ports: []corev1.ContainerPort{{Name: "http", ContainerPort: engineHTTPPort, Protocol: corev1.ProtocolTCP}},
 		VolumeMounts: []corev1.VolumeMount{
 			{Name: "cache", MountPath: "/cache"},
 			{Name: "dshm", MountPath: "/dev/shm"},

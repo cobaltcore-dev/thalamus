@@ -155,8 +155,7 @@ func defaultEPPPodSpec(model *v1alpha1.Model) *corev1.PodSpec {
 		},
 		Containers: []corev1.Container{
 			{
-				Name:            "router",
-				ImagePullPolicy: corev1.PullIfNotPresent,
+				Name: "router",
 				Env: []corev1.EnvVar{
 					{
 						Name: "NAMESPACE",
