@@ -9,6 +9,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	"github.com/cobaltcore-dev/thalamus/internal/operator/resources/helpers"
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
 )
 
@@ -37,7 +38,7 @@ func TestBuildEngineDeployment(t *testing.T) {
 
 	c := dep.Spec.Template.Spec.Containers[0]
 	if c.Name != "engine" {
-		t.Errorf("container name:\ngot:  %q\nwant: engine (user name kept)", c.Name)
+		t.Errorf("container name:\ngot:  %q\nwant: engine (main container)", c.Name)
 	}
 	if c.Image != model.Spec.Serving.Engine.Containers[0].Image {
 		t.Errorf("Image:\ngot:  %q\nwant: %q", c.Image, model.Spec.Serving.Engine.Containers[0].Image)
@@ -236,6 +237,25 @@ func TestBuildEngineDeployment_SidecarContainer(t *testing.T) {
 	}
 	if dep.Spec.Template.Spec.Containers[1].Name != "metrics-agent" {
 		t.Errorf("sidecar container:\ngot:  %+v", dep.Spec.Template.Spec.Containers[1])
+	}
+}
+
+func TestBuildEngineDeployment_SidecarBeforeMain(t *testing.T) {
+	model := testutil.NewModel("tiny-llm", "default")
+	model.Spec.Serving.Engine.Containers = append([]corev1.Container{
+		{Name: "metrics-agent", Image: "test/agent:latest"},
+	}, model.Spec.Serving.Engine.Containers...)
+	dep := BuildEngineDeployment(model)
+
+	c := helpers.GetContainerByName(&dep.Spec.Template.Spec, "engine")
+	if c == nil {
+		t.Fatal("main container engine not found")
+	}
+	if c.StartupProbe == nil || c.LivenessProbe == nil || c.ReadinessProbe == nil {
+		t.Error("missing default probes on main container")
+	}
+	if helpers.GetContainerByName(&dep.Spec.Template.Spec, "metrics-agent") == nil {
+		t.Error("sidecar container not found")
 	}
 }
 

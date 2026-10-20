@@ -34,7 +34,7 @@ func NewModel(name, namespace string) *v1alpha1.Model {
 				},
 				Router: &corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name:  "epp",
+						Name:  "router",
 						Image: "test/epp:latest",
 					}},
 				},

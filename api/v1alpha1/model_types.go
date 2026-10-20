@@ -95,20 +95,22 @@ type WeightsSpec struct {
 
 // ServingSpec defines the serving configuration for the model instance.
 type ServingSpec struct {
-	// Engine is the pod spec for the inference engine. The first container is
-	// the engine and must set an image.
+	// Engine is the pod spec for the inference engine. The container named
+	// 'engine' is the main container and must set an image. Containers with
+	// other names are added as sidecars.
 	Engine corev1.PodSpec `json:"engine"`
 
-	// Router is the pod spec for the entry point. The first
-	// container is the router and must set an image.
+	// Router is the pod spec for the entry point. The container named
+	// 'router' is the main container and must set an image. Containers with
+	// other names are added as sidecars.
 	// +kubebuilder:validation:Optional
 	Router *corev1.PodSpec `json:"router"`
 }
 
 // ModelSpec defines the configuration for the model instance.
 // +kubebuilder:validation:XValidation:rule="self.backend == 'native'",message="spec.backend must be native"
-// +kubebuilder:validation:XValidation:rule="self.serving.engine.containers.size() > 0 && has(self.serving.engine.containers[0].image) && self.serving.engine.containers[0].image.size() > 0",message="spec.serving.engine.containers[0].image is required"
-// +kubebuilder:validation:XValidation:rule="has(self.serving.router) && self.serving.router.containers.size() > 0 && has(self.serving.router.containers[0].image) && self.serving.router.containers[0].image.size() > 0",message="spec.serving.router.containers[0].image is required"
+// +kubebuilder:validation:XValidation:rule="self.serving.engine.containers.exists(c, c.name == 'engine' && c.image.size() > 0)",message="spec.serving.engine requires a container named 'engine' with an image"
+// +kubebuilder:validation:XValidation:rule="has(self.serving.router) && self.serving.router.containers.exists(c, c.name == 'router' && c.image.size() > 0)",message="spec.serving.router requires a container named 'router' with an image"
 type ModelSpec struct {
 	// Backend selects which inference backend manages this model's resources.
 	// Defaults to "native".
@@ -184,26 +186,27 @@ func (m *Model) EngineName() string { return m.Name + "-engine" }
 // EPPName returns the Kubernetes resource name for the model's Endpoint Picker Proxy.
 func (m *Model) EPPName() string { return m.Name + "-epp" }
 
-// mainContainerImage returns the image of the first container of the pod spec.
-func mainContainerImage(pod *corev1.PodSpec) string {
-	if pod == nil || len(pod.Containers) == 0 {
-		return ""
-	}
-	return pod.Containers[0].Image
-}
-
 // DetectedEngineType derives the engine type from the engine container image.
 func (m *Model) DetectedEngineType() EngineType {
-	if strings.Contains(mainContainerImage(&m.Spec.Serving.Engine), "vllm") {
-		return EngineTypeVLLM
+	for i := range m.Spec.Serving.Engine.Containers {
+		c := m.Spec.Serving.Engine.Containers[i]
+		if c.Name == "engine" && strings.Contains(c.Image, "vllm") {
+			return EngineTypeVLLM
+		}
 	}
 	return EngineTypeUnknown
 }
 
 // DetectedEPPType derives the EPP type from the EPP container image.
 func (m *Model) DetectedEPPType() EPPType {
-	if strings.Contains(mainContainerImage(m.Spec.Serving.Router), "llm-d") {
-		return EPPTypeLLMD
+	if m.Spec.Serving.Router == nil {
+		return EPPTypeUnknown
+	}
+	for i := range m.Spec.Serving.Router.Containers {
+		c := m.Spec.Serving.Router.Containers[i]
+		if c.Name == "router" && strings.Contains(c.Image, "llm-d") {
+			return EPPTypeLLMD
+		}
 	}
 	return EPPTypeUnknown
 }

@@ -99,8 +99,8 @@ func TestBuildEPPDeployment(t *testing.T) {
 	}
 	podSpec := dep.Spec.Template.Spec
 	c := podSpec.Containers[0]
-	if c.Name != "epp" {
-		t.Errorf("container name:\ngot:  %q\nwant: epp (user name kept)", c.Name)
+	if c.Name != "router" {
+		t.Errorf("container name:\ngot:  %q\nwant: router (main container)", c.Name)
 	}
 	if c.Image != model.Spec.Serving.Router.Containers[0].Image {
 		t.Errorf("Image:\ngot:  %q\nwant: %q", c.Image, model.Spec.Serving.Router.Containers[0].Image)

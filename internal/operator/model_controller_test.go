@@ -87,7 +87,7 @@ func TestReconcile_Native(t *testing.T) {
 func TestReconcile_NativeWithEPP(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", testNamespace)
 	model.Spec.Serving.Router = &corev1.PodSpec{
-		Containers: []corev1.Container{{Name: "epp", Image: "test/epp:latest"}},
+		Containers: []corev1.Container{{Name: "router", Image: "test/epp:latest"}},
 	}
 	r, c := newTestReconciler(t, model)
 

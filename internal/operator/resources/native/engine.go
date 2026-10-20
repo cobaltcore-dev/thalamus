@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
+	"github.com/cobaltcore-dev/thalamus/internal/operator/resources/helpers"
 )
 
 // engineHTTPPort is the TCP port the engine listens on.
@@ -21,14 +22,14 @@ const ubuntuNobody int64 = 65534
 // BuildEngineDeployment returns the desired Deployment for the inference engine.
 func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 	// TODO: defaulted fields can't be cleared from the engine configuration in the Model CR
-	podSpec := mergePodSpecs(defaultEnginePodSpec(model), &model.Spec.Serving.Engine)
+	podSpec := helpers.MergePodSpecs(defaultEnginePodSpec(model), &model.Spec.Serving.Engine)
 
 	// Model path and served name are the contract with the weights source and
 	// the gateway routing. They are applied after the merge so user args
 	// can't drop them.
 	// TODO: append other default arguments
 	if hf := model.Spec.Weights.HF; model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && hf != nil && model.DetectedEngineType() == v1alpha1.EngineTypeVLLM {
-		c := &podSpec.Containers[0]
+		c := helpers.GetContainerByName(&podSpec, "engine")
 		c.Args = append([]string{hf.RepoID}, append(c.Args, "--served-model-name="+hf.RepoID)...)
 	}
 
@@ -55,11 +56,6 @@ func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 // defaultEnginePodSpec is the out-of-the-box engine pod spec,
 // configuration from spec.serving.engine is merged on top of it.
 func defaultEnginePodSpec(model *v1alpha1.Model) *corev1.PodSpec {
-	name := "engine"
-	if c := model.Spec.Serving.Engine.Containers; len(c) > 0 {
-		name = c[0].Name
-	}
-
 	env := []corev1.EnvVar{
 		// Point the engine caches at the cache volume instead of $HOME.
 		{Name: "HOME", Value: "/cache"},
@@ -74,7 +70,7 @@ func defaultEnginePodSpec(model *v1alpha1.Model) *corev1.PodSpec {
 	}
 
 	container := corev1.Container{
-		Name:            name,
+		Name:            "engine",
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Env:             env,
 		Ports:           []corev1.ContainerPort{{Name: "http", ContainerPort: engineHTTPPort, Protocol: corev1.ProtocolTCP}},

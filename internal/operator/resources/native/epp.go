@@ -14,6 +14,7 @@ import (
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
+	"github.com/cobaltcore-dev/thalamus/internal/operator/resources/helpers"
 )
 
 const (
@@ -102,12 +103,12 @@ func BuildEPPConfigMap(model *v1alpha1.Model) *corev1.ConfigMap {
 // BuildEPPDeployment returns the Deployment for the Endpoint Picker Proxy.
 func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 	// TODO: defaulted fields can't be cleared from the epp configuration in the Model CR
-	podSpec := mergePodSpecs(defaultEPPPodSpec(model), model.Spec.Serving.Router)
+	podSpec := helpers.MergePodSpecs(defaultEPPPodSpec(model), model.Spec.Serving.Router)
 
 	// Pool identity and flags are the contract with the operator-created
 	// InferencePool and ConfigMap. They are applied after the merge so user
 	// args can't drop them.
-	c := &podSpec.Containers[0]
+	c := helpers.GetContainerByName(&podSpec, "router")
 	c.Args = append([]string{
 		"--pool-name", model.EngineName(),
 		"--pool-namespace", model.Namespace,
@@ -141,11 +142,6 @@ func BuildEPPDeployment(model *v1alpha1.Model) *appsv1.Deployment {
 // defaultEPPPodSpec is the out-of-the-box EPP pod spec; the user's
 // configuration from spec.serving.router is merged on top of it.
 func defaultEPPPodSpec(model *v1alpha1.Model) *corev1.PodSpec {
-	name := "epp"
-	if e := model.Spec.Serving.Router; e != nil && len(e.Containers) > 0 {
-		name = e.Containers[0].Name
-	}
-
 	return &corev1.PodSpec{
 		ServiceAccountName:            model.EPPName(),
 		TerminationGracePeriodSeconds: new(int64(130)),
@@ -159,7 +155,7 @@ func defaultEPPPodSpec(model *v1alpha1.Model) *corev1.PodSpec {
 		},
 		Containers: []corev1.Container{
 			{
-				Name:            name,
+				Name:            "router",
 				ImagePullPolicy: corev1.PullIfNotPresent,
 				Env: []corev1.EnvVar{
 					{

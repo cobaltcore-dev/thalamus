@@ -7907,13 +7907,14 @@ spec:
             x-kubernetes-validations:
             - message: spec.backend must be native
               rule: self.backend == 'native'
-            - message: spec.serving.engine.containers[0].image is required
-              rule: self.serving.engine.containers.size() > 0 && has(self.serving.engine.containers[0].image)
-                && self.serving.engine.containers[0].image.size() > 0
-            - message: spec.serving.router.containers[0].image is required
-              rule: has(self.serving.router) && self.serving.router.containers.size()
-                > 0 && has(self.serving.router.containers[0].image) && self.serving.router.containers[0].image.size()
-                > 0
+            - message: spec.serving.engine requires a container named 'engine' with
+                an image
+              rule: self.serving.engine.containers.exists(c, c.name == 'engine' &&
+                c.image.size() > 0)
+            - message: spec.serving.router requires a container named 'router' with
+                an image
+              rule: has(self.serving.router) && self.serving.router.containers.exists(c,
+                c.name == 'router' && c.image.size() > 0)
           status:
             properties:
               conditions:

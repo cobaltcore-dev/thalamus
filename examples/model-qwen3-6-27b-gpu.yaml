@@ -34,7 +34,7 @@ spec:
               nvidia.com/gpu: 2
     router:
       containers:
-        - name: epp
+        - name: router
           image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0
           resources:
             requests:
