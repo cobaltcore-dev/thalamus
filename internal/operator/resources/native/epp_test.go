@@ -102,8 +102,8 @@ func TestBuildEPPDeployment(t *testing.T) {
 	if c.Name != "epp" {
 		t.Errorf("container name:\ngot:  %q\nwant: epp (user name kept)", c.Name)
 	}
-	if c.Image != model.Spec.Serving.EPP.Containers[0].Image {
-		t.Errorf("Image:\ngot:  %q\nwant: %q", c.Image, model.Spec.Serving.EPP.Containers[0].Image)
+	if c.Image != model.Spec.Serving.Router.Containers[0].Image {
+		t.Errorf("Image:\ngot:  %q\nwant: %q", c.Image, model.Spec.Serving.Router.Containers[0].Image)
 	}
 	if !slices.Equal(c.Args, wantEPPContractArgs(model)) {
 		t.Errorf("Args:\ngot:  %v\nwant: %v", c.Args, wantEPPContractArgs(model))
@@ -131,7 +131,7 @@ func TestBuildEPPDeployment(t *testing.T) {
 
 func TestBuildEPPDeployment_UserArgsAppended(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
-	model.Spec.Serving.EPP.Containers[0].Args = []string{"--log-level=debug"}
+	model.Spec.Serving.Router.Containers[0].Args = []string{"--log-level=debug"}
 	dep := BuildEPPDeployment(model)
 	c := dep.Spec.Template.Spec.Containers[0]
 
@@ -143,7 +143,7 @@ func TestBuildEPPDeployment_UserArgsAppended(t *testing.T) {
 
 func TestBuildEPPDeployment_UserEnvWins(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
-	model.Spec.Serving.EPP.Containers[0].Env = []corev1.EnvVar{{Name: "NAMESPACE", Value: "static"}}
+	model.Spec.Serving.Router.Containers[0].Env = []corev1.EnvVar{{Name: "NAMESPACE", Value: "static"}}
 	dep := BuildEPPDeployment(model)
 	c := dep.Spec.Template.Spec.Containers[0]
 

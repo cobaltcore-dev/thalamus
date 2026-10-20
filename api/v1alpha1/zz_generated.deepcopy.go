@@ -135,8 +135,8 @@ func (in *ModelStatus) DeepCopy() *ModelStatus {
 func (in *ServingSpec) DeepCopyInto(out *ServingSpec) {
 	*out = *in
 	in.Engine.DeepCopyInto(&out.Engine)
-	if in.EPP != nil {
-		in, out := &in.EPP, &out.EPP
+	if in.Router != nil {
+		in, out := &in.Router, &out.Router
 		*out = new(v1.PodSpec)
 		(*in).DeepCopyInto(*out)
 	}

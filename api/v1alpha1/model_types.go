@@ -99,14 +99,14 @@ type ServingSpec struct {
 	// the engine and must set an image.
 	Engine corev1.PodSpec `json:"engine"`
 
-	// EPP is the pod spec for the Endpoint Picker Proxy. The first container
-	// is the EPP and must set an image.
+	// Router is the pod spec for the entry point. The first
+	// container is the router and must set an image.
 	// +kubebuilder:validation:Optional
-	EPP *corev1.PodSpec `json:"epp,omitempty"`
+	Router *corev1.PodSpec `json:"router"`
 }
 
 // ModelSpec defines the configuration for the model instance.
-// +kubebuilder:validation:XValidation:rule="self.backend != 'native' || (has(self.serving.epp) && self.serving.epp.containers.size() > 0 && has(self.serving.epp.containers[0].image) && self.serving.epp.containers[0].image.size() > 0)",message="spec.serving.epp.containers[0].image is required when backend is native"
+// +kubebuilder:validation:XValidation:rule="self.backend != 'native' || (has(self.serving.router) && self.serving.router.containers.size() > 0 && has(self.serving.router.containers[0].image) && self.serving.router.containers[0].image.size() > 0)",message="spec.serving.router.containers[0].image is required when backend is native"
 // +kubebuilder:validation:XValidation:rule="self.serving.engine.containers.size() > 0 && has(self.serving.engine.containers[0].image) && self.serving.engine.containers[0].image.size() > 0",message="spec.serving.engine.containers[0].image is required"
 type ModelSpec struct {
 	// Backend selects which inference backend manages this model's resources.
@@ -201,7 +201,7 @@ func (m *Model) DetectedEngineType() EngineType {
 
 // DetectedEPPType derives the EPP type from the EPP container image.
 func (m *Model) DetectedEPPType() EPPType {
-	if strings.Contains(mainContainerImage(m.Spec.Serving.EPP), "llm-d") {
+	if strings.Contains(mainContainerImage(m.Spec.Serving.Router), "llm-d") {
 		return EPPTypeLLMD
 	}
 	return EPPTypeUnknown

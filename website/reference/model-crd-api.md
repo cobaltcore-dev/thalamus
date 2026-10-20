@@ -205,7 +205,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `engine` _[PodSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#podspec-v1-core)_ | Engine is the pod spec for the inference engine. The first container is<br />the engine and must set an image. |  |  |
-| `epp` _[PodSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#podspec-v1-core)_ | EPP is the pod spec for the Endpoint Picker Proxy. The first container<br />is the EPP and must set an image. |  | Optional: \{\} <br /> |
+| `router` _[PodSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#podspec-v1-core)_ | Router is the pod spec for the Endpoint Picker Proxy. The first<br />container is the EPP and must set an image. |  | Optional: \{\} <br /> |
 
 
 #### WeightsSpec

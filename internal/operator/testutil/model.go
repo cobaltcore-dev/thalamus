@@ -32,7 +32,7 @@ func NewModel(name, namespace string) *v1alpha1.Model {
 						},
 					}},
 				},
-				EPP: &corev1.PodSpec{
+				Router: &corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:  "epp",
 						Image: "test/epp:latest",
