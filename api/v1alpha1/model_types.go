@@ -206,6 +206,10 @@ type ModelStatus struct {
 // +kubebuilder:printcolumn:name="Weights",type="string",JSONPath=".spec.weights.type"
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// Service names must be DNS-1035 labels.
+// +kubebuilder:validation:XValidation:rule="self.metadata.name.matches('^[a-z]([-a-z0-9]*[a-z0-9])?$')",message="metadata.name must be a DNS-1035 label (lowercase alphanumerics and '-', starting with a letter)."
+// The "-engine" suffix must fit in the 63-character limit.
+// +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 56",message="metadata.name must be at most 56 characters."
 
 // Model is the Schema for the models API.
 type Model struct {
