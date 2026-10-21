@@ -81,6 +81,11 @@ monitoring:
     # scrapeTimeout: 10s
     # additionalLabels: {}
 
+# Reject engine args the operator manages itself via a ValidatingAdmissionPolicy.
+# When disabled, deployments may fail and routing may break if arguments are configured incorrectly.
+modelArgumentValidation:
+  enabled: true
+
 # Gateway the operator attaches its routes to; see examples/gateway.yaml.
 gateway:
   name: inference-gateway

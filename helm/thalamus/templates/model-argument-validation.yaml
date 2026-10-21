@@ -1,3 +1,4 @@
+{{- if .Values.modelArgumentValidation.enabled }}
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
@@ -34,3 +35,4 @@ spec:
         resources: [models]
         operations: [CREATE, UPDATE]
   validationActions: [Deny]
+{{- end }}
