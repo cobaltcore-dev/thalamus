@@ -192,8 +192,7 @@ func (m *Model) EPPName() string { return m.Name + "-epp" }
 
 // DetectedEngineType derives the engine type from the engine container image.
 func (m *Model) DetectedEngineType() EngineType {
-	for i := range m.Spec.Serving.Engine.Containers {
-		c := m.Spec.Serving.Engine.Containers[i]
+	for _, c := range m.Spec.Serving.Engine.Containers {
 		if c.Name == "engine" && strings.Contains(c.Image, "vllm") {
 			return EngineTypeVLLM
 		}
@@ -203,8 +202,7 @@ func (m *Model) DetectedEngineType() EngineType {
 
 // DetectedEPPType derives the EPP type from the EPP container image.
 func (m *Model) DetectedEPPType() EPPType {
-	for i := range m.Spec.Serving.Router.Containers {
-		c := m.Spec.Serving.Router.Containers[i]
+	for _, c := range m.Spec.Serving.Router.Containers {
 		if c.Name == "router" && strings.Contains(c.Image, "llm-d") {
 			return EPPTypeLLMD
 		}
