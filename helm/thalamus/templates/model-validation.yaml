@@ -1,0 +1,46 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: {{ .Release.Name }}-model-validation
+  labels:
+    {{- include "thalamus.labels" . | nindent 4 }}
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [thalamus.cloud]
+        apiVersions: [v1alpha1]
+        resources: [models]
+        operations: [CREATE, UPDATE]
+  validations:
+    - expression: "object.spec.backend == 'native'"
+      message: "spec.backend must be native"
+    - expression: "object.spec.serving.engine.containers.exists(c, c.name == 'engine' && has(c.image) && c.image.size() > 0)"
+      message: "spec.serving.engine requires a container named 'engine' with an image"
+    - expression: "object.spec.serving.router.containers.exists(c, c.name == 'router' && has(c.image) && c.image.size() > 0)"
+      message: "spec.serving.router requires a container named 'router' with an image"
+    - expression: "!has(object.spec.serving.engine.restartPolicy) || object.spec.serving.engine.restartPolicy == 'Always'"
+      message: "spec.serving.engine.restartPolicy must be 'Always' (Deployments do not support other policies)"
+    - expression: "!has(object.spec.serving.router.restartPolicy) || object.spec.serving.router.restartPolicy == 'Always'"
+      message: "spec.serving.router.restartPolicy must be 'Always' (Deployments do not support other policies)"
+    - expression: "!object.spec.serving.engine.containers.exists(c, c.name == 'engine' && has(c.args) && c.args.exists(a, a == '--host' || a.startsWith('--host=')))"
+      message: "spec.serving.engine must not set --host (managed by the operator)"
+    - expression: "!object.spec.serving.engine.containers.exists(c, c.name == 'engine' && has(c.args) && c.args.exists(a, a == '--port' || a.startsWith('--port=')))"
+      message: "spec.serving.engine must not set --port (managed by the operator)"
+    - expression: "!object.spec.serving.engine.containers.exists(c, c.name == 'engine' && has(c.args) && c.args.exists(a, a == '--served-model-name' || a.startsWith('--served-model-name=')))"
+      message: "spec.serving.engine must not set --served-model-name (managed by the operator)"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: {{ .Release.Name }}-model-validation-binding
+  labels:
+    {{- include "thalamus.labels" . | nindent 4 }}
+spec:
+  validatingAdmissionPolicyName: {{ .Release.Name }}-model-validation
+  matchResources:
+    resourceRules:
+      - apiGroups: [thalamus.cloud]
+        apiVersions: [v1alpha1]
+        resources: [models]
+        operations: [CREATE, UPDATE]
+  validationFailureAction: Denied

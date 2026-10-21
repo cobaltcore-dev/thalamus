@@ -184,6 +184,18 @@ jobs:
             crd/agentgatewaypolicies.agentgateway.dev \
             crd/models.thalamus.cloud
 
+      - name: Verify Model contract validation
+        run: |
+          kubectl apply --dry-run=server -f ${{ github.workspace }}/examples/model-smollm2-cpu.yaml >/dev/null
+          echo "PASS: compliant Model admitted"
+          if kubectl apply --dry-run=server -f ${{ github.workspace }}/test/e2e/fixtures/model-forbidden-flags.yaml 2>&1 \
+            | grep -q "must not set --port (managed by the operator)"; then
+            echo "PASS: Model setting --port denied at admission"
+          else
+            echo "FAIL: Model setting --port was not denied with the expected message"
+            exit 1
+          fi
+
       - name: Create inference gateway
         run: |
           kubectl apply -f ${{ github.workspace }}/examples/gateway.yaml
