@@ -112,6 +112,9 @@ type ServingSpec struct {
 // +kubebuilder:validation:XValidation:rule="self.serving.router.containers.exists(c, c.name == 'router' && c.image.size() > 0)",message="spec.serving.router requires a container named 'router' with an image"
 // +kubebuilder:validation:XValidation:rule="!has(self.serving.engine.restartPolicy) || self.serving.engine.restartPolicy == 'Always'",message="spec.serving.engine.restartPolicy must be 'Always' (Deployments do not support other policies)"
 // +kubebuilder:validation:XValidation:rule="!has(self.serving.router.restartPolicy) || self.serving.router.restartPolicy == 'Always'",message="spec.serving.router.restartPolicy must be 'Always' (Deployments do not support other policies)"
+// +kubebuilder:validation:XValidation:rule="!self.serving.engine.containers.exists(c, c.name == 'engine' && has(c.args) && c.args.exists(a, a == '--host' || a.startsWith('--host=')))",message="spec.serving.engine must not set --host (managed by the operator)"
+// +kubebuilder:validation:XValidation:rule="!self.serving.engine.containers.exists(c, c.name == 'engine' && has(c.args) && c.args.exists(a, a == '--port' || a.startsWith('--port=')))",message="spec.serving.engine must not set --port (managed by the operator)"
+// +kubebuilder:validation:XValidation:rule="!self.serving.engine.containers.exists(c, c.name == 'engine' && has(c.args) && c.args.exists(a, a == '--served-model-name' || a.startsWith('--served-model-name=')))",message="spec.serving.engine must not set --served-model-name (managed by the operator)"
 type ModelSpec struct {
 	// Backend selects which inference backend manages this model's resources.
 	// Defaults to "native".
