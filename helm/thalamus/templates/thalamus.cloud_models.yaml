@@ -7905,6 +7905,25 @@ spec:
             - serving
             - weights
             type: object
+            x-kubernetes-validations:
+            - message: spec.backend must be native
+              rule: self.backend == 'native'
+            - message: spec.serving.engine requires a container named 'engine' with
+                an image
+              rule: self.serving.engine.containers.exists(c, c.name == 'engine' &&
+                c.image.size() > 0)
+            - message: spec.serving.router requires a container named 'router' with
+                an image
+              rule: self.serving.router.containers.exists(c, c.name == 'router' &&
+                c.image.size() > 0)
+            - message: spec.serving.engine.restartPolicy must be 'Always' (Deployments
+                do not support other policies)
+              rule: '!has(self.serving.engine.restartPolicy) || self.serving.engine.restartPolicy
+                == ''Always'''
+            - message: spec.serving.router.restartPolicy must be 'Always' (Deployments
+                do not support other policies)
+              rule: '!has(self.serving.router.restartPolicy) || self.serving.router.restartPolicy
+                == ''Always'''
           status:
             properties:
               conditions:

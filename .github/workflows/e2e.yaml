@@ -184,7 +184,7 @@ jobs:
             crd/agentgatewaypolicies.agentgateway.dev \
             crd/models.thalamus.cloud
 
-      - name: Verify Model contract validation
+      - name: Verify Model argument validation
         run: |
           kubectl apply --dry-run=server -f ${{ github.workspace }}/examples/model-smollm2-cpu.yaml >/dev/null
           echo "PASS: compliant Model admitted"

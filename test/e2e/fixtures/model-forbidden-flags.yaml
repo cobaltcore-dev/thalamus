@@ -1,7 +1,7 @@
 # Copyright SAP SE
 # SPDX-License-Identifier: Apache-2.0
 
-# Deliberately non-compliant fixture for the Model contract-validation e2e step:
+# Deliberately non-compliant fixture for the Model argument-validation e2e step:
 # spec.serving.engine.args sets --port, which the operator manages itself.
 apiVersion: thalamus.cloud/v1alpha1
 kind: Model
