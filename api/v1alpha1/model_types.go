@@ -108,8 +108,8 @@ type ServingSpec struct {
 
 // ModelSpec defines the configuration for the model instance.
 // +kubebuilder:validation:XValidation:rule="self.backend == 'native'",message="spec.backend must be native"
-// +kubebuilder:validation:XValidation:rule="self.serving.engine.containers.exists(c, c.name == 'engine' && c.image.size() > 0)",message="spec.serving.engine requires a container named 'engine' with an image"
-// +kubebuilder:validation:XValidation:rule="self.serving.router.containers.exists(c, c.name == 'router' && c.image.size() > 0)",message="spec.serving.router requires a container named 'router' with an image"
+// +kubebuilder:validation:XValidation:rule="self.serving.engine.containers.exists(c, c.name == 'engine' && c.image.size() > 0)",message="spec.serving.engine.containers requires a container named 'engine' with an image"
+// +kubebuilder:validation:XValidation:rule="self.serving.router.containers.exists(c, c.name == 'router' && c.image.size() > 0)",message="spec.serving.router.containers requires a container named 'router' with an image"
 // +kubebuilder:validation:XValidation:rule="!has(self.serving.engine.restartPolicy) || self.serving.engine.restartPolicy == 'Always'",message="spec.serving.engine.restartPolicy must be 'Always' (Deployments do not support other policies)"
 // +kubebuilder:validation:XValidation:rule="!has(self.serving.router.restartPolicy) || self.serving.router.restartPolicy == 'Always'",message="spec.serving.router.restartPolicy must be 'Always' (Deployments do not support other policies)"
 type ModelSpec struct {
