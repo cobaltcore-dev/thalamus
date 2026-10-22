@@ -38,25 +38,33 @@ type modelListResponse struct {
 
 // BuildModelListResponse returns the directResponse JSON body listing only Ready models,
 // sorted by model name for a stable output.
-func BuildModelListResponse(models []v1alpha1.Model) (string, error) {
+func BuildModelListResponse(models []v1alpha1.Model, artifacts []v1alpha1.ModelArtifact) (string, error) {
+	artifactsByName := make(map[string]*v1alpha1.ModelArtifact, len(artifacts))
+	for i := range artifacts {
+		artifactsByName[artifacts[i].Name] = &artifacts[i]
+	}
+
 	entries := make([]modelEntry, 0, len(models))
 	for _, m := range models {
 		if m.Status.Phase != v1alpha1.ModelPhaseReady {
 			continue
 		}
-		repoID := ""
-		if m.Spec.Weights.HF != nil {
-			repoID = m.Spec.Weights.HF.RepoID
+		artifact := artifactsByName[m.Spec.ArtifactRef.Name]
+		if artifact == nil {
+			continue
 		}
-		ownedBy := repoID
-		if before, _, found := strings.Cut(repoID, "/"); found {
+		base := artifact.BaseRepoID()
+		ownedBy := base
+		if before, _, found := strings.Cut(base, "/"); found {
 			ownedBy = before
 		}
-		entries = append(entries, modelEntry{
-			ID:      repoID,
-			Object:  "model",
-			OwnedBy: ownedBy,
-		})
+		for _, name := range m.ModelNames(artifact) {
+			entries = append(entries, modelEntry{
+				ID:      name,
+				Object:  "model",
+				OwnedBy: ownedBy,
+			})
+		}
 	}
 
 	sort.Slice(entries, func(i, j int) bool {

@@ -10,11 +10,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// +kubebuilder:validation:Enum=hf
-type WeightsType string
-
-const WeightsTypeHF WeightsType = "hf"
-
 type ModelPhase string
 
 const (
@@ -72,25 +67,11 @@ const (
 	EPPTypeUnknown EPPType = "unknown"
 )
 
-// HFWeightsSpec configures model weights sourced from Hugging Face.
-type HFWeightsSpec struct {
-	// RepoID is the Hugging Face repository ID, e.g. "openai/gpt-oss-120b".
-	RepoID string `json:"repoId"`
-
-	// TokenSecret references the key within a Kubernetes secret containing the Hugging Face token.
-	// +kubebuilder:validation:Optional
-	TokenSecret *corev1.SecretKeySelector `json:"tokenSecret,omitempty"`
-}
-
-// WeightsSpec defines where the model weights are sourced from.
-// +kubebuilder:validation:XValidation:rule="self.type != 'hf' || has(self.hf)",message="spec.weights.hf is required when type is hf"
-type WeightsSpec struct {
-	// Type of the weights source.
-	Type WeightsType `json:"type"`
-
-	// HF configures weights sourced from Hugging Face.
-	// +kubebuilder:validation:Optional
-	HF *HFWeightsSpec `json:"hf,omitempty"`
+// ModelArtifactReference identifies a ModelArtifact in the same namespace.
+type ModelArtifactReference struct {
+	// Name is the name of the referenced ModelArtifact.
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
 }
 
 // EngineSpec configures the inference engine instance.
@@ -170,8 +151,16 @@ type ModelSpec struct {
 	// Serving defines how the model is served.
 	Serving ServingSpec `json:"serving"`
 
-	// Weights defines where the model weights are sourced from.
-	Weights WeightsSpec `json:"weights"`
+	// ArtifactRef references the ModelArtifact that provides this model's weights.
+	ArtifactRef ModelArtifactReference `json:"artifactRef"`
+
+	// Aliases are the model names under which this model is exposed.
+	// When empty, the base model name from the referenced artifact is used.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MaxItems=32
+	// +kubebuilder:validation:items:MinLength=1
+	// +listType=set
+	Aliases []string `json:"aliases,omitempty"`
 
 	// Scheduling defines scheduling constraints for the model's pods.
 	// +kubebuilder:validation:Optional
@@ -203,7 +192,7 @@ type ModelStatus struct {
 // +kubebuilder:printcolumn:name="Backend",type="string",JSONPath=".spec.backend"
 // +kubebuilder:printcolumn:name="Engine",type="string",JSONPath=".status.engineType"
 // +kubebuilder:printcolumn:name="EPP",type="string",JSONPath=".status.eppType"
-// +kubebuilder:printcolumn:name="Weights",type="string",JSONPath=".spec.weights.type"
+// +kubebuilder:printcolumn:name="Artifact",type="string",JSONPath=".spec.artifactRef.name"
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // Service names must be DNS-1035 labels.
@@ -229,6 +218,29 @@ type Model struct {
 }
 
 // +kubebuilder:object:root=true
+
+// BaseRepoID returns the base model identifier without the hf:// scheme.
+func (a *ModelArtifact) BaseRepoID() string {
+	return strings.TrimPrefix(a.Spec.Base, "hf://")
+}
+
+// DraftRepoID returns the draft model identifier without the hf:// scheme,
+// or an empty string when no draft is configured.
+func (a *ModelArtifact) DraftRepoID() string {
+	if a.Spec.Draft == nil {
+		return ""
+	}
+	return strings.TrimPrefix(*a.Spec.Draft, "hf://")
+}
+
+// ModelNames returns the model identifiers this Model exposes.
+// It falls back to the artifact's base model name when no aliases are set.
+func (m *Model) ModelNames(artifact *ModelArtifact) []string {
+	if len(m.Spec.Aliases) > 0 {
+		return m.Spec.Aliases
+	}
+	return []string{artifact.BaseRepoID()}
+}
 
 // EngineName returns the Kubernetes resource name for the model's inference engine.
 func (m *Model) EngineName() string { return m.Name + "-engine" }

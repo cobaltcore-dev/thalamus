@@ -4,6 +4,14 @@
 # A small CPU-suitable Model for local development and the E2E validation suite.
 ---
 apiVersion: thalamus.cloud/v1alpha1
+kind: ModelArtifact
+metadata:
+  name: smollm2-135m
+  namespace: thalamus
+spec:
+  base: hf://HuggingFaceTB/SmolLM2-135M-Instruct
+---
+apiVersion: thalamus.cloud/v1alpha1
 kind: Model
 metadata:
   name: smollm2-135m
@@ -11,6 +19,8 @@ metadata:
 spec:
   backend: native
   replicas: 1
+  artifactRef:
+    name: smollm2-135m
   serving:
     engine:
       image: docker.io/vllm/vllm-openai-cpu:v0.27.0
@@ -42,7 +52,3 @@ spec:
         limits:
           cpu: 200m
           memory: 512Mi
-  weights:
-    type: hf
-    hf:
-      repoId: HuggingFaceTB/SmolLM2-135M-Instruct

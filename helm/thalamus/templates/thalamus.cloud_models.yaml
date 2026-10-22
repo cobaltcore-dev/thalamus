@@ -28,8 +28,8 @@ spec:
     - jsonPath: .status.eppType
       name: EPP
       type: string
-    - jsonPath: .spec.weights.type
-      name: Weights
+    - jsonPath: .spec.artifactRef.name
+      name: Artifact
       type: string
     - jsonPath: .status.phase
       name: Phase
@@ -62,6 +62,27 @@ spec:
           spec:
             description: spec defines the desired state of the Model.
             properties:
+              aliases:
+                description: |-
+                  Aliases are the model names under which this model is exposed.
+                  When empty, the base model name from the referenced artifact is used.
+                items:
+                  minLength: 1
+                  type: string
+                maxItems: 32
+                type: array
+                x-kubernetes-list-type: set
+              artifactRef:
+                description: ArtifactRef references the ModelArtifact that provides
+                  this model's weights.
+                properties:
+                  name:
+                    description: Name is the name of the referenced ModelArtifact.
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
               backend:
                 default: native
                 description: |-
@@ -2576,58 +2597,9 @@ spec:
                 required:
                 - engine
                 type: object
-              weights:
-                description: Weights defines where the model weights are sourced from.
-                properties:
-                  hf:
-                    description: HF configures weights sourced from Hugging Face.
-                    properties:
-                      repoId:
-                        description: RepoID is the Hugging Face repository ID, e.g.
-                          "openai/gpt-oss-120b".
-                        type: string
-                      tokenSecret:
-                        description: TokenSecret references the key within a Kubernetes
-                          secret containing the Hugging Face token.
-                        properties:
-                          key:
-                            description: The key of the secret to select from.  Must
-                              be a valid secret key.
-                            type: string
-                          name:
-                            default: ""
-                            description: |-
-                              Name of the referent.
-                              This field is effectively required, but due to backwards compatibility is
-                              allowed to be empty. Instances of this type with an empty value here are
-                              almost certainly wrong.
-                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            type: string
-                          optional:
-                            description: Specify whether the Secret or its key must
-                              be defined
-                            type: boolean
-                        required:
-                        - key
-                        type: object
-                        x-kubernetes-map-type: atomic
-                    required:
-                    - repoId
-                    type: object
-                  type:
-                    description: Type of the weights source.
-                    enum:
-                    - hf
-                    type: string
-                required:
-                - type
-                type: object
-                x-kubernetes-validations:
-                - message: spec.weights.hf is required when type is hf
-                  rule: self.type != 'hf' || has(self.hf)
             required:
+            - artifactRef
             - serving
-            - weights
             type: object
             x-kubernetes-validations:
             - message: spec.serving.epp is required when backend is native

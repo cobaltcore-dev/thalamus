@@ -20,7 +20,7 @@ metadata:
     {{- include "thalamus.operator.labels" . | nindent 4 }}
 rules:
   - apiGroups: [thalamus.cloud]
-    resources: [models]
+    resources: [models, modelartifacts]
     verbs: [get, list, watch]
   - apiGroups: [thalamus.cloud]
     resources: [models/status]

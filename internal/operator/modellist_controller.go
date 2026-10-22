@@ -46,8 +46,12 @@ func (r *ModelListReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err := r.List(ctx, &modelList, client.InNamespace(req.Namespace)); err != nil {
 		return ctrl.Result{}, fmt.Errorf("list models in namespace %s: %w", req.Namespace, err)
 	}
+	var artifactList v1alpha1.ModelArtifactList
+	if err := r.List(ctx, &artifactList, client.InNamespace(req.Namespace)); err != nil {
+		return ctrl.Result{}, fmt.Errorf("list model artifacts in namespace %s: %w", req.Namespace, err)
+	}
 
-	body, err := native.BuildModelListResponse(modelList.Items)
+	body, err := native.BuildModelListResponse(modelList.Items, artifactList.Items)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("build model-list response: %w", err)
 	}
@@ -61,6 +65,13 @@ func (r *ModelListReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	log.FromContext(ctx).Info("synced model-list route and policy", "namespace", req.Namespace, "models", len(modelList.Items))
 	return ctrl.Result{}, nil
+}
+
+func (r *ModelListReconciler) mapToGateway(_ context.Context, obj client.Object) []reconcile.Request {
+	return []reconcile.Request{{
+		Name:      r.GatewayName,
+		Namespace: obj.GetNamespace(),
+	}}
 }
 
 func (r *ModelListReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -77,14 +88,9 @@ func (r *ModelListReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			namePredicate(native.ModelListPolicyName),
 			ownedByPredicate("Gateway", r.GatewayName),
 		))).
-		// Models are not owned by the gateway, so map their events onto it.
-		Watches(&v1alpha1.Model{}, handler.EnqueueRequestsFromMapFunc(
-			func(_ context.Context, obj client.Object) []reconcile.Request {
-				return []reconcile.Request{{
-					Name:      r.GatewayName,
-					Namespace: obj.GetNamespace(),
-				}}
-			})).
+		// Models and artifacts are not owned by the gateway, so map their events onto it.
+		Watches(&v1alpha1.Model{}, handler.EnqueueRequestsFromMapFunc(r.mapToGateway)).
+		Watches(&v1alpha1.ModelArtifact{}, handler.EnqueueRequestsFromMapFunc(r.mapToGateway)).
 		Named("model-list").
 		Complete(r)
 }

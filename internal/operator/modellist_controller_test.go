@@ -121,10 +121,10 @@ func TestModelListReconcile_NoModels(t *testing.T) {
 func TestModelListReconcile_OneReadyModel(t *testing.T) {
 	s := testutil.NewScheme(t)
 	gateway := newGateway()
-	model := testutil.NewModel("tiny-llm", testNamespace)
+	model, artifact := testutil.NewModelWithArtifact("tiny-llm", testNamespace)
 	model.Status.Phase = v1alpha1.ModelPhaseReady
 	c := fake.NewClientBuilder().WithScheme(s).
-		WithObjects(gateway).
+		WithObjects(gateway, artifact).
 		WithObjects(model).WithStatusSubresource(model).
 		Build()
 	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
@@ -138,17 +138,45 @@ func TestModelListReconcile_OneReadyModel(t *testing.T) {
 	}
 }
 
+func TestModelListReconcile_ArtifactChange(t *testing.T) {
+	s := testutil.NewScheme(t)
+	gateway := newGateway()
+	model, artifact := testutil.NewModelWithArtifact("tiny-llm", testNamespace)
+	model.Status.Phase = v1alpha1.ModelPhaseReady
+	c := fake.NewClientBuilder().WithScheme(s).
+		WithObjects(gateway, artifact).
+		WithObjects(model).WithStatusSubresource(model).
+		Build()
+	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
+
+	reconcileModelListOnce(t, r)
+	expected := `{"object":"list","data":[{"id":"arnir0/Tiny-LLM","object":"model","owned_by":"arnir0"}]}`
+	if body := mustGetPolicyBody(t, r); body != expected {
+		t.Errorf("model list policy body:\ngot:  %s\nwant: %s", body, expected)
+	}
+
+	artifact.Spec.Base = "hf://other/new-base"
+	if err := c.Update(context.Background(), artifact); err != nil {
+		t.Fatalf("update artifact: %v", err)
+	}
+	reconcileModelListOnce(t, r)
+	expected = `{"object":"list","data":[{"id":"other/new-base","object":"model","owned_by":"other"}]}`
+	if body := mustGetPolicyBody(t, r); body != expected {
+		t.Errorf("model list policy body after artifact change:\ngot:  %s\nwant: %s", body, expected)
+	}
+}
+
 func TestModelListReconcile_OnlyReadyModelsListed(t *testing.T) {
 	s := testutil.NewScheme(t)
 	gateway := newGateway()
-	ready := testutil.NewModel("ready", testNamespace)
-	ready.Spec.Weights.HF.RepoID = "org/ready-model"
+	ready, readyArtifact := testutil.NewModelWithArtifact("ready", testNamespace)
+	readyArtifact.Spec.Base = "hf://org/ready-model"
 	ready.Status.Phase = v1alpha1.ModelPhaseReady
-	creating := testutil.NewModel("creating", testNamespace)
-	creating.Spec.Weights.HF.RepoID = "org/creating-model"
+	creating, creatingArtifact := testutil.NewModelWithArtifact("creating", testNamespace)
+	creatingArtifact.Spec.Base = "hf://org/creating-model"
 	creating.Status.Phase = v1alpha1.ModelPhaseCreating
 	c := fake.NewClientBuilder().WithScheme(s).
-		WithObjects(gateway).
+		WithObjects(gateway, readyArtifact, creatingArtifact).
 		WithObjects(ready, creating).WithStatusSubresource(ready, creating).
 		Build()
 	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}

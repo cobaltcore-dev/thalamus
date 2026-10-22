@@ -5,6 +5,8 @@ package operator
 
 import (
 	"context"
+	"slices"
+	"strings"
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -28,6 +30,9 @@ const testNamespace = "default"
 const testGatewayName = "test-gateway"
 const testGatewayListener = "test-listener"
 
+// modelRouteMatchCount is the number of paths the native backend exposes.
+const modelRouteMatchCount = 8
+
 // reconcileModelOnce runs a single reconciliation for the named Model and fails
 // the test if Reconcile returns an error.
 func reconcileModelOnce(t *testing.T, r *ModelReconciler, name string) ctrl.Result {
@@ -41,16 +46,67 @@ func reconcileModelOnce(t *testing.T, r *ModelReconciler, name string) ctrl.Resu
 	return res
 }
 
+// withDefaultArtifacts adds a default ModelArtifact for every Model that does
+// not already have one in the object set.
+func withDefaultArtifacts(objs []client.Object) []client.Object {
+	existing := make(map[types.NamespacedName]bool)
+	for _, obj := range objs {
+		if _, ok := obj.(*v1alpha1.ModelArtifact); ok {
+			existing[types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}] = true
+		}
+	}
+	for _, obj := range objs {
+		model, ok := obj.(*v1alpha1.Model)
+		if !ok {
+			continue
+		}
+		key := types.NamespacedName{Name: model.Spec.ArtifactRef.Name, Namespace: model.Namespace}
+		if existing[key] {
+			continue
+		}
+		existing[key] = true
+		objs = append(objs, testutil.NewModelArtifact(key.Name, key.Namespace))
+	}
+	return objs
+}
+
 // newTestReconciler returns a ModelReconciler backed by a fake client seeded
 // with the given objects.
 func newTestReconciler(t *testing.T, objs ...client.Object) (*ModelReconciler, client.Client) {
 	t.Helper()
 	s := testutil.NewScheme(t)
 	c := fake.NewClientBuilder().WithScheme(s).
-		WithObjects(objs...).
+		WithObjects(withDefaultArtifacts(objs)...).
 		WithStatusSubresource(&v1alpha1.Model{}, &appsv1.Deployment{}, &inferencev1.InferencePool{}, &gatewayv1.HTTPRoute{}).
 		Build()
 	return &ModelReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}, c
+}
+
+// listHTTPRoutesForModel returns the HTTPRoutes controlled by the Model, sorted by name.
+func listHTTPRoutesForModel(t *testing.T, c client.Client, model *v1alpha1.Model) []gatewayv1.HTTPRoute {
+	t.Helper()
+	var list gatewayv1.HTTPRouteList
+	if err := c.List(context.Background(), &list, client.InNamespace(model.Namespace)); err != nil {
+		t.Fatalf("list HTTPRoutes: %v", err)
+	}
+	routes := make([]gatewayv1.HTTPRoute, 0, len(list.Items))
+	for i := range list.Items {
+		if metav1.IsControlledBy(&list.Items[i], model) {
+			routes = append(routes, list.Items[i])
+		}
+	}
+	slices.SortFunc(routes, func(a, b gatewayv1.HTTPRoute) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+	return routes
+}
+
+func routeServedName(route gatewayv1.HTTPRoute) string {
+	if len(route.Spec.Rules) == 0 || len(route.Spec.Rules[0].Matches) == 0 ||
+		len(route.Spec.Rules[0].Matches[0].Headers) == 0 {
+		return ""
+	}
+	return route.Spec.Rules[0].Matches[0].Headers[0].Value
 }
 
 func TestReconcile_NotFound(t *testing.T) {
@@ -60,8 +116,8 @@ func TestReconcile_NotFound(t *testing.T) {
 }
 
 func TestReconcile_Native(t *testing.T) {
-	model := testutil.NewModel("tiny-llm", testNamespace)
-	r, c := newTestReconciler(t, model)
+	model, artifact := testutil.NewModelWithArtifact("tiny-llm", testNamespace)
+	r, c := newTestReconciler(t, model, artifact)
 
 	reconcileModelOnce(t, r, "tiny-llm")
 
@@ -71,7 +127,13 @@ func TestReconcile_Native(t *testing.T) {
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, &inferencev1.InferencePool{})
 	backend := &agentgatewayv1alpha1.AgentgatewayBackend{}
 	testutil.MustGet(t, c, "tiny-llm", testNamespace, backend)
-	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, &gatewayv1.HTTPRoute{})
+	routes := listHTTPRoutesForModel(t, c, model)
+	if len(routes) != 1 {
+		t.Fatalf("len(routes): %d, want 1", len(routes))
+	}
+	if got := routeServedName(routes[0]); got != "arnir0/Tiny-LLM" {
+		t.Errorf("served name:\ngot:  %q\nwant: %q", got, "arnir0/Tiny-LLM")
+	}
 
 	if len(dep.OwnerReferences) == 0 || dep.OwnerReferences[0].Name != "tiny-llm" {
 		t.Error("Deployment missing owner reference to Model")
@@ -81,6 +143,187 @@ func TestReconcile_Native(t *testing.T) {
 	}
 	if len(backend.OwnerReferences) == 0 || backend.OwnerReferences[0].Name != "tiny-llm" {
 		t.Error("AgentgatewayBackend missing owner reference to Model")
+	}
+}
+
+func TestReconcile_NativeWithAliases(t *testing.T) {
+	model, artifact := testutil.NewModelWithArtifact("tiny-llm", testNamespace)
+	model.Spec.Aliases = []string{"tiny"}
+	r, c := newTestReconciler(t, model, artifact)
+
+	reconcileModelOnce(t, r, "tiny-llm")
+
+	dep := &appsv1.Deployment{}
+	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, dep)
+	routes := listHTTPRoutesForModel(t, c, model)
+	if len(routes) != 1 {
+		t.Fatalf("len(routes): %d, want 1", len(routes))
+	}
+	route := routes[0]
+	if got := routeServedName(route); got != "tiny" {
+		t.Errorf("served name:\ngot:  %q\nwant: %q", got, "tiny")
+	}
+
+	wantArgs := []string{
+		"arnir0/Tiny-LLM",
+		"--max-model-len=512",
+	}
+	if got := dep.Spec.Template.Spec.Containers[0].Args; !slices.Equal(got, wantArgs) {
+		t.Errorf("engine args:\ngot:  %v\nwant: %v", got, wantArgs)
+	}
+
+	matches := route.Spec.Rules[0].Matches
+	if len(matches) != modelRouteMatchCount {
+		t.Fatalf("len(matches): %d, want %d", len(matches), modelRouteMatchCount)
+	}
+	for i, match := range matches {
+		if len(match.Headers) != 1 || match.Headers[0].Value != "tiny" {
+			t.Errorf("route match %d headers:\ngot:  %+v\nwant: X-Gateway-Base-Model-Name=tiny", i, match.Headers)
+		}
+	}
+}
+
+func TestReconcile_NativeCreatesRoutePerAlias(t *testing.T) {
+	model, artifact := testutil.NewModelWithArtifact("tiny-llm", testNamespace)
+	model.Spec.Aliases = []string{"tiny", "tiny-latest"}
+	r, c := newTestReconciler(t, model, artifact)
+
+	reconcileModelOnce(t, r, "tiny-llm")
+
+	routes := listHTTPRoutesForModel(t, c, model)
+	if len(routes) != 2 {
+		t.Fatalf("len(routes): %d, want 2", len(routes))
+	}
+
+	seenNames := make(map[string]bool)
+	seenRouteNames := make(map[string]bool)
+	for _, route := range routes {
+		servedName := routeServedName(route)
+		if !slices.Contains(model.Spec.Aliases, servedName) {
+			t.Errorf("unexpected served name: %q", servedName)
+		}
+		seenNames[servedName] = true
+		if seenRouteNames[route.Name] {
+			t.Errorf("duplicate route name %q", route.Name)
+		}
+		seenRouteNames[route.Name] = true
+
+		matches := route.Spec.Rules[0].Matches
+		if len(matches) != modelRouteMatchCount {
+			t.Errorf("route %q has %d matches, want %d", route.Name, len(matches), modelRouteMatchCount)
+		}
+		for _, match := range matches {
+			if len(match.Headers) != 1 || match.Headers[0].Value != servedName {
+				t.Errorf("route %q has unexpected headers: %+v", route.Name, match.Headers)
+			}
+		}
+	}
+	for _, alias := range model.Spec.Aliases {
+		if !seenNames[alias] {
+			t.Errorf("missing route for alias %q", alias)
+		}
+	}
+}
+
+func TestReconcile_NativePrunesStaleRoutes(t *testing.T) {
+	model, artifact := testutil.NewModelWithArtifact("tiny-llm", testNamespace)
+	model.Spec.Aliases = []string{"tiny", "old"}
+	r, c := newTestReconciler(t, model, artifact)
+
+	reconcileModelOnce(t, r, "tiny-llm")
+
+	routes := listHTTPRoutesForModel(t, c, model)
+	if len(routes) != 2 {
+		t.Fatalf("len(routes): %d, want 2", len(routes))
+	}
+	oldRouteName := ""
+	for _, route := range routes {
+		if routeServedName(route) == "old" {
+			oldRouteName = route.Name
+		}
+	}
+	if oldRouteName == "" {
+		t.Fatal("route for stale alias not found")
+	}
+
+	updated := &v1alpha1.Model{}
+	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
+	updated.Spec.Aliases = []string{"tiny", "new"}
+	if err := c.Update(context.Background(), updated); err != nil {
+		t.Fatalf("update model aliases: %v", err)
+	}
+
+	reconcileModelOnce(t, r, "tiny-llm")
+
+	testutil.MustNotGet(t, c, oldRouteName, testNamespace, &gatewayv1.HTTPRoute{})
+	routes = listHTTPRoutesForModel(t, c, model)
+	if len(routes) != 2 {
+		t.Fatalf("len(routes): %d, want 2", len(routes))
+	}
+	seenNames := make(map[string]bool)
+	for _, route := range routes {
+		seenNames[routeServedName(route)] = true
+	}
+	if seenNames["old"] {
+		t.Error("stale alias route still present")
+	}
+	if !seenNames["tiny"] || !seenNames["new"] {
+		t.Errorf("unexpected served names after update: %v", seenNames)
+	}
+}
+
+func TestReconcile_NativeWithDraft(t *testing.T) {
+	model, artifact := testutil.NewModelWithArtifact("tiny-llm", testNamespace)
+	artifact.Spec.Draft = new("hf://arnir0/Tiny-Draft")
+	r, c := newTestReconciler(t, model, artifact)
+
+	reconcileModelOnce(t, r, "tiny-llm")
+
+	dep := &appsv1.Deployment{}
+	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, dep)
+
+	wantArgs := []string{
+		"arnir0/Tiny-LLM",
+		"--spec-model=arnir0/Tiny-Draft",
+		"--max-model-len=512",
+	}
+	if got := dep.Spec.Template.Spec.Containers[0].Args; !slices.Equal(got, wantArgs) {
+		t.Errorf("engine args:\ngot:  %v\nwant: %v", got, wantArgs)
+	}
+}
+
+func TestReconcile_MissingArtifact(t *testing.T) {
+	s := testutil.NewScheme(t)
+	model := testutil.NewModel("tiny-llm", testNamespace)
+	c := fake.NewClientBuilder().WithScheme(s).WithObjects(model).WithStatusSubresource(model).Build()
+	r := &ModelReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
+
+	_, err := r.Reconcile(context.Background(), ctrl.Request{Name: "tiny-llm", Namespace: testNamespace})
+	if err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("Reconcile error:\ngot:  %v\nwant: model artifact not found", err)
+	}
+
+	updated := &v1alpha1.Model{}
+	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
+	if updated.Status.Phase != v1alpha1.ModelPhaseFailed {
+		t.Errorf("Phase:\ngot:  %q\nwant: Failed", updated.Status.Phase)
+	}
+}
+
+func TestMapArtifactToModels(t *testing.T) {
+	s := testutil.NewScheme(t)
+	model := testutil.NewModel("one", testNamespace)
+	other := testutil.NewModel("two", testNamespace)
+	other.Spec.ArtifactRef.Name = "other-artifact"
+	c := fake.NewClientBuilder().WithScheme(s).WithObjects(model, other).Build()
+	r := &ModelReconciler{Client: c, Scheme: s}
+
+	requests := r.mapArtifactToModels(context.Background(), testutil.NewModelArtifact("one-artifact", testNamespace))
+	if len(requests) != 1 {
+		t.Fatalf("len(requests): %d, want 1", len(requests))
+	}
+	if requests[0].Name != "one" || requests[0].Namespace != testNamespace {
+		t.Errorf("request:\ngot:  %s/%s\nwant: %s/%s", requests[0].Namespace, requests[0].Name, testNamespace, "one")
 	}
 }
 
@@ -110,11 +353,9 @@ func TestReconcile_NativeWithEPP(t *testing.T) {
 }
 
 func TestReconcile_NativeMultipleReplicas(t *testing.T) {
-	s := testutil.NewScheme(t)
 	model := testutil.NewModel("tiny-llm", testNamespace)
 	model.Spec.Replicas = 3
-	c := fake.NewClientBuilder().WithScheme(s).WithObjects(model).WithStatusSubresource(model).Build()
-	r := &ModelReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
+	r, c := newTestReconciler(t, model)
 
 	reconcileModelOnce(t, r, "tiny-llm")
 
@@ -126,17 +367,17 @@ func TestReconcile_NativeMultipleReplicas(t *testing.T) {
 
 	// Singleton resources should still exist exactly once.
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, &inferencev1.InferencePool{})
-	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, &gatewayv1.HTTPRoute{})
+	if routes := listHTTPRoutesForModel(t, c, model); len(routes) != 1 {
+		t.Fatalf("len(routes): %d, want 1", len(routes))
+	}
 	testutil.MustGet(t, c, "tiny-llm-epp", testNamespace, &appsv1.Deployment{})
 	testutil.MustGet(t, c, "tiny-llm-epp", testNamespace, &corev1.Service{})
 }
 
 func TestReconcile_ScaleToZero(t *testing.T) {
-	s := testutil.NewScheme(t)
 	model := testutil.NewModel("tiny-llm", testNamespace)
 	model.Spec.Replicas = 0
-	c := fake.NewClientBuilder().WithScheme(s).WithObjects(model).WithStatusSubresource(model).Build()
-	r := &ModelReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
+	r, c := newTestReconciler(t, model)
 
 	reconcileModelOnce(t, r, "tiny-llm")
 
@@ -145,7 +386,9 @@ func TestReconcile_ScaleToZero(t *testing.T) {
 	testutil.MustNotGet(t, c, "tiny-llm-engine", testNamespace, &corev1.Service{})
 	testutil.MustNotGet(t, c, "tiny-llm-engine", testNamespace, &inferencev1.InferencePool{})
 	testutil.MustNotGet(t, c, "tiny-llm", testNamespace, &agentgatewayv1alpha1.AgentgatewayBackend{})
-	testutil.MustNotGet(t, c, "tiny-llm-engine", testNamespace, &gatewayv1.HTTPRoute{})
+	if routes := listHTTPRoutesForModel(t, c, model); len(routes) != 0 {
+		t.Fatalf("len(routes): %d, want 0", len(routes))
+	}
 	testutil.MustNotGet(t, c, "tiny-llm-epp", testNamespace, &corev1.ServiceAccount{})
 	testutil.MustNotGet(t, c, "tiny-llm-epp", testNamespace, &rbacv1.Role{})
 	testutil.MustNotGet(t, c, "tiny-llm-epp", testNamespace, &rbacv1.RoleBinding{})
@@ -162,10 +405,8 @@ func TestReconcile_ScaleToZero(t *testing.T) {
 }
 
 func TestReconcile_ScaleDownFromOne(t *testing.T) {
-	s := testutil.NewScheme(t)
 	model := testutil.NewModel("tiny-llm", testNamespace)
-	c := fake.NewClientBuilder().WithScheme(s).WithObjects(model).WithStatusSubresource(model).Build()
-	r := &ModelReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
+	r, c := newTestReconciler(t, model)
 
 	// Start with replicas=1 and resources created.
 	reconcileModelOnce(t, r, "tiny-llm")
@@ -193,7 +434,6 @@ func TestReconcile_ScaleDownFromOne(t *testing.T) {
 }
 
 func TestReconcile_ScaleToZero_KeepsForeignOwnedObject(t *testing.T) {
-	s := testutil.NewScheme(t)
 	model := testutil.NewModel("tiny-llm", testNamespace)
 	model.Spec.Replicas = 0
 
@@ -211,8 +451,7 @@ func TestReconcile_ScaleToZero_KeepsForeignOwnedObject(t *testing.T) {
 		}},
 	}
 
-	c := fake.NewClientBuilder().WithScheme(s).WithObjects(model, foreign).WithStatusSubresource(model).Build()
-	r := &ModelReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
+	r, c := newTestReconciler(t, model, foreign)
 
 	_, err := r.Reconcile(context.Background(), ctrl.Request{
 		Name: "tiny-llm", Namespace: testNamespace,

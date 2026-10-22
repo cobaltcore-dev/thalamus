@@ -21,31 +21,22 @@ const engineHTTPPort = 8000
 const ubuntuNobody int64 = 65534
 
 // BuildEngineDeployment returns the desired Deployment for the vLLM inference engine.
-func BuildEngineDeployment(model *v1alpha1.Model) *appsv1.Deployment {
+func BuildEngineDeployment(model *v1alpha1.Model, artifact *v1alpha1.ModelArtifact) *appsv1.Deployment {
 	engine := model.Spec.Serving.Engine
 
 	command := []string{"vllm", "serve"}
-	args := []string{}
+	args := []string{artifact.BaseRepoID()}
 	env := slices.Clone(engine.Env)
 
-	if model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && model.Spec.Weights.HF != nil {
-		hf := model.Spec.Weights.HF
-		args = append(args, hf.RepoID, "--served-model-name="+hf.RepoID)
-		if hf.TokenSecret != nil {
-			env = append(env, corev1.EnvVar{
-				Name:      "HF_TOKEN",
-				ValueFrom: &corev1.EnvVarSource{SecretKeyRef: hf.TokenSecret},
-			})
-		}
+	if draft := artifact.DraftRepoID(); draft != "" {
+		args = append(args, "--spec-model="+draft)
 	}
 
-	// Root filesystem read-only; process runs as uid nobody
-	// Point caches at /cache instead of images $HOME (/root)
-	// Appended last so user env can't override the redirection
 	env = append(env,
 		corev1.EnvVar{Name: "HOME", Value: "/cache"},
 		corev1.EnvVar{Name: "HF_HOME", Value: "/cache/huggingface"},
 		corev1.EnvVar{Name: "XDG_CACHE_HOME", Value: "/cache"},
+		corev1.EnvVar{Name: "VLLM_SKIP_MODEL_NAME_VALIDATION", Value: "1"},
 	)
 
 	args = append(args, engine.Args...)
