@@ -15,6 +15,10 @@ import (
 
 const wantEngineUID = 65534
 
+func defaultArtifact(model *v1alpha1.Model) *v1alpha1.ModelArtifact {
+	return testutil.NewModelArtifact(model.Spec.ArtifactRef.Name, model.Namespace)
+}
+
 func TestModelNames(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	if model.EngineName() != "tiny-llm-engine" {
@@ -27,7 +31,7 @@ func TestModelNames(t *testing.T) {
 
 func TestBuildEngineDeployment(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
-	dep := BuildEngineDeployment(model)
+	dep := BuildEngineDeployment(model, defaultArtifact(model))
 
 	if dep.Name != model.EngineName() {
 		t.Errorf("Name:\ngot:  %q\nwant: %q", dep.Name, model.EngineName())
@@ -45,7 +49,7 @@ func TestBuildEngineDeployment(t *testing.T) {
 	if !slices.Equal(c.Command, expectedCommand) {
 		t.Errorf("Command:\ngot:  %v\nwant: %v", c.Command, expectedCommand)
 	}
-	expectedArgs := []string{"arnir0/Tiny-LLM", "--served-model-name=arnir0/Tiny-LLM", "--max-model-len=512"}
+	expectedArgs := []string{"arnir0/Tiny-LLM", "--max-model-len=512"}
 	if !slices.Equal(c.Args, expectedArgs) {
 		t.Errorf("Args:\ngot:  %v\nwant: %v", c.Args, expectedArgs)
 	}
@@ -53,20 +57,18 @@ func TestBuildEngineDeployment(t *testing.T) {
 	if c.Env[0].Name != "EXTRA" {
 		t.Errorf("env[0]:\ngot:  %q\nwant: EXTRA", c.Env[0].Name)
 	}
-	if c.Env[1].Name != "HF_TOKEN" {
-		t.Errorf("env[1]:\ngot:  %q\nwant: HF_TOKEN", c.Env[1].Name)
+	wantManagedEnv := []struct {
+		name  string
+		value string
+	}{
+		{name: "HOME", value: "/cache"},
+		{name: "HF_HOME", value: "/cache/huggingface"},
+		{name: "XDG_CACHE_HOME", value: "/cache"},
+		{name: "VLLM_SKIP_MODEL_NAME_VALIDATION", value: "1"},
 	}
-	if c.Env[1].ValueFrom.SecretKeyRef.Name != "hf-token" {
-		t.Errorf("HF_TOKEN secret:\ngot:  %q\nwant: hf-token", c.Env[1].ValueFrom.SecretKeyRef.Name)
-	}
-	wantCacheEnv := map[string]string{
-		"HOME":           "/cache",
-		"HF_HOME":        "/cache/huggingface",
-		"XDG_CACHE_HOME": "/cache",
-	}
-	for i, w := range []string{"HOME", "HF_HOME", "XDG_CACHE_HOME"} {
-		if c.Env[i+2].Name != w || c.Env[i+2].Value != wantCacheEnv[w] {
-			t.Errorf("env[%d]:\ngot:  %+v\nwant: %s=%s", i+2, c.Env[i+2], w, wantCacheEnv[w])
+	for i, want := range wantManagedEnv {
+		if c.Env[i+1].Name != want.name || c.Env[i+1].Value != want.value {
+			t.Errorf("env[%d]:\ngot:  %+v\nwant: %s=%s", i+1, c.Env[i+1], want.name, want.value)
 		}
 	}
 	if c.Resources.Requests == nil {
@@ -108,8 +110,9 @@ func TestBuildEngineDeployment_CacheEnvOverridesUserEnv(t *testing.T) {
 	model.Spec.Serving.Engine.Env = append(model.Spec.Serving.Engine.Env,
 		corev1.EnvVar{Name: "HOME", Value: "/root"},
 		corev1.EnvVar{Name: "XDG_CACHE_HOME", Value: "/root/.cache"},
+		corev1.EnvVar{Name: "VLLM_SKIP_MODEL_NAME_VALIDATION", Value: "0"},
 	)
-	dep := BuildEngineDeployment(model)
+	dep := BuildEngineDeployment(model, defaultArtifact(model))
 	c := dep.Spec.Template.Spec.Containers[0]
 
 	got := map[string]string{}
@@ -122,10 +125,14 @@ func TestBuildEngineDeployment_CacheEnvOverridesUserEnv(t *testing.T) {
 	if got["XDG_CACHE_HOME"] != "/cache" {
 		t.Errorf("XDG_CACHE_HOME:\ngot:  %q\nwant: /cache", got["XDG_CACHE_HOME"])
 	}
+	if got["VLLM_SKIP_MODEL_NAME_VALIDATION"] != "1" {
+		t.Errorf("VLLM_SKIP_MODEL_NAME_VALIDATION:\ngot:  %q\nwant: 1", got["VLLM_SKIP_MODEL_NAME_VALIDATION"])
+	}
 }
 
 func TestBuildEngineDeploymentSecurity(t *testing.T) {
-	dep := BuildEngineDeployment(testutil.NewModel("tiny-llm", "default"))
+	model := testutil.NewModel("tiny-llm", "default")
+	dep := BuildEngineDeployment(model, defaultArtifact(model))
 
 	podSC := dep.Spec.Template.Spec.SecurityContext
 	if podSC == nil {
@@ -181,7 +188,7 @@ func TestBuildEngineDeploymentSecurity(t *testing.T) {
 func TestBuildEngineDeployment_MultipleReplicas(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	model.Spec.Replicas = 3
-	dep := BuildEngineDeployment(model)
+	dep := BuildEngineDeployment(model, defaultArtifact(model))
 	if dep.Spec.Replicas == nil || *dep.Spec.Replicas != 3 {
 		t.Errorf("Replicas:\ngot:  %v\nwant: 3", dep.Spec.Replicas)
 	}
@@ -190,7 +197,7 @@ func TestBuildEngineDeployment_MultipleReplicas(t *testing.T) {
 func TestBuildEngineDeployment_ZeroReplicas(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	model.Spec.Replicas = 0
-	dep := BuildEngineDeployment(model)
+	dep := BuildEngineDeployment(model, defaultArtifact(model))
 	if dep.Spec.Replicas == nil || *dep.Spec.Replicas != 0 {
 		t.Errorf("Replicas:\ngot:  %v\nwant: 0", dep.Spec.Replicas)
 	}
@@ -201,34 +208,60 @@ func TestBuildEngineDeployment_NodeSelector(t *testing.T) {
 	model.Spec.Scheduling = &v1alpha1.SchedulingSpec{
 		NodeSelector: map[string]string{"kubernetes.io/arch": "amd64"},
 	}
-	dep := BuildEngineDeployment(model)
+	dep := BuildEngineDeployment(model, defaultArtifact(model))
 	if dep.Spec.Template.Spec.NodeSelector["kubernetes.io/arch"] != "amd64" {
 		t.Error("NodeSelector not applied")
 	}
 }
 
 func TestBuildEngineDeployment_NoScheduling(t *testing.T) {
-	dep := BuildEngineDeployment(testutil.NewModel("tiny-llm", "default"))
+	model := testutil.NewModel("tiny-llm", "default")
+	dep := BuildEngineDeployment(model, defaultArtifact(model))
 	if dep.Spec.Template.Spec.NodeSelector != nil {
 		t.Error("expected nil NodeSelector when scheduling not set")
 	}
 }
 
-func TestBuildEngineDeployment_PublicModel(t *testing.T) {
+func TestBuildEngineDeployment_Draft(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
-	model.Spec.Weights.HF.TokenSecret = nil
-	dep := BuildEngineDeployment(model)
+	artifact := defaultArtifact(model)
+	artifact.Spec.Draft = new("hf://arnir0/Tiny-Draft")
+	dep := BuildEngineDeployment(model, artifact)
 	c := dep.Spec.Template.Spec.Containers[0]
 
-	for _, e := range c.Env {
-		if e.Name == "HF_TOKEN" {
-			t.Error("HF_TOKEN must not be injected when TokenSecret is nil")
+	want := []string{
+		"arnir0/Tiny-LLM",
+		"--spec-model=arnir0/Tiny-Draft",
+		"--max-model-len=512",
+	}
+	if !slices.Equal(c.Args, want) {
+		t.Errorf("Args:\ngot:  %v\nwant: %v", c.Args, want)
+	}
+}
+
+func TestBuildEngineDeployment_Aliases(t *testing.T) {
+	model := testutil.NewModel("tiny-llm", "default")
+	model.Spec.Aliases = []string{"tiny", "tiny-llm"}
+	dep := BuildEngineDeployment(model, defaultArtifact(model))
+	c := dep.Spec.Template.Spec.Containers[0]
+
+	want := []string{
+		"arnir0/Tiny-LLM",
+		"--max-model-len=512",
+	}
+	if !slices.Equal(c.Args, want) {
+		t.Errorf("Args:\ngot:  %v\nwant: %v", c.Args, want)
+	}
+	for _, arg := range c.Args {
+		if arg == "--served-model-name" {
+			t.Error("engine args must not contain --served-model-name")
 		}
 	}
 }
 
 func TestBuildEngineDeployment_CacheDefaultsToEmptyDir(t *testing.T) {
-	dep := BuildEngineDeployment(testutil.NewModel("tiny-llm", "default"))
+	model := testutil.NewModel("tiny-llm", "default")
+	dep := BuildEngineDeployment(model, defaultArtifact(model))
 	for _, v := range dep.Spec.Template.Spec.Volumes {
 		if v.Name == "cache" {
 			if v.EmptyDir == nil {
@@ -245,7 +278,7 @@ func TestBuildEngineDeployment_CachePVC(t *testing.T) {
 	model.Spec.Serving.Engine.Cache = &corev1.VolumeSource{
 		PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: "my-model-cache"},
 	}
-	dep := BuildEngineDeployment(model)
+	dep := BuildEngineDeployment(model, defaultArtifact(model))
 	for _, v := range dep.Spec.Template.Spec.Volumes {
 		if v.Name == "cache" {
 			if v.PersistentVolumeClaim == nil || v.PersistentVolumeClaim.ClaimName != "my-model-cache" {

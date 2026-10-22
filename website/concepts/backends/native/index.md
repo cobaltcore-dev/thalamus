@@ -15,16 +15,16 @@ The operator watches `Model` resources and reconciles each one into:
 - **Engine** — a vLLM `Deployment` and `Service` that serve the model.
 - **Endpoint Picker (EPP)** — an llm-d deployment that selects the best engine replica for each request, scored on live signals such as KV-cache utilization, queue depth, and prefix-cache affinity.
 - **InferencePool** — the Gateway API Inference Extension resource that ties the EPP to the model's engine pods.
-- **Routing** — a per-model `HTTPRoute` and `AgentgatewayBackend` that attach the model to the inference gateway.
+- **Routing** — a per-served-name `HTTPRoute` and an `AgentgatewayBackend` that attach the model to the inference gateway.
 
 The operator also keeps a model-list `AgentgatewayPolicy` in sync, so the `/v1/models` endpoint always reflects the models that are currently `Ready` in each namespace.
 
 ## Gateway
 
-The shared inference gateway is a plain Gateway API gateway, backed by agentgateway. A body-based routing `AgentgatewayPolicy` extracts the model name from each request body and sets the Inference Extension's `X-Gateway-Base-Model-Name` header, which the per-model `HTTPRoute` matches to route the request to the right model. See [Request flow](/concepts/backends/native/request-flow) for a step-by-step walkthrough.
+The shared inference gateway is a plain Gateway API gateway, backed by agentgateway. A body-based routing `AgentgatewayPolicy` extracts the model name from each request body and sets the Inference Extension's `X-Gateway-Base-Model-Name` header, which the `HTTPRoute` for that served model name matches to route the request to the right model. See [Request flow](/concepts/backends/native/request-flow) for a step-by-step walkthrough.
 
 ## Artifacts and infrastructure
 
 The `Model` deployments in Thalamus depend on additional infrastructure that needs to be provided by cluster administrators.
-The container images are pulled from an OCI registry and the model weights are fetched from an object store.
+Container images come from an OCI registry. The operator reads base and optional draft weight locations from the model's `ModelArtifact` in the same namespace. The engine downloads the weights at startup.
 The reconciled workloads run on GPU nodes prepared by the vendor GPU operators (NVIDIA, AMD, Intel), and metrics collected by Prometheus and OpenTelemetry.

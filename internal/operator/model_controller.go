@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -19,7 +20,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -48,10 +51,20 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, nil
 	}
 
+	artifact := &v1alpha1.ModelArtifact{}
+	if err := r.Get(ctx, types.NamespacedName{Name: model.Spec.ArtifactRef.Name, Namespace: model.Namespace}, artifact); err != nil {
+		if err = client.IgnoreNotFound(err); err != nil {
+			err = fmt.Errorf("get model artifact %s/%s: %w", model.Namespace, model.Spec.ArtifactRef.Name, err)
+		} else {
+			err = fmt.Errorf("model artifact %s/%s not found", model.Namespace, model.Spec.ArtifactRef.Name)
+		}
+		return ctrl.Result{}, fmt.Errorf("reconcile model %s: %w", req.NamespacedName, r.setFailedStatus(ctx, model, err))
+	}
+
 	var err error
 	switch model.Spec.Backend {
 	case v1alpha1.BackendTypeNative:
-		err = r.reconcileNative(ctx, model)
+		err = r.reconcileNative(ctx, model, artifact)
 	case v1alpha1.BackendTypeKServe:
 		err = r.reconcileKServe(ctx, model)
 	case v1alpha1.BackendTypeKAITO:
@@ -62,7 +75,7 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("reconcile model %s: %w", req.NamespacedName, r.setFailedStatus(ctx, model, err))
 	}
-	if err := r.syncStatus(ctx, model); err != nil {
+	if err := r.syncStatus(ctx, model, artifact); err != nil {
 		return ctrl.Result{}, err
 	}
 	log.FromContext(ctx).V(levelDebug).Info("reconciled model", "namespace", model.Namespace, "name", model.Name, "backend", model.Spec.Backend, "phase", model.Status.Phase)
@@ -80,14 +93,18 @@ func (r *ModelReconciler) reconcileKAITO(_ context.Context, _ *v1alpha1.Model) e
 }
 
 // reconcileNative creates, updates, or deletes all child resources for the native backend.
-func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.Model) error {
+func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.Model, artifact *v1alpha1.ModelArtifact) error {
+	routes := native.BuildHTTPRoutes(model, artifact, r.GatewayName, r.ListenerName)
+
 	// Engine stack.
 	objs := []client.Object{
-		native.BuildEngineDeployment(model),
+		native.BuildEngineDeployment(model, artifact),
 		native.BuildEngineService(model),
 		native.BuildInferencePool(model),
 		native.BuildAIBackend(model),
-		native.BuildHTTPRoute(model, r.GatewayName, r.ListenerName),
+	}
+	for _, route := range routes {
+		objs = append(objs, route)
 	}
 
 	// EPP stack.
@@ -108,7 +125,7 @@ func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.M
 				return err
 			}
 		}
-		return nil
+		return r.pruneHTTPRoutes(ctx, model, nil)
 	}
 
 	for _, obj := range objs {
@@ -116,7 +133,50 @@ func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.M
 			return err
 		}
 	}
+	return r.pruneHTTPRoutes(ctx, model, routes)
+}
+
+// pruneHTTPRoutes removes routes this Model owns that are not in the desired
+// set, for example after an alias was removed or renamed.
+func (r *ModelReconciler) pruneHTTPRoutes(ctx context.Context, model *v1alpha1.Model, desired []*gatewayv1.HTTPRoute) error {
+	desiredNames := make(map[string]struct{}, len(desired))
+	for _, route := range desired {
+		desiredNames[route.Name] = struct{}{}
+	}
+
+	routes, err := r.listOwnedHTTPRoutes(ctx, model)
+	if err != nil {
+		return fmt.Errorf("list http routes for model %s/%s: %w", model.Namespace, model.Name, err)
+	}
+	for i := range routes {
+		route := &routes[i]
+		if _, ok := desiredNames[route.Name]; ok {
+			continue
+		}
+		if err := client.IgnoreNotFound(r.Delete(ctx, route)); err != nil {
+			return fmt.Errorf("delete stale http route %s/%s: %w", route.Namespace, route.Name, err)
+		}
+		log.FromContext(ctx).V(levelDebug).Info("deleted stale http route", "namespace", route.Namespace, "name", route.Name, "model", model.Name)
+	}
 	return nil
+}
+
+// listOwnedHTTPRoutes returns the HTTPRoutes controlled by the Model, sorted by name.
+func (r *ModelReconciler) listOwnedHTTPRoutes(ctx context.Context, model *v1alpha1.Model) ([]gatewayv1.HTTPRoute, error) {
+	var list gatewayv1.HTTPRouteList
+	if err := r.List(ctx, &list, client.InNamespace(model.Namespace)); err != nil {
+		return nil, err
+	}
+	routes := make([]gatewayv1.HTTPRoute, 0, len(list.Items))
+	for i := range list.Items {
+		if metav1.IsControlledBy(&list.Items[i], model) {
+			routes = append(routes, list.Items[i])
+		}
+	}
+	slices.SortFunc(routes, func(a, b gatewayv1.HTTPRoute) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+	return routes, nil
 }
 
 // deleteOwned removes desired if it exists and is controlled by owner.
@@ -137,7 +197,7 @@ func (r *ModelReconciler) deleteOwned(ctx context.Context, owner *v1alpha1.Model
 }
 
 // syncStatus updates common status fields and dispatches to the backend-specific status sync.
-func (r *ModelReconciler) syncStatus(ctx context.Context, model *v1alpha1.Model) error {
+func (r *ModelReconciler) syncStatus(ctx context.Context, model *v1alpha1.Model, artifact *v1alpha1.ModelArtifact) error {
 	patch := client.MergeFrom(model.DeepCopy())
 	before := model.Status.DeepCopy()
 
@@ -147,7 +207,7 @@ func (r *ModelReconciler) syncStatus(ctx context.Context, model *v1alpha1.Model)
 	var err error
 	switch model.Spec.Backend {
 	case v1alpha1.BackendTypeNative:
-		err = r.syncNativeStatus(ctx, model)
+		err = r.syncNativeStatus(ctx, model, artifact)
 	case v1alpha1.BackendTypeKServe:
 		err = r.syncKServeStatus(ctx, model)
 	case v1alpha1.BackendTypeKAITO:
@@ -198,9 +258,29 @@ func (r *ModelReconciler) setFailedStatus(ctx context.Context, model *v1alpha1.M
 	return cause
 }
 
+// mapArtifactToModels enqueues every Model in the artifact's namespace that references it.
+func (r *ModelReconciler) mapArtifactToModels(ctx context.Context, obj client.Object) []reconcile.Request {
+	var models v1alpha1.ModelList
+	if err := r.List(ctx, &models, client.InNamespace(obj.GetNamespace())); err != nil {
+		log.FromContext(ctx).Error(err, "list models for artifact", "namespace", obj.GetNamespace(), "name", obj.GetName())
+		return nil
+	}
+
+	requests := make([]reconcile.Request, 0)
+	for i := range models.Items {
+		model := &models.Items[i]
+		if model.Spec.ArtifactRef.Name != obj.GetName() {
+			continue
+		}
+		requests = append(requests, reconcile.Request{Name: model.Name, Namespace: model.Namespace})
+	}
+	return requests
+}
+
 func (r *ModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Model{}).
+		Watches(&v1alpha1.ModelArtifact{}, handler.EnqueueRequestsFromMapFunc(r.mapArtifactToModels)).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{}).
 		Owns(&corev1.ServiceAccount{}).

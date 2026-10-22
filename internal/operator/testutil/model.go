@@ -6,14 +6,19 @@ package testutil
 import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 )
 
-// NewModel returns a fully populated Model for use as a text fixture.
+// DefaultModelBase is the base weights location used by test fixtures.
+const DefaultModelBase = "hf://arnir0/Tiny-LLM"
+
+// NewModel returns a fully populated Model for use as a test fixture.
 func NewModel(name, namespace string) *v1alpha1.Model {
 	return &v1alpha1.Model{
 		Name: name, Namespace: namespace,
+		UID: types.UID(namespace + "/" + name),
 		Spec: v1alpha1.ModelSpec{
 			Backend:  v1alpha1.BackendTypeNative,
 			Replicas: 1,
@@ -35,16 +40,21 @@ func NewModel(name, namespace string) *v1alpha1.Model {
 					Env:   []corev1.EnvVar{},
 				},
 			},
-			Weights: v1alpha1.WeightsSpec{
-				Type: v1alpha1.WeightsTypeHF,
-				HF: &v1alpha1.HFWeightsSpec{
-					RepoID: "arnir0/Tiny-LLM",
-					TokenSecret: &corev1.SecretKeySelector{
-						Name: "hf-token",
-						Key:  "token",
-					},
-				},
-			},
+			ArtifactRef: v1alpha1.ModelArtifactReference{Name: name + "-artifact"},
 		},
 	}
+}
+
+// NewModelArtifact returns a ModelArtifact fixture for the given name.
+func NewModelArtifact(name, namespace string) *v1alpha1.ModelArtifact {
+	return &v1alpha1.ModelArtifact{
+		Name: name, Namespace: namespace,
+		Spec: v1alpha1.ModelArtifactSpec{Base: DefaultModelBase},
+	}
+}
+
+// NewModelWithArtifact returns a Model and its default ModelArtifact fixture.
+func NewModelWithArtifact(name, namespace string) (*v1alpha1.Model, *v1alpha1.ModelArtifact) {
+	model := NewModel(name, namespace)
+	return model, NewModelArtifact(model.Spec.ArtifactRef.Name, namespace)
 }

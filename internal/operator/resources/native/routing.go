@@ -4,6 +4,9 @@
 package native
 
 import (
+	"slices"
+	"strings"
+
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -40,19 +43,19 @@ func BuildInferencePool(model *v1alpha1.Model) *inferencev1.InferencePool {
 	}
 }
 
-// BuildHTTPRoute returns the HTTPRoute for the model's AgentgatewayBackend,
-// so traffic is token-metered by the LLM pipeline. Unmatched paths 404 at the gateway.
-func BuildHTTPRoute(model *v1alpha1.Model, gatewayName, listenerName string) *gatewayv1.HTTPRoute {
-	modelName := ""
-	if model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && model.Spec.Weights.HF != nil {
-		modelName = model.Spec.Weights.HF.RepoID
-	}
-	headerValue := gatewayv1.HTTPHeaderMatch{
-		Type:  new(gatewayv1.HeaderMatchExact),
-		Name:  gatewayBaseModelHeaderName,
-		Value: modelName,
-	}
+// BuildHTTPRoutes returns one HTTPRoute per served model name
+func BuildHTTPRoutes(model *v1alpha1.Model, artifact *v1alpha1.ModelArtifact, gatewayName, listenerName string) []*gatewayv1.HTTPRoute {
+	modelNames := slices.Clone(model.ModelNames(artifact))
+	slices.Sort(modelNames)
 
+	routes := make([]*gatewayv1.HTTPRoute, 0, len(modelNames))
+	for _, modelName := range modelNames {
+		routes = append(routes, buildHTTPRoute(model, modelName, gatewayName, listenerName))
+	}
+	return routes
+}
+
+func buildHTTPRoute(model *v1alpha1.Model, modelName, gatewayName, listenerName string) *gatewayv1.HTTPRoute {
 	matches := make([]gatewayv1.HTTPRouteMatch, 0, len(modelRoutes))
 	for _, r := range modelRoutes {
 		matches = append(matches, gatewayv1.HTTPRouteMatch{
@@ -60,12 +63,16 @@ func BuildHTTPRoute(model *v1alpha1.Model, gatewayName, listenerName string) *ga
 				Type:  new(gatewayv1.PathMatchExact),
 				Value: new(r.path),
 			},
-			Headers: []gatewayv1.HTTPHeaderMatch{headerValue},
+			Headers: []gatewayv1.HTTPHeaderMatch{{
+				Type:  new(gatewayv1.HeaderMatchExact),
+				Name:  gatewayBaseModelHeaderName,
+				Value: modelName,
+			}},
 		})
 	}
 
 	return &gatewayv1.HTTPRoute{
-		Name:      model.EngineName(),
+		Name:      httpRouteName(model.Name, modelName),
 		Namespace: model.Namespace,
 		Spec: gatewayv1.HTTPRouteSpec{
 			CommonRouteSpec: gatewayv1.CommonRouteSpec{
@@ -91,6 +98,34 @@ func BuildHTTPRoute(model *v1alpha1.Model, gatewayName, listenerName string) *ga
 			},
 		},
 	}
+}
+
+// httpRouteName builds a deterministic route name from the Model and served
+// model name. Served names are arbitrary strings, so they are converted to a
+// DNS-safe form.
+func httpRouteName(modelName, servedName string) string {
+	return modelName + "-" + dnsSafeName(servedName)
+}
+
+// dnsSafeName lowercases a served model name and replaces unsupported
+// characters with dashes. The conversion is lossy; served names that differ
+// only by case or punctuation can produce the same route name.
+func dnsSafeName(name string) string {
+	var safe strings.Builder
+	lastWasDash := false
+	for _, r := range strings.ToLower(name) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			safe.WriteRune(r)
+			lastWasDash = false
+		} else if safe.Len() > 0 && !lastWasDash {
+			safe.WriteByte('-')
+			lastWasDash = true
+		}
+	}
+	if result := strings.Trim(safe.String(), "-"); result != "" {
+		return result
+	}
+	return "model"
 }
 
 // BuildBodyBasedRoutingPolicy returns the policy setting the header the per-model routes match on.

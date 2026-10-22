@@ -4,8 +4,11 @@
 package native
 
 import (
+	"slices"
+	"strings"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/util/validation"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -19,6 +22,20 @@ const (
 	testGatewayName     = "test-gateway"
 	testGatewayListener = "custom-listener"
 )
+
+func routeServedName(route gatewayv1.HTTPRoute) string {
+	if len(route.Spec.Rules) == 0 {
+		return ""
+	}
+	for _, match := range route.Spec.Rules[0].Matches {
+		for _, header := range match.Headers {
+			if header.Name == gatewayBaseModelHeaderName {
+				return header.Value
+			}
+		}
+	}
+	return ""
+}
 
 func TestBuildInferencePool(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
@@ -39,12 +56,25 @@ func TestBuildInferencePool(t *testing.T) {
 	}
 }
 
-func TestBuildHTTPRoute(t *testing.T) {
-	model := testutil.NewModel("tiny-llm", "default")
-	route := BuildHTTPRoute(model, "custom-gateway", testGatewayListener)
+func TestBuildHTTPRoutes(t *testing.T) {
+	model, artifact := testutil.NewModelWithArtifact("tiny-llm", "default")
+	routes := BuildHTTPRoutes(model, artifact, "custom-gateway", testGatewayListener)
 
-	if route.Name != model.EngineName() {
-		t.Errorf("Name:\ngot:  %q\nwant: %q", route.Name, model.EngineName())
+	if len(routes) != 1 {
+		t.Fatalf("len(routes): %d, want 1", len(routes))
+	}
+	route := routes[0]
+	if route.Name == model.EngineName() {
+		t.Errorf("route.Name: got %q, want a dedicated per-name route name", route.Name)
+	}
+	if !strings.HasPrefix(route.Name, "tiny-llm-arnir0-tiny-llm") {
+		t.Errorf("route.Name:\ngot:  %q\nwant prefix: %q", route.Name, "tiny-llm-arnir0-tiny-llm")
+	}
+	if got := routeServedName(*route); got != "arnir0/Tiny-LLM" {
+		t.Errorf("served name:\ngot:  %q\nwant: %q", got, "arnir0/Tiny-LLM")
+	}
+	if route.Namespace != "default" {
+		t.Errorf("Namespace:\ngot:  %q\nwant: %q", route.Namespace, "default")
 	}
 	if len(route.Spec.ParentRefs) != 1 {
 		t.Errorf("len(route.Spec.ParentRefs): %d, want 1", len(route.Spec.ParentRefs))
@@ -83,6 +113,82 @@ func TestBuildHTTPRoute(t *testing.T) {
 	}
 	if backendRef.Name != gatewayv1.ObjectName(model.Name) {
 		t.Errorf("backendRef.Name:\ngot:  %q\nwant: %q", backendRef.Name, model.Name)
+	}
+}
+
+func TestBuildHTTPRoutes_Aliases(t *testing.T) {
+	model, artifact := testutil.NewModelWithArtifact("tiny-llm", "default")
+	model.Spec.Aliases = []string{"tiny", "tiny-latest"}
+	routes := BuildHTTPRoutes(model, artifact, "custom-gateway", testGatewayListener)
+
+	if len(routes) != len(model.Spec.Aliases) {
+		t.Fatalf("len(routes): %d, want %d", len(routes), len(model.Spec.Aliases))
+	}
+
+	seenNames := make(map[string]bool)
+	seenRouteNames := make(map[string]bool)
+	for _, route := range routes {
+		servedName := routeServedName(*route)
+		if !slices.Contains(model.Spec.Aliases, servedName) {
+			t.Errorf("unexpected served name: %q", servedName)
+		}
+		if seenNames[servedName] {
+			t.Errorf("duplicate route for served name %q", servedName)
+		}
+		seenNames[servedName] = true
+		if seenRouteNames[route.Name] {
+			t.Errorf("duplicate route name %q", route.Name)
+		}
+		seenRouteNames[route.Name] = true
+		if route.Name == model.EngineName() {
+			t.Errorf("route.Name: got %q, want a dedicated per-name route name", route.Name)
+		}
+
+		rule := route.Spec.Rules[0]
+		if len(rule.Matches) != len(modelRoutes) {
+			t.Fatalf("route %q len(rule.Matches): %d, want %d", route.Name, len(rule.Matches), len(modelRoutes))
+		}
+		seenPaths := make(map[string]bool)
+		for _, match := range rule.Matches {
+			if len(match.Headers) != 1 || match.Headers[0].Name != gatewayBaseModelHeaderName {
+				t.Fatalf("unexpected match headers: %+v", match.Headers)
+			}
+			if match.Headers[0].Value != servedName {
+				t.Errorf("route %q header value: got %q, want %q", route.Name, match.Headers[0].Value, servedName)
+			}
+			seenPaths[*match.Path.Value] = true
+		}
+		for _, r := range modelRoutes {
+			if !seenPaths[r.path] {
+				t.Errorf("route %q missing path match %q", route.Name, r.path)
+			}
+		}
+	}
+	for _, alias := range model.Spec.Aliases {
+		if !seenNames[alias] {
+			t.Errorf("missing route for alias %q", alias)
+		}
+	}
+}
+
+func TestHTTPRouteName(t *testing.T) {
+	modelName := "tiny-llm"
+	name := httpRouteName(modelName, "arnir0/Tiny-LLM")
+
+	if want := "tiny-llm-arnir0-tiny-llm"; name != want {
+		t.Errorf("route name:\ngot:  %q\nwant: %q", name, want)
+	}
+	if name != httpRouteName(modelName, "arnir0/Tiny-LLM") {
+		t.Error("httpRouteName is not deterministic")
+	}
+	if name == httpRouteName(modelName, "arnir0/Tiny-Other") {
+		t.Error("different served names produced the same route name")
+	}
+	if errs := validation.IsDNS1123Subdomain(name); len(errs) > 0 {
+		t.Errorf("route name %q is not a valid DNS subdomain: %v", name, errs)
+	}
+	if got, want := httpRouteName(modelName, "///"), "tiny-llm-model"; got != want {
+		t.Errorf("fallback route name:\ngot:  %q\nwant: %q", got, want)
 	}
 }
 
