@@ -123,7 +123,6 @@ spec:
                           as CLI arguments.
                         items:
                           type: string
-                        maxItems: 128
                         type: array
                       cache:
                         description: |-
@@ -2360,11 +2359,6 @@ spec:
                     required:
                     - image
                     type: object
-                    x-kubernetes-validations:
-                    - message: spec.serving.engine.args must not contain --served-model-name;
-                        the gateway manages served model names
-                      rule: '!has(self.args) || !self.args.exists(a, a == ''--served-model-name''
-                        || a.startsWith(''--served-model-name=''))'
                   epp:
                     description: EPP configures the optional Endpoint Picker Proxy.
                     properties:
