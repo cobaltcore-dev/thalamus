@@ -84,7 +84,7 @@ spec:
             expression: apiKey.tenant
 ```
 
-Usage can then be grouped by tenant, for example with `sum by (tenant) (agentgateway_gen_ai_client_token_usage_sum{gen_ai_token_type=~"input|output"})`. The full per-key setup is described in [Virtual keys](https://agentgateway.dev/docs/kubernetes/latest/documentation/llm/cost-controls/virtual-keys/) in the agentgateway docs.
+Usage can then be grouped by tenant, for example with `sum by (tenant, gen_ai_token_type) (agentgateway_gen_ai_client_token_usage_sum)`. The full per-key setup is described in [Virtual keys](https://agentgateway.dev/docs/kubernetes/latest/documentation/llm/cost-controls/virtual-keys/) in the agentgateway docs.
 
 ## Rate limiting
 
