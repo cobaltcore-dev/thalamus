@@ -110,6 +110,35 @@ html {
   transform: scale(0.92);
 }
 
+.ci-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px 0 4px;
+  border-radius: 999px;
+  background: var(--vp-c-green-soft);
+  color: var(--vp-c-green-1);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.ci-pill-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--vp-c-green-2);
+  color: #fff;
+}
+
+.vp-doc details summary p {
+  display: inline;
+  margin: 0;
+}
+
 /* Footer */
 @media (min-width: 960px) {
   .thalamus-footer.has-sidebar,

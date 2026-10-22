@@ -71,6 +71,12 @@ releases:
             - name: inference-gateway
               namespace: thalamus
               sectionName: frontend
+        startupProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 5
+          failureThreshold: 60
       - {{ dig "open-webui" dict .Values | toYaml | nindent 10 }}
 
   - name: thalamus

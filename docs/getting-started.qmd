@@ -1,0 +1,17 @@
+---
+title: Getting Started
+format:
+  gfm:
+    toc: false
+execute:
+  enabled: true
+  timeout: 660
+jupyter: bash
+filters:
+  - _filters/substitute-env.lua
+  - _filters/fold-cell-output.lua
+---
+
+{{< include ../website/_ci-pill.html >}}
+
+{{< include _getting-started.qmd >}}

@@ -35,10 +35,10 @@ jobs:
           version: v3.22.1
 
       - name: Build dependencies
-        run: helm dependency build helm/thalamus
+        run: make -C helm deps
 
       - name: Lint
-        run: helm lint helm/thalamus
+        run: make -C helm lint
 
   publish:
     name: Publish
@@ -58,9 +58,9 @@ jobs:
           version: v3.22.1
 
       - name: Build dependencies
-        run: helm dependency build helm/thalamus
+        run: make -C helm deps
 
-      # Same tag strategy as the Docker workflow, so chart tags match image tags.
+      # Same tag strategy as the Docker Images workflow, so chart tags match image tags.
       - name: Compute image tags
         id: meta
         uses: docker/metadata-action@v6
