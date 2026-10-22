@@ -4,9 +4,13 @@
 package native
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"slices"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/util/validation"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -19,6 +23,19 @@ const (
 	gatewayBaseModelHeaderName    = "X-Gateway-Base-Model-Name"
 	BodyBasedRoutingPolicyName    = "body-based-routing"
 	bodyBasedRoutingCELExpression = "json(request.body).model"
+
+	// httpRouteNamePrefix namespaces routes that belong to a single served model
+	// name. It keeps them distinct from other routes the operator manages, such
+	// as ModelListRouteName.
+	httpRouteNamePrefix = "model-route-"
+	// httpRouteNameHashLength is the number of hex characters of the digest
+	// appended to every route name. 40 bits make collisions negligible for the
+	// number of routes a namespace can hold.
+	httpRouteNameHashLength = 10
+	// httpRouteNameReadableMaxLength bounds the human-readable part so that the
+	// full name always fits within the DNS subdomain limit.
+	httpRouteNameReadableMaxLength = validation.DNS1123SubdomainMaxLength -
+		len(httpRouteNamePrefix) - len("-") - httpRouteNameHashLength
 )
 
 // BuildInferencePool returns the InferencePool for the model.
@@ -100,32 +117,49 @@ func buildHTTPRoute(model *v1alpha1.Model, modelName, gatewayName, listenerName 
 	}
 }
 
-// httpRouteName builds a deterministic route name from the Model and served
-// model name. Served names are arbitrary strings, so they are converted to a
-// DNS-safe form.
+// httpRouteName returns a deterministic, collision-safe and length-bounded
+// name for the HTTPRoute of one served model name.
+//
+// The readable part is best effort only: served names are arbitrary strings,
+// so the DNS-safe conversion is lossy and different (Model, served name) pairs
+// can produce the same readable text. Identity therefore comes from a digest
+// over an unambiguous, length-prefixed encoding of the original pair.
 func httpRouteName(modelName, servedName string) string {
-	return modelName + "-" + dnsSafeName(servedName)
+	readable := slugPrefix(modelName+"-"+servedName, httpRouteNameReadableMaxLength)
+	return httpRouteNamePrefix + readable + "-" + httpRouteNameDigest(modelName, servedName)
 }
 
-// dnsSafeName lowercases a served model name and replaces unsupported
-// characters with dashes. The conversion is lossy; served names that differ
-// only by case or punctuation can produce the same route name.
-func dnsSafeName(name string) string {
-	var safe strings.Builder
-	lastWasDash := false
-	for _, r := range strings.ToLower(name) {
+// httpRouteNameDigest returns a short, stable digest of the original Model and
+// served name. The length prefixes make the encoding unambiguous, so pairs
+// such as ("a/b", "c") and ("a", "b/c") do not collide.
+func httpRouteNameDigest(modelName, servedName string) string {
+	encoded := fmt.Sprintf("%d:%s%d:%s", len(modelName), modelName, len(servedName), servedName)
+	sum := sha256.Sum256([]byte(encoded))
+	return hex.EncodeToString(sum[:])[:httpRouteNameHashLength]
+}
+
+// slugPrefix lowercases s, replaces unsupported characters with dashes and
+// returns at most n bytes of the result. It only contributes readability; the
+// digest in httpRouteName provides uniqueness.
+func slugPrefix(s string, n int) string {
+	var b strings.Builder
+	lastWasDash := true // start true to suppress leading dash
+	for _, r := range strings.ToLower(s) {
+		if b.Len() >= n {
+			break
+		}
 		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			safe.WriteRune(r)
+			b.WriteRune(r)
 			lastWasDash = false
-		} else if safe.Len() > 0 && !lastWasDash {
-			safe.WriteByte('-')
+		} else if !lastWasDash {
+			b.WriteByte('-')
 			lastWasDash = true
 		}
 	}
-	if result := strings.Trim(safe.String(), "-"); result != "" {
-		return result
+	if slug := strings.TrimRight(b.String(), "-"); slug != "" {
+		return slug
 	}
-	return "model"
+	return "x"
 }
 
 // BuildBodyBasedRoutingPolicy returns the policy setting the header the per-model routes match on.

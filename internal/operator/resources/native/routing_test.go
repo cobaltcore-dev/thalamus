@@ -67,8 +67,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 	if route.Name == model.EngineName() {
 		t.Errorf("route.Name: got %q, want a dedicated per-name route name", route.Name)
 	}
-	if !strings.HasPrefix(route.Name, "tiny-llm-arnir0-tiny-llm") {
-		t.Errorf("route.Name:\ngot:  %q\nwant prefix: %q", route.Name, "tiny-llm-arnir0-tiny-llm")
+	if !strings.HasPrefix(route.Name, "model-route-tiny-llm-arnir0-") {
+		t.Errorf("route.Name:\ngot:  %q\nwant prefix: %q", route.Name, "model-route-tiny-llm-arnir0-")
 	}
 	if got := routeServedName(*route); got != "arnir0/Tiny-LLM" {
 		t.Errorf("served name:\ngot:  %q\nwant: %q", got, "arnir0/Tiny-LLM")
@@ -175,8 +175,11 @@ func TestHTTPRouteName(t *testing.T) {
 	modelName := "tiny-llm"
 	name := httpRouteName(modelName, "arnir0/Tiny-LLM")
 
-	if want := "tiny-llm-arnir0-tiny-llm"; name != want {
-		t.Errorf("route name:\ngot:  %q\nwant: %q", name, want)
+	if !strings.HasPrefix(name, httpRouteNamePrefix+"tiny-llm-arnir0-") {
+		t.Errorf("route name:\ngot:  %q\nwant prefix: %q", name, httpRouteNamePrefix+"tiny-llm-arnir0-")
+	}
+	if !strings.HasSuffix(name, "-"+httpRouteNameDigest(modelName, "arnir0/Tiny-LLM")) {
+		t.Errorf("route name %q does not end in the served-name digest", name)
 	}
 	if name != httpRouteName(modelName, "arnir0/Tiny-LLM") {
 		t.Error("httpRouteName is not deterministic")
@@ -187,8 +190,122 @@ func TestHTTPRouteName(t *testing.T) {
 	if errs := validation.IsDNS1123Subdomain(name); len(errs) > 0 {
 		t.Errorf("route name %q is not a valid DNS subdomain: %v", name, errs)
 	}
-	if got, want := httpRouteName(modelName, "///"), "tiny-llm-model"; got != want {
-		t.Errorf("fallback route name:\ngot:  %q\nwant: %q", got, want)
+	if name == ModelListRouteName {
+		t.Errorf("model route %q collides with the shared model-list route", name)
+	}
+	// A Model named "model" with an alias "list" must not become "model-list".
+	if got := httpRouteName("model", "list"); got == ModelListRouteName {
+		t.Errorf("model route %q collides with the shared model-list route", got)
+	}
+
+	// An all-punctuation served name leaves only the Model in the readable
+	// part, but stays unique through the digest.
+	wantFallback := httpRouteNamePrefix + "tiny-llm-" + httpRouteNameDigest(modelName, "///")
+	if got := httpRouteName(modelName, "///"); got != wantFallback {
+		t.Errorf("fallback route name:\ngot:  %q\nwant: %q", got, wantFallback)
+	}
+}
+
+func TestHTTPRouteName_Collisions(t *testing.T) {
+	tests := []struct {
+		name            string
+		modelA, servedA string
+		modelB, servedB string
+	}{
+		{
+			name:    "case folding",
+			modelA:  "tiny-llm",
+			servedA: "Foo",
+			modelB:  "tiny-llm",
+			servedB: "foo",
+		},
+		{
+			name:    "punctuation folding",
+			modelA:  "tiny-llm",
+			servedA: "a/b-c",
+			modelB:  "tiny-llm",
+			servedB: "a-b/c",
+		},
+		{
+			name:    "separator ambiguity across models",
+			modelA:  "a",
+			servedA: "b-c",
+			modelB:  "a-b",
+			servedB: "c",
+		},
+		{
+			name:    "truncation of a shared prefix",
+			modelA:  "tiny-llm",
+			servedA: strings.Repeat("x", 240) + "a",
+			modelB:  "tiny-llm",
+			servedB: strings.Repeat("x", 240) + "b",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := httpRouteName(tt.modelA, tt.servedA)
+			b := httpRouteName(tt.modelB, tt.servedB)
+			if a == b {
+				t.Errorf("route names collide:\n(%q, %q) -> %q\n(%q, %q) -> %q",
+					tt.modelA, tt.servedA, a, tt.modelB, tt.servedB, b)
+			}
+		})
+	}
+}
+
+func TestHTTPRouteName_LengthBounded(t *testing.T) {
+	tests := []struct {
+		name   string
+		model  string
+		served string
+	}{
+		{
+			name:   "long served name",
+			model:  "tiny-llm",
+			served: strings.Repeat("a", 250),
+		},
+		{
+			name:   "long model name",
+			model:  strings.Repeat("m", 253),
+			served: "tiny",
+		},
+		{
+			name:   "long model and served name",
+			model:  strings.Repeat("m", 253),
+			served: strings.Repeat("a", 250),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			name := httpRouteName(tt.model, tt.served)
+			if got := len(name); got > validation.DNS1123SubdomainMaxLength {
+				t.Errorf("route name length %d exceeds %d: %q", got, validation.DNS1123SubdomainMaxLength, name)
+			}
+			if errs := validation.IsDNS1123Subdomain(name); len(errs) > 0 {
+				t.Errorf("route name %q is not a valid DNS subdomain: %v", name, errs)
+			}
+			if name != httpRouteName(tt.model, tt.served) {
+				t.Error("httpRouteName is not deterministic")
+			}
+		})
+	}
+}
+
+func TestBuildHTTPRoutes_DistinctAliases(t *testing.T) {
+	model, artifact := testutil.NewModelWithArtifact("tiny-llm", "default")
+	model.Spec.Aliases = []string{"Foo", "foo"}
+	routes := BuildHTTPRoutes(model, artifact, "custom-gateway", testGatewayListener)
+
+	if len(routes) != 2 {
+		t.Fatalf("len(routes): %d, want 2", len(routes))
+	}
+	seen := make(map[string]string, len(routes))
+	for _, route := range routes {
+		served := routeServedName(*route)
+		if other, ok := seen[route.Name]; ok {
+			t.Errorf("aliases %q and %q share route name %q", other, served, route.Name)
+		}
+		seen[route.Name] = served
 	}
 }
 
