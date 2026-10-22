@@ -12,7 +12,9 @@ It requires an AI-enabled Kubernetes cluster, for example one provided by [Garde
 
 ## Inference API
 
-A single OpenAI-compatible HTTP endpoint serves all clients. Routing to the correct model and replica is handled inside the cluster by the Gateway API Inference Extension and the llm-d Endpoint Picker. See [Request flow](/concepts/backends/native/request-flow) for a step-by-step walkthrough.
+A single OpenAI-compatible HTTP endpoint serves all clients. Thalamus has no data plane of its own: the operator reconciles each `Model` into CRDs from both the [Gateway API](https://gateway-api.sigs.k8s.io/) and [agentgateway](https://agentgateway.dev). agentgateway is the only supported data plane today. Others may follow as opt-in integrations.
+
+See [Request flow](/concepts/backends/native/request-flow) for how a request is routed to a model and replica, and [Gateway Integrations](/gateway-integrations) for what can be configured on the gateway.
 
 ## Kubernetes AI runtime
 
