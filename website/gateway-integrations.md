@@ -71,8 +71,6 @@ agentgateway:
         release: monitoring
 ```
 
-The token volume dashboard in [examples/perses-dashboards](https://github.com/cobaltcore-dev/thalamus/tree/@@DOCS_VERSION@@/examples/perses-dashboards) is built on this data.
-
 To break down usage per tenant, attach the key metadata as a metric label by extending the `apikey-auth` policy from [Authentication](#authentication):
 
 ```yaml
