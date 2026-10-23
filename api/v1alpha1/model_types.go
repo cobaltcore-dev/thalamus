@@ -138,8 +138,11 @@ type ModelSpec struct {
 	// +kubebuilder:validation:MaxItems=32
 	// +kubebuilder:validation:items:MinLength=1
 	// +kubebuilder:validation:items:MaxLength=4096
+	// +kubebuilder:validation:items:Pattern=`^[!-~]+([\t ]?[!-~]+)*$`
 	// +listType=set
 	Aliases []string `json:"aliases,omitempty"`
+	// The validation pattern above mirrors Gateway API's HTTPHeaderMatch contract:
+	// https://github.com/kubernetes-sigs/gateway-api/blob/v1.5.1/apis/v1/httproute_types.go#L625-L635
 }
 
 // ModelStatus defines the observed state of a Model.
