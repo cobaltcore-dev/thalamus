@@ -716,6 +716,38 @@ func TestReconcile_ModelStatus_MultipleHTTPRoutes(t *testing.T) {
 	}
 }
 
+func TestReconcile_ModelStatus_ReplacedAliases(t *testing.T) {
+	model := testutil.NewModel("tiny-llm", testNamespace)
+	model.Spec.Aliases = []string{"old"}
+	r, c := newTestReconciler(t, model)
+
+	reconcileModelOnce(t, r, "tiny-llm")
+	markDeploymentReady(t, c, model.EngineName())
+	markDeploymentReady(t, c, model.EPPName())
+	markInferencePoolReady(t, c, model.EngineName())
+	markModelHTTPRoutesReady(t, c, model)
+	reconcileModelOnce(t, r, "tiny-llm")
+
+	updated := &v1alpha1.Model{}
+	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
+	if updated.Status.Phase != v1alpha1.ModelPhaseReady {
+		t.Fatalf("Phase before alias change:\ngot:  %q\nwant: %q", updated.Status.Phase, v1alpha1.ModelPhaseReady)
+	}
+
+	// Simulate a stale client that only shows the route for the old alias.
+	updated.Spec.Aliases = []string{"new"}
+	if err := r.syncNativeStatus(context.Background(), updated); err != nil {
+		t.Fatalf("syncNativeStatus: %v", err)
+	}
+	if updated.Status.Phase == v1alpha1.ModelPhaseReady {
+		t.Errorf("Phase with stale accepted route:\ngot:  %q\nwant:  %q", updated.Status.Phase, v1alpha1.ModelPhaseCreating)
+	}
+	cond := meta.FindStatusCondition(updated.Status.Conditions, v1alpha1.ModelConditionReady)
+	if cond == nil || cond.Reason != string(v1alpha1.ModelReasonHTTPRouteNotAccepted) {
+		t.Errorf("Ready condition:\ngot:  %+v\nwant reason %q", cond, v1alpha1.ModelReasonHTTPRouteNotAccepted)
+	}
+}
+
 func TestReconcile_ModelStatus_AvailableButIncomplete(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", testNamespace)
 	model.Spec.Replicas = 4
