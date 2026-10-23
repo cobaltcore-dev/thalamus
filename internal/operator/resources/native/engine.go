@@ -27,13 +27,14 @@ func BuildEngineDeployment(model *v1alpha1.Model) (*appsv1.Deployment, error) {
 		return nil, err
 	}
 
-	// Model path and served name are the contract with the weights source and
-	// the gateway routing. They are applied after the merge so user args
-	// can't drop them.
+	// The model path is the contract with the weights source and the gateway
+	// routing. It is applied after the merge so user args can't drop it.
+	// Aliases are not passed to the engine; the gateway routes them and the
+	// engine skips model name validation (see defaultEnginePodSpec).
 	// TODO: append other default arguments
 	if hf := model.Spec.Weights.HF; model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && hf != nil && model.DetectedEngineType() == v1alpha1.EngineTypeVLLM {
 		c := helpers.GetContainerByName(&podSpec, "engine")
-		c.Args = append([]string{hf.RepoID}, append(c.Args, "--served-model-name="+hf.RepoID)...)
+		c.Args = append([]string{hf.RepoID}, c.Args...)
 	}
 
 	labels := map[string]string{
@@ -64,6 +65,9 @@ func defaultEnginePodSpec(model *v1alpha1.Model) *corev1.PodSpec {
 		{Name: "HOME", Value: "/cache"},
 		{Name: "HF_HOME", Value: "/cache/huggingface"},
 		{Name: "XDG_CACHE_HOME", Value: "/cache"},
+		// Aliases are not passed to the engine; skip model name validation
+		// instead so alias changes do not require an engine restart.
+		{Name: "VLLM_SKIP_MODEL_NAME_VALIDATION", Value: "1"},
 	}
 	if hf := model.Spec.Weights.HF; model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && hf != nil && hf.TokenSecret != nil {
 		env = append(env, corev1.EnvVar{

@@ -32,7 +32,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
 				markInferencePoolReady(t, c, m.EngineName())
-				markHTTPRouteReady(t, c, m.EngineName())
+				markModelHTTPRoutesReady(t, c, m)
 			},
 			wantPhase:  v1alpha1.ModelPhaseReady,
 			wantReason: v1alpha1.ModelReasonReady,
@@ -42,7 +42,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EPPName())
 				markInferencePoolReady(t, c, m.EngineName())
-				markHTTPRouteReady(t, c, m.EngineName())
+				markModelHTTPRoutesReady(t, c, m)
 			},
 			wantPhase:  v1alpha1.ModelPhaseCreating,
 			wantReason: v1alpha1.ModelReasonEngineNotReady,
@@ -52,7 +52,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markInferencePoolReady(t, c, m.EngineName())
-				markHTTPRouteReady(t, c, m.EngineName())
+				markModelHTTPRoutesReady(t, c, m)
 			},
 			wantPhase:  v1alpha1.ModelPhaseCreating,
 			wantReason: v1alpha1.ModelReasonEPPNotReady,
@@ -62,7 +62,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
-				markHTTPRouteReady(t, c, m.EngineName())
+				markModelHTTPRoutesReady(t, c, m)
 			},
 			wantPhase:  v1alpha1.ModelPhaseCreating,
 			wantReason: v1alpha1.ModelReasonInferencePoolNotAccepted,
@@ -89,7 +89,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				}
 				markDeploymentReady(t, c, m.EPPName())
 				markInferencePoolReady(t, c, m.EngineName())
-				markHTTPRouteReady(t, c, m.EngineName())
+				markModelHTTPRoutesReady(t, c, m)
 			},
 			wantPhase:  v1alpha1.ModelPhaseCreating,
 			wantReason: v1alpha1.ModelReasonEngineNotReady,
@@ -100,7 +100,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
 				markInferencePoolReady(t, c, m.EngineName())
-				markHTTPRouteStatus(t, c, m.EngineName(), metav1.Condition{
+				markModelHTTPRoutesStatus(t, c, m, metav1.Condition{
 					Type:    string(gatewayv1.RouteConditionAccepted),
 					Status:  metav1.ConditionFalse,
 					Reason:  string(gatewayv1.RouteReasonPending),
@@ -157,7 +157,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				markDeploymentAvailableButStalled(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
 				markInferencePoolReady(t, c, m.EngineName())
-				markHTTPRouteReady(t, c, m.EngineName())
+				markModelHTTPRoutesReady(t, c, m)
 			},
 			wantPhase:  v1alpha1.ModelPhaseReady,
 			wantReason: v1alpha1.ModelReasonReady,
@@ -196,7 +196,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentAvailableButStalled(t, c, m.EPPName())
 				markInferencePoolReady(t, c, m.EngineName())
-				markHTTPRouteReady(t, c, m.EngineName())
+				markModelHTTPRoutesReady(t, c, m)
 			},
 			wantPhase:  v1alpha1.ModelPhaseReady,
 			wantReason: v1alpha1.ModelReasonReady,
@@ -237,7 +237,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
 				markInferencePoolReady(t, c, m.EngineName())
-				markHTTPRouteStatus(t, c, m.EngineName(), metav1.Condition{
+				markModelHTTPRoutesStatus(t, c, m, metav1.Condition{
 					Type:    string(gatewayv1.RouteConditionAccepted),
 					Status:  metav1.ConditionFalse,
 					Reason:  string(gatewayv1.RouteReasonNotAllowedByListeners),
@@ -253,7 +253,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
 				markInferencePoolReady(t, c, m.EngineName())
-				markHTTPRouteStatus(t, c, m.EngineName(), metav1.Condition{
+				markModelHTTPRoutesStatus(t, c, m, metav1.Condition{
 					Type:    string(gatewayv1.RouteConditionAccepted),
 					Status:  metav1.ConditionFalse,
 					Reason:  string(gatewayv1.RouteReasonIncompatibleFilters),
@@ -284,7 +284,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
 				markInferencePoolReady(t, c, m.EngineName())
-				markHTTPRouteStatus(t, c, m.EngineName(),
+				markModelHTTPRoutesStatus(t, c, m,
 					metav1.Condition{Type: string(gatewayv1.RouteConditionAccepted), Status: metav1.ConditionTrue, Reason: string(gatewayv1.RouteReasonAccepted)},
 					metav1.Condition{Type: string(gatewayv1.RouteConditionResolvedRefs), Status: metav1.ConditionTrue, Reason: string(gatewayv1.RouteReasonResolvedRefs)},
 					metav1.Condition{Type: string(gatewayv1.RouteConditionPartiallyInvalid), Status: metav1.ConditionTrue, Reason: "PartiallyInvalid", Message: "partial error"},
@@ -321,7 +321,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
 				markInferencePoolReady(t, c, m.EngineName())
-				markHTTPRouteStatus(t, c, m.EngineName(), metav1.Condition{
+				markModelHTTPRoutesStatus(t, c, m, metav1.Condition{
 					Type:    string(gatewayv1.RouteConditionResolvedRefs),
 					Status:  metav1.ConditionFalse,
 					Reason:  string(gatewayv1.RouteReasonBackendNotFound),
@@ -385,7 +385,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
 				markInferencePoolReady(t, c, m.EngineName())
-				markHTTPRouteParents(t, c, m.EngineName(),
+				markModelHTTPRouteParents(t, c, m,
 					gatewayv1.RouteParentStatus{
 						ParentRef:      gatewayv1.ParentReference{Name: gatewayv1.ObjectName("gw")},
 						ControllerName: "test-controller",
@@ -435,7 +435,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
 				markInferencePoolReady(t, c, m.EngineName())
-				markHTTPRouteParents(t, c, m.EngineName(),
+				markModelHTTPRouteParents(t, c, m,
 					gatewayv1.RouteParentStatus{
 						ParentRef:      gatewayv1.ParentReference{Name: gatewayv1.ObjectName("gw")},
 						ControllerName: "test-controller",
@@ -642,6 +642,80 @@ func markHTTPRouteParents(t *testing.T, c client.Client, name string, parents ..
 	}
 }
 
+func markModelHTTPRoutesStatus(t *testing.T, c client.Client, model *v1alpha1.Model, conds ...metav1.Condition) {
+	t.Helper()
+	routes := listHTTPRoutesForModel(t, c, model)
+	if len(routes) == 0 {
+		t.Fatal("no HTTPRoutes found for model")
+	}
+	for i := range routes {
+		markHTTPRouteStatus(t, c, routes[i].Name, conds...)
+	}
+}
+
+func markModelHTTPRoutesReady(t *testing.T, c client.Client, model *v1alpha1.Model) {
+	t.Helper()
+	markModelHTTPRoutesStatus(t, c, model,
+		metav1.Condition{Type: string(gatewayv1.RouteConditionAccepted), Status: metav1.ConditionTrue, Reason: string(gatewayv1.RouteReasonAccepted)},
+		metav1.Condition{Type: string(gatewayv1.RouteConditionResolvedRefs), Status: metav1.ConditionTrue, Reason: string(gatewayv1.RouteReasonResolvedRefs)},
+	)
+}
+
+func markModelHTTPRouteParents(t *testing.T, c client.Client, model *v1alpha1.Model, parents ...gatewayv1.RouteParentStatus) {
+	t.Helper()
+	routes := listHTTPRoutesForModel(t, c, model)
+	if len(routes) == 0 {
+		t.Fatal("no HTTPRoutes found for model")
+	}
+	for i := range routes {
+		markHTTPRouteParents(t, c, routes[i].Name, parents...)
+	}
+}
+
+func TestReconcile_ModelStatus_MultipleHTTPRoutes(t *testing.T) {
+	model := testutil.NewModel("tiny-llm", testNamespace)
+	model.Spec.Aliases = []string{"tiny", "tiny-latest"}
+	r, c := newTestReconciler(t, model)
+
+	reconcileModelOnce(t, r, "tiny-llm")
+	markDeploymentReady(t, c, model.EngineName())
+	markDeploymentReady(t, c, model.EPPName())
+	markInferencePoolReady(t, c, model.EngineName())
+
+	routes := listHTTPRoutesForModel(t, c, model)
+	if len(routes) != 2 {
+		t.Fatalf("len(routes): %d, want 2", len(routes))
+	}
+
+	// One accepted route is not enough; every served name must be accepted.
+	markHTTPRouteReady(t, c, routes[0].Name)
+	reconcileModelOnce(t, r, "tiny-llm")
+	updated := &v1alpha1.Model{}
+	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
+	if updated.Status.Phase != v1alpha1.ModelPhaseCreating {
+		t.Errorf("Phase with one pending route:\ngot:  %q\nwant: %q", updated.Status.Phase, v1alpha1.ModelPhaseCreating)
+	}
+
+	markHTTPRouteReady(t, c, routes[1].Name)
+	reconcileModelOnce(t, r, "tiny-llm")
+	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
+	if updated.Status.Phase != v1alpha1.ModelPhaseReady {
+		t.Errorf("Phase with all routes accepted:\ngot:  %q\nwant: %q", updated.Status.Phase, v1alpha1.ModelPhaseReady)
+	}
+
+	markHTTPRouteStatus(t, c, routes[0].Name, metav1.Condition{
+		Type:    string(gatewayv1.RouteConditionAccepted),
+		Status:  metav1.ConditionFalse,
+		Reason:  "InvalidRoute",
+		Message: "route is invalid",
+	})
+	reconcileModelOnce(t, r, "tiny-llm")
+	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
+	if updated.Status.Phase != v1alpha1.ModelPhaseFailed {
+		t.Errorf("Phase with one rejected route:\ngot:  %q\nwant: %q", updated.Status.Phase, v1alpha1.ModelPhaseFailed)
+	}
+}
+
 func TestReconcile_ModelStatus_AvailableButIncomplete(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", testNamespace)
 	model.Spec.Replicas = 4
@@ -675,7 +749,7 @@ func TestReconcile_ModelStatus_AvailableButIncomplete(t *testing.T) {
 
 	markDeploymentReady(t, c, model.EPPName())
 	markInferencePoolReady(t, c, model.EngineName())
-	markHTTPRouteReady(t, c, model.EngineName())
+	markModelHTTPRoutesReady(t, c, model)
 
 	reconcileModelOnce(t, r, "tiny-llm")
 

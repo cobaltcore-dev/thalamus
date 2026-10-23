@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -86,13 +87,17 @@ func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.M
 		return fmt.Errorf("build engine deployment: %w", err)
 	}
 
+	routes := native.BuildHTTPRoutes(model, r.GatewayName, r.ListenerName)
+
 	// Engine stack.
 	objs := []client.Object{
 		engineDeployment,
 		native.BuildEngineService(model),
 		native.BuildInferencePool(model),
 		native.BuildAIBackend(model),
-		native.BuildHTTPRoute(model, r.GatewayName, r.ListenerName),
+	}
+	for _, route := range routes {
+		objs = append(objs, route)
 	}
 
 	eppDeployment, err := native.BuildEPPDeployment(model)
@@ -118,7 +123,7 @@ func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.M
 				return err
 			}
 		}
-		return nil
+		return r.pruneHTTPRoutes(ctx, model, nil)
 	}
 
 	for _, obj := range objs {
@@ -126,7 +131,48 @@ func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.M
 			return err
 		}
 	}
+	return r.pruneHTTPRoutes(ctx, model, routes)
+}
+
+// pruneHTTPRoutes removes routes this Model owns that are not in the desired set.
+func (r *ModelReconciler) pruneHTTPRoutes(ctx context.Context, model *v1alpha1.Model, desired []*gatewayv1.HTTPRoute) error {
+	desiredNames := make(map[string]struct{}, len(desired))
+	for _, route := range desired {
+		desiredNames[route.Name] = struct{}{}
+	}
+
+	routes, err := r.listOwnedHTTPRoutes(ctx, model)
+	if err != nil {
+		return fmt.Errorf("list http routes for model %s/%s: %w", model.Namespace, model.Name, err)
+	}
+	for _, route := range routes {
+		if _, ok := desiredNames[route.Name]; ok {
+			continue
+		}
+		if err := client.IgnoreNotFound(r.Delete(ctx, &route)); err != nil {
+			return fmt.Errorf("delete stale http route %s/%s: %w", route.Namespace, route.Name, err)
+		}
+		log.FromContext(ctx).V(levelDebug).Info("deleted stale http route", "namespace", route.Namespace, "name", route.Name, "model", model.Name)
+	}
 	return nil
+}
+
+// listOwnedHTTPRoutes returns the HTTPRoutes controlled by the Model, sorted by name.
+func (r *ModelReconciler) listOwnedHTTPRoutes(ctx context.Context, model *v1alpha1.Model) ([]gatewayv1.HTTPRoute, error) {
+	var list gatewayv1.HTTPRouteList
+	if err := r.List(ctx, &list, client.InNamespace(model.Namespace)); err != nil {
+		return nil, err
+	}
+	routes := make([]gatewayv1.HTTPRoute, 0, len(list.Items))
+	for _, item := range list.Items {
+		if metav1.IsControlledBy(&item, model) {
+			routes = append(routes, item)
+		}
+	}
+	slices.SortFunc(routes, func(a, b gatewayv1.HTTPRoute) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+	return routes, nil
 }
 
 // deleteOwned removes desired if it exists and is controlled by owner.
