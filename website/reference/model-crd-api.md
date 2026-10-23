@@ -170,7 +170,7 @@ _Appears in:_
 | `replicas` _integer_ | Replicas defines the number of engine replicas to deploy for this model.<br />Defaults to 1. | 1 | Minimum: 0 <br />Optional: \{\} <br /> |
 | `serving` _[ServingSpec](#servingspec)_ | Serving defines how the model is served. |  |  |
 | `weights` _[WeightsSpec](#weightsspec)_ | Weights defines where the model weights are sourced from. |  |  |
-| `aliases` _string array_ | Aliases are the model names under which this model is exposed.<br />When empty, the base model name from the weights is used. |  | MaxItems: 32 <br />Optional: \{\} <br />items:MaxLength: 4096 <br />items:MinLength: 1 <br />items:Pattern: `^[!-~]+([\t ]?[!-~]+)*$` <br /> |
+| `aliases` _string array_ | Aliases are the model names under which this model is exposed.<br />When empty, the base model name from the weights is used. |  | MaxItems: 5 <br />Optional: \{\} <br />items:MaxLength: 4096 <br />items:MinLength: 1 <br />items:Pattern: `^[!-~]+([\t ]?[!-~]+)*$` <br /> |
 
 
 #### ModelStatus

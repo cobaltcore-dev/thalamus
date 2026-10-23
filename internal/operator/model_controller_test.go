@@ -6,7 +6,6 @@ package operator
 import (
 	"context"
 	"slices"
-	"strings"
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -55,31 +54,21 @@ func newTestReconciler(t *testing.T, objs ...client.Object) (*ModelReconciler, c
 	return &ModelReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}, c
 }
 
-// listHTTPRoutesForModel returns the HTTPRoutes controlled by the Model, sorted by name.
-func listHTTPRoutesForModel(t *testing.T, c client.Client, model *v1alpha1.Model) []gatewayv1.HTTPRoute {
-	t.Helper()
-	var list gatewayv1.HTTPRouteList
-	if err := c.List(context.Background(), &list, client.InNamespace(model.Namespace)); err != nil {
-		t.Fatalf("list HTTPRoutes: %v", err)
+// routeServedNames returns the distinct model names the model's HTTPRoute
+// matches on, in the order they appear.
+func routeServedNames(route gatewayv1.HTTPRoute) []string {
+	if len(route.Spec.Rules) == 0 {
+		return nil
 	}
-	routes := make([]gatewayv1.HTTPRoute, 0, len(list.Items))
-	for i := range list.Items {
-		if metav1.IsControlledBy(&list.Items[i], model) {
-			routes = append(routes, list.Items[i])
+	var names []string
+	for _, match := range route.Spec.Rules[0].Matches {
+		for _, header := range match.Headers {
+			if !slices.Contains(names, header.Value) {
+				names = append(names, header.Value)
+			}
 		}
 	}
-	slices.SortFunc(routes, func(a, b gatewayv1.HTTPRoute) int {
-		return strings.Compare(a.Name, b.Name)
-	})
-	return routes
-}
-
-func routeServedName(route gatewayv1.HTTPRoute) string {
-	if len(route.Spec.Rules) == 0 || len(route.Spec.Rules[0].Matches) == 0 ||
-		len(route.Spec.Rules[0].Matches[0].Headers) == 0 {
-		return ""
-	}
-	return route.Spec.Rules[0].Matches[0].Headers[0].Value
+	return names
 }
 
 func TestReconcile_NotFound(t *testing.T) {
@@ -100,12 +89,10 @@ func TestReconcile_Native(t *testing.T) {
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, &inferencev1.InferencePool{})
 	backend := &agentgatewayv1alpha1.AgentgatewayBackend{}
 	testutil.MustGet(t, c, "tiny-llm", testNamespace, backend)
-	routes := listHTTPRoutesForModel(t, c, model)
-	if len(routes) != 1 {
-		t.Fatalf("len(routes): %d, want 1", len(routes))
-	}
-	if got := routeServedName(routes[0]); got != "arnir0/Tiny-LLM" {
-		t.Errorf("served name:\ngot:  %q\nwant: %q", got, "arnir0/Tiny-LLM")
+	route := &gatewayv1.HTTPRoute{}
+	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, route)
+	if got := routeServedNames(*route); !slices.Equal(got, []string{"arnir0/Tiny-LLM"}) {
+		t.Errorf("served names:\ngot:  %q\nwant: %q", got, []string{"arnir0/Tiny-LLM"})
 	}
 
 	if len(dep.OwnerReferences) == 0 || dep.OwnerReferences[0].Name != "tiny-llm" {
@@ -128,13 +115,10 @@ func TestReconcile_NativeWithAliases(t *testing.T) {
 
 	dep := &appsv1.Deployment{}
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, dep)
-	routes := listHTTPRoutesForModel(t, c, model)
-	if len(routes) != 1 {
-		t.Fatalf("len(routes): %d, want 1", len(routes))
-	}
-	route := routes[0]
-	if got := routeServedName(route); got != "tiny" {
-		t.Errorf("served name:\ngot:  %q\nwant: %q", got, "tiny")
+	route := &gatewayv1.HTTPRoute{}
+	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, route)
+	if got := routeServedNames(*route); !slices.Equal(got, []string{"tiny"}) {
+		t.Errorf("served names:\ngot:  %q\nwant: %q", got, []string{"tiny"})
 	}
 
 	wantArgs := []string{
@@ -156,67 +140,48 @@ func TestReconcile_NativeWithAliases(t *testing.T) {
 	}
 }
 
-func TestReconcile_NativeCreatesRoutePerAlias(t *testing.T) {
+func TestReconcile_NativeWithMultipleAliases(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", testNamespace)
 	model.Spec.Aliases = []string{"tiny", "tiny-latest"}
 	r, c := newTestReconciler(t, model)
 
 	reconcileModelOnce(t, r, "tiny-llm")
 
-	routes := listHTTPRoutesForModel(t, c, model)
-	if len(routes) != 2 {
-		t.Fatalf("len(routes): %d, want 2", len(routes))
+	route := &gatewayv1.HTTPRoute{}
+	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, route)
+
+	matches := route.Spec.Rules[0].Matches
+	if len(matches) == 0 {
+		t.Fatal("route has no matches")
 	}
-
 	seenNames := make(map[string]bool)
-	seenRouteNames := make(map[string]bool)
-	for _, route := range routes {
-		servedName := routeServedName(route)
-		if !slices.Contains(model.Spec.Aliases, servedName) {
-			t.Errorf("unexpected served name: %q", servedName)
+	for _, match := range matches {
+		if len(match.Headers) != 1 {
+			t.Fatalf("unexpected match headers: %+v", match.Headers)
 		}
-		seenNames[servedName] = true
-		if seenRouteNames[route.Name] {
-			t.Errorf("duplicate route name %q", route.Name)
+		if !slices.Contains(model.Spec.Aliases, match.Headers[0].Value) {
+			t.Errorf("unexpected served name: %q", match.Headers[0].Value)
 		}
-		seenRouteNames[route.Name] = true
-
-		matches := route.Spec.Rules[0].Matches
-		if len(matches) == 0 {
-			t.Errorf("route %q has no matches", route.Name)
-		}
-		for _, match := range matches {
-			if len(match.Headers) != 1 || match.Headers[0].Value != servedName {
-				t.Errorf("route %q has unexpected headers: %+v", route.Name, match.Headers)
-			}
-		}
+		seenNames[match.Headers[0].Value] = true
 	}
 	for _, alias := range model.Spec.Aliases {
 		if !seenNames[alias] {
-			t.Errorf("missing route for alias %q", alias)
+			t.Errorf("missing matches for alias %q", alias)
 		}
 	}
 }
 
-func TestReconcile_NativePrunesStaleRoutes(t *testing.T) {
+func TestReconcile_NativeUpdatesRouteAliases(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", testNamespace)
 	model.Spec.Aliases = []string{"tiny", "old"}
 	r, c := newTestReconciler(t, model)
 
 	reconcileModelOnce(t, r, "tiny-llm")
 
-	routes := listHTTPRoutesForModel(t, c, model)
-	if len(routes) != 2 {
-		t.Fatalf("len(routes): %d, want 2", len(routes))
-	}
-	oldRouteName := ""
-	for _, route := range routes {
-		if routeServedName(route) == "old" {
-			oldRouteName = route.Name
-		}
-	}
-	if oldRouteName == "" {
-		t.Fatal("route for stale alias not found")
+	route := &gatewayv1.HTTPRoute{}
+	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, route)
+	if got := routeServedNames(*route); !slices.Equal(got, []string{"tiny", "old"}) {
+		t.Fatalf("served names before update:\ngot:  %q\nwant: %q", got, []string{"tiny", "old"})
 	}
 
 	updated := &v1alpha1.Model{}
@@ -228,20 +193,9 @@ func TestReconcile_NativePrunesStaleRoutes(t *testing.T) {
 
 	reconcileModelOnce(t, r, "tiny-llm")
 
-	testutil.MustNotGet(t, c, oldRouteName, testNamespace, &gatewayv1.HTTPRoute{})
-	routes = listHTTPRoutesForModel(t, c, model)
-	if len(routes) != 2 {
-		t.Fatalf("len(routes): %d, want 2", len(routes))
-	}
-	seenNames := make(map[string]bool)
-	for _, route := range routes {
-		seenNames[routeServedName(route)] = true
-	}
-	if seenNames["old"] {
-		t.Error("stale alias route still present")
-	}
-	if !seenNames["tiny"] || !seenNames["new"] {
-		t.Errorf("unexpected served names after update: %v", seenNames)
+	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, route)
+	if got := routeServedNames(*route); !slices.Equal(got, []string{"tiny", "new"}) {
+		t.Errorf("served names after update:\ngot:  %q\nwant: %q", got, []string{"tiny", "new"})
 	}
 }
 
@@ -289,9 +243,7 @@ func TestReconcile_NativeMultipleReplicas(t *testing.T) {
 
 	// Singleton resources should still exist exactly once.
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, &inferencev1.InferencePool{})
-	if routes := listHTTPRoutesForModel(t, c, model); len(routes) != 1 {
-		t.Fatalf("len(routes): %d, want 1", len(routes))
-	}
+	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, &gatewayv1.HTTPRoute{})
 	testutil.MustGet(t, c, "tiny-llm-epp", testNamespace, &appsv1.Deployment{})
 	testutil.MustGet(t, c, "tiny-llm-epp", testNamespace, &corev1.Service{})
 }
@@ -310,9 +262,7 @@ func TestReconcile_ScaleToZero(t *testing.T) {
 	testutil.MustNotGet(t, c, "tiny-llm-engine", testNamespace, &corev1.Service{})
 	testutil.MustNotGet(t, c, "tiny-llm-engine", testNamespace, &inferencev1.InferencePool{})
 	testutil.MustNotGet(t, c, "tiny-llm", testNamespace, &agentgatewayv1alpha1.AgentgatewayBackend{})
-	if routes := listHTTPRoutesForModel(t, c, model); len(routes) != 0 {
-		t.Fatalf("len(routes): %d, want 0", len(routes))
-	}
+	testutil.MustNotGet(t, c, "tiny-llm-engine", testNamespace, &gatewayv1.HTTPRoute{})
 	testutil.MustNotGet(t, c, "tiny-llm-epp", testNamespace, &corev1.ServiceAccount{})
 	testutil.MustNotGet(t, c, "tiny-llm-epp", testNamespace, &rbacv1.Role{})
 	testutil.MustNotGet(t, c, "tiny-llm-epp", testNamespace, &rbacv1.RoleBinding{})
