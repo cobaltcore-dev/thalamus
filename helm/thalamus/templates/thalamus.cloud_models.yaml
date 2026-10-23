@@ -53,6 +53,7 @@ spec:
                 items:
                   maxLength: 4096
                   minLength: 1
+                  pattern: ^[!-~]+([\t ]?[!-~]+)*$
                   type: string
                 maxItems: 32
                 type: array
