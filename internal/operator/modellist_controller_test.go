@@ -138,6 +138,27 @@ func TestModelListReconcile_OneReadyModel(t *testing.T) {
 	}
 }
 
+func TestModelListReconcile_Aliases(t *testing.T) {
+	s := testutil.NewScheme(t)
+	gateway := newGateway()
+	model := testutil.NewModel("tiny-llm", testNamespace)
+	model.Spec.Aliases = []string{"tiny", "tiny-latest"}
+	model.Status.Phase = v1alpha1.ModelPhaseReady
+	c := fake.NewClientBuilder().WithScheme(s).
+		WithObjects(gateway).
+		WithObjects(model).WithStatusSubresource(model).
+		Build()
+	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
+
+	reconcileModelListOnce(t, r)
+
+	body := mustGetPolicyBody(t, r)
+	expected := `{"object":"list","data":[{"id":"tiny","object":"model","owned_by":"arnir0"},{"id":"tiny-latest","object":"model","owned_by":"arnir0"}]}`
+	if body != expected {
+		t.Errorf("model list policy body:\ngot:  %s\nwant: %s", body, expected)
+	}
+}
+
 func TestModelListReconcile_OnlyReadyModelsListed(t *testing.T) {
 	s := testutil.NewScheme(t)
 	gateway := newGateway()

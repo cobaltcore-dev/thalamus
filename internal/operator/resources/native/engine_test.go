@@ -5,6 +5,7 @@ package native
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -46,16 +47,17 @@ func TestBuildEngineDeployment(t *testing.T) {
 	if c.Image != model.Spec.Serving.Engine.Containers[0].Image {
 		t.Errorf("Image:\ngot:  %q\nwant: %q", c.Image, model.Spec.Serving.Engine.Containers[0].Image)
 	}
-	wantArgs := []string{"arnir0/Tiny-LLM", "--max-model-len=512", "--served-model-name=arnir0/Tiny-LLM"}
+	wantArgs := []string{"arnir0/Tiny-LLM", "--max-model-len=512"}
 	if !slices.Equal(c.Args, wantArgs) {
 		t.Errorf("Args:\ngot:  %v\nwant: %v", c.Args, wantArgs)
 	}
 
 	wantEnv := map[string]string{
-		"EXTRA":          "val",
-		"HOME":           "/cache",
-		"HF_HOME":        "/cache/huggingface",
-		"XDG_CACHE_HOME": "/cache",
+		"EXTRA":                           "val",
+		"HOME":                            "/cache",
+		"HF_HOME":                         "/cache/huggingface",
+		"XDG_CACHE_HOME":                  "/cache",
+		"VLLM_SKIP_MODEL_NAME_VALIDATION": "1",
 	}
 	gotEnv := map[string]string{}
 	for _, e := range c.Env {
@@ -249,6 +251,26 @@ func TestBuildEngineDeployment_PublicModel(t *testing.T) {
 	for _, e := range c.Env {
 		if e.Name == "HF_TOKEN" {
 			t.Error("HF_TOKEN must not be injected when TokenSecret is nil")
+		}
+	}
+}
+
+func TestBuildEngineDeployment_Aliases(t *testing.T) {
+	model := testutil.NewModel("tiny-llm", "default")
+	model.Spec.Aliases = []string{"tiny", "tiny-llm"}
+	dep, err := BuildEngineDeployment(model)
+	if err != nil {
+		t.Fatalf("BuildEngineDeployment: %v", err)
+	}
+	c := dep.Spec.Template.Spec.Containers[0]
+
+	want := []string{"arnir0/Tiny-LLM", "--max-model-len=512"}
+	if !slices.Equal(c.Args, want) {
+		t.Errorf("Args:\ngot:  %v\nwant: %v", c.Args, want)
+	}
+	for _, arg := range c.Args {
+		if strings.HasPrefix(arg, "--served-model-name") {
+			t.Error("engine args must not contain --served-model-name")
 		}
 	}
 }

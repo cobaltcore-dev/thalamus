@@ -36,27 +36,26 @@ type modelListResponse struct {
 	Data   []modelEntry `json:"data"`
 }
 
-// BuildModelListResponse returns the directResponse JSON body listing only Ready models,
-// sorted by model name for a stable output.
+// BuildModelListResponse returns the model-list JSON body for Ready models,
+// sorted by name. Aliases replace the base model name when set.
 func BuildModelListResponse(models []v1alpha1.Model) (string, error) {
 	entries := make([]modelEntry, 0, len(models))
 	for _, m := range models {
 		if m.Status.Phase != v1alpha1.ModelPhaseReady {
 			continue
 		}
-		repoID := ""
-		if m.Spec.Weights.HF != nil {
-			repoID = m.Spec.Weights.HF.RepoID
-		}
-		ownedBy := repoID
-		if before, _, found := strings.Cut(repoID, "/"); found {
+		base := m.BaseModelName()
+		ownedBy := base
+		if before, _, found := strings.Cut(base, "/"); found {
 			ownedBy = before
 		}
-		entries = append(entries, modelEntry{
-			ID:      repoID,
-			Object:  "model",
-			OwnedBy: ownedBy,
-		})
+		for _, name := range m.ModelNames() {
+			entries = append(entries, modelEntry{
+				ID:      name,
+				Object:  "model",
+				OwnedBy: ownedBy,
+			})
+		}
 	}
 
 	sort.Slice(entries, func(i, j int) bool {

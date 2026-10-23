@@ -131,6 +131,18 @@ type ModelSpec struct {
 
 	// Weights defines where the model weights are sourced from.
 	Weights WeightsSpec `json:"weights"`
+
+	// Aliases are the model names under which this model is exposed.
+	// When empty, the base model name from the weights is used.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MaxItems=5
+	// +kubebuilder:validation:items:MinLength=1
+	// +kubebuilder:validation:items:MaxLength=4096
+	// +kubebuilder:validation:items:Pattern=`^[!-~]+([\t ]?[!-~]+)*$`
+	// +listType=set
+	Aliases []string `json:"aliases,omitempty"`
+	// The validation pattern above mirrors Gateway API's HTTPHeaderMatch contract:
+	// https://github.com/kubernetes-sigs/gateway-api/blob/v1.5.1/apis/v1/httproute_types.go#L625-L635
 }
 
 // ModelStatus defines the observed state of a Model.
@@ -184,6 +196,23 @@ type Model struct {
 }
 
 // +kubebuilder:object:root=true
+
+// BaseModelName returns the model identifier from the weights configuration.
+func (m *Model) BaseModelName() string {
+	if m.Spec.Weights.Type == WeightsTypeHF && m.Spec.Weights.HF != nil {
+		return m.Spec.Weights.HF.RepoID
+	}
+	return ""
+}
+
+// ModelNames returns the model identifiers this Model exposes.
+// It falls back to the base model name when no aliases are set.
+func (m *Model) ModelNames() []string {
+	if len(m.Spec.Aliases) > 0 {
+		return m.Spec.Aliases
+	}
+	return []string{m.BaseModelName()}
+}
 
 // EngineName returns the Kubernetes resource name for the model's inference engine.
 func (m *Model) EngineName() string { return m.Name + "-engine" }

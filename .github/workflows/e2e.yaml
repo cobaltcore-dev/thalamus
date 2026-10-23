@@ -23,6 +23,9 @@ jobs:
     name: E2E (${{ matrix.gateway_api }} gateway-api, ${{ matrix.inference_extension }} inference-extension, ${{ matrix.agentgateway }} agentgateway)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      GATEWAY_HOST: localhost
+      GATEWAY_PORT: "8080"
     strategy:
       fail-fast: false
       matrix:
@@ -232,10 +235,35 @@ jobs:
 
       - name: Run e2e validation
         env:
-          GATEWAY_HOST: localhost
-          GATEWAY_PORT: "8080"
           MODEL: HuggingFaceTB/SmolLM2-135M-Instruct
         run: uv run test/e2e/validate.py
+
+      - name: Add alias to the Model
+        run: |
+          kubectl patch model smollm2-135m \
+            --namespace thalamus \
+            --type merge \
+            -p '{"spec":{"aliases":["HuggingFaceTB/SmolLM2-135M-Instruct-e2e"]}}'
+          # Ready only returns once the route with the new alias is accepted.
+          kubectl wait model/smollm2-135m \
+            --namespace thalamus \
+            --for=condition=Ready \
+            --timeout=120s
+
+      - name: Run e2e validation with alias
+        env:
+          MODEL: HuggingFaceTB/SmolLM2-135M-Instruct-e2e
+        run: uv run test/e2e/validate.py
+
+      - name: Assert old model name is no longer served
+        env:
+          MODEL: HuggingFaceTB/SmolLM2-135M-Instruct
+        run: |
+          if uv run test/e2e/validate.py; then
+            echo "FAIL: base model name is still valid after aliases replaced it"
+            exit 1
+          fi
+          echo "PASS: base model name no longer served"
 
       - name: Debug on failure
         if: failure()
