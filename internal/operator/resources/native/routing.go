@@ -4,13 +4,6 @@
 package native
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"fmt"
-	"slices"
-	"strings"
-
-	"k8s.io/apimachinery/pkg/util/validation"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -23,14 +16,6 @@ const (
 	gatewayBaseModelHeaderName    = "X-Gateway-Base-Model-Name"
 	BodyBasedRoutingPolicyName    = "body-based-routing"
 	bodyBasedRoutingCELExpression = "json(request.body).model"
-
-	// httpRouteNamePrefix distinguishes per-served-name routes from other managed routes.
-	httpRouteNamePrefix = "model-route-"
-	// httpRouteNameHashLength is the digest length; 40 bits make collisions negligible.
-	httpRouteNameHashLength = 10
-	// httpRouteNameReadableMaxLength keeps the full name within the DNS subdomain limit.
-	httpRouteNameReadableMaxLength = validation.DNS1123SubdomainMaxLength -
-		len(httpRouteNamePrefix) - len("-") - httpRouteNameHashLength
 )
 
 // BuildInferencePool returns the InferencePool for the model.
@@ -55,36 +40,30 @@ func BuildInferencePool(model *v1alpha1.Model) *inferencev1.InferencePool {
 	}
 }
 
-// BuildHTTPRoutes returns one HTTPRoute per served model name.
-func BuildHTTPRoutes(model *v1alpha1.Model, gatewayName, listenerName string) []*gatewayv1.HTTPRoute {
-	modelNames := slices.Clone(model.ModelNames())
-	slices.Sort(modelNames)
+// BuildHTTPRoute returns the HTTPRoute for the model's AgentgatewayBackend,
+// so traffic is token-metered by the LLM pipeline. Unmatched paths 404 at the gateway.
+func BuildHTTPRoute(model *v1alpha1.Model, gatewayName, listenerName string) *gatewayv1.HTTPRoute {
+	modelNames := model.ModelNames()
 
-	routes := make([]*gatewayv1.HTTPRoute, 0, len(modelNames))
+	matches := make([]gatewayv1.HTTPRouteMatch, 0, len(modelNames)*len(modelRoutes))
 	for _, modelName := range modelNames {
-		routes = append(routes, buildHTTPRoute(model, modelName, gatewayName, listenerName))
-	}
-	return routes
-}
-
-func buildHTTPRoute(model *v1alpha1.Model, modelName, gatewayName, listenerName string) *gatewayv1.HTTPRoute {
-	matches := make([]gatewayv1.HTTPRouteMatch, 0, len(modelRoutes))
-	for _, r := range modelRoutes {
-		matches = append(matches, gatewayv1.HTTPRouteMatch{
-			Path: &gatewayv1.HTTPPathMatch{
-				Type:  new(gatewayv1.PathMatchExact),
-				Value: new(r.path),
-			},
-			Headers: []gatewayv1.HTTPHeaderMatch{{
-				Type:  new(gatewayv1.HeaderMatchExact),
-				Name:  gatewayBaseModelHeaderName,
-				Value: modelName,
-			}},
-		})
+		for _, r := range modelRoutes {
+			matches = append(matches, gatewayv1.HTTPRouteMatch{
+				Path: &gatewayv1.HTTPPathMatch{
+					Type:  new(gatewayv1.PathMatchExact),
+					Value: new(r.path),
+				},
+				Headers: []gatewayv1.HTTPHeaderMatch{{
+					Type:  new(gatewayv1.HeaderMatchExact),
+					Name:  gatewayBaseModelHeaderName,
+					Value: modelName,
+				}},
+			})
+		}
 	}
 
 	return &gatewayv1.HTTPRoute{
-		Name:      httpRouteName(model.Name, modelName),
+		Name:      model.EngineName(),
 		Namespace: model.Namespace,
 		Spec: gatewayv1.HTTPRouteSpec{
 			CommonRouteSpec: gatewayv1.CommonRouteSpec{
@@ -110,43 +89,6 @@ func buildHTTPRoute(model *v1alpha1.Model, modelName, gatewayName, listenerName 
 			},
 		},
 	}
-}
-
-// httpRouteName returns a deterministic, DNS-safe name for one served model name.
-// The readable part is lossy; the digest guarantees uniqueness.
-func httpRouteName(modelName, servedName string) string {
-	readable := slugPrefix(modelName+"-"+servedName, httpRouteNameReadableMaxLength)
-	return httpRouteNamePrefix + readable + "-" + httpRouteNameDigest(modelName, servedName)
-}
-
-// httpRouteNameDigest returns a stable digest of the original model and served name.
-// Length prefixes keep the encoding unambiguous.
-func httpRouteNameDigest(modelName, servedName string) string {
-	encoded := fmt.Sprintf("%d:%s%d:%s", len(modelName), modelName, len(servedName), servedName)
-	sum := sha256.Sum256([]byte(encoded))
-	return hex.EncodeToString(sum[:])[:httpRouteNameHashLength]
-}
-
-// slugPrefix returns a lowercase, DNS-safe version of s, truncated to n bytes.
-func slugPrefix(s string, n int) string {
-	var b strings.Builder
-	lastWasDash := true // start true to suppress leading dash
-	for _, r := range strings.ToLower(s) {
-		if b.Len() >= n {
-			break
-		}
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			b.WriteRune(r)
-			lastWasDash = false
-		} else if !lastWasDash {
-			b.WriteByte('-')
-			lastWasDash = true
-		}
-	}
-	if slug := strings.TrimRight(b.String(), "-"); slug != "" {
-		return slug
-	}
-	return "x"
 }
 
 // BuildBodyBasedRoutingPolicy returns the policy setting the header the per-model routes match on.

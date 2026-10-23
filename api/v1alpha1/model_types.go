@@ -135,7 +135,7 @@ type ModelSpec struct {
 	// Aliases are the model names under which this model is exposed.
 	// When empty, the base model name from the weights is used.
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:MaxItems=32
+	// +kubebuilder:validation:MaxItems=5
 	// +kubebuilder:validation:items:MinLength=1
 	// +kubebuilder:validation:items:MaxLength=4096
 	// +kubebuilder:validation:items:Pattern=`^[!-~]+([\t ]?[!-~]+)*$`

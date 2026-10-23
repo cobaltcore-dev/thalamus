@@ -244,7 +244,7 @@ jobs:
             --namespace thalamus \
             --type merge \
             -p '{"spec":{"aliases":["HuggingFaceTB/SmolLM2-135M-Instruct-e2e"]}}'
-          # Ready only returns once the new per-alias route is accepted.
+          # Ready only returns once the route with the new alias is accepted.
           kubectl wait model/smollm2-135m \
             --namespace thalamus \
             --for=condition=Ready \
