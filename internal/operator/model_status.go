@@ -18,6 +18,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
+	"github.com/cobaltcore-dev/thalamus/internal/operator/resources/native"
 )
 
 // syncNativeStatus derives and updates the ready state of a model by checking:
@@ -29,7 +30,6 @@ func (r *ModelReconciler) syncNativeStatus(ctx context.Context, model *v1alpha1.
 		return nil
 	}
 
-	servedNames := model.ModelNames()
 	resources := []struct {
 		name          string
 		syncCondition func(context.Context, *v1alpha1.Model) (bool, error)
@@ -37,9 +37,7 @@ func (r *ModelReconciler) syncNativeStatus(ctx context.Context, model *v1alpha1.
 		{"engine", r.syncEngineCondition},
 		{"epp", r.syncEPPCondition},
 		{"inference pool", r.syncInferencePoolCondition},
-		{"http routes", func(ctx context.Context, model *v1alpha1.Model) (bool, error) {
-			return r.syncHTTPRouteCondition(ctx, model, servedNames)
-		}},
+		{"http routes", r.syncHTTPRouteCondition},
 	}
 
 	for _, resource := range resources {
@@ -174,16 +172,35 @@ func (r *ModelReconciler) syncInferencePoolCondition(ctx context.Context, model 
 	return false, nil
 }
 
-// syncHTTPRouteCondition checks the status of every HTTPRoute owned by the
-// model and updates the model status.
-func (r *ModelReconciler) syncHTTPRouteCondition(ctx context.Context, model *v1alpha1.Model, servedNames []string) (bool, error) {
-	routes, err := r.listOwnedHTTPRoutes(ctx, model)
+// syncHTTPRouteCondition checks the status of the HTTPRoutes for the model's
+// current aliases and updates the model status.
+func (r *ModelReconciler) syncHTTPRouteCondition(ctx context.Context, model *v1alpha1.Model) (bool, error) {
+	desired := native.BuildHTTPRoutes(model, r.GatewayName, r.ListenerName)
+	owned, err := r.listOwnedHTTPRoutes(ctx, model)
 	if err != nil {
 		return false, fmt.Errorf("list http routes for model %s/%s: %w", model.Namespace, model.Name, err)
 	}
-	if len(routes) != len(servedNames) {
+
+	ownedByName := make(map[string]gatewayv1.HTTPRoute, len(owned))
+	for _, route := range owned {
+		ownedByName[route.Name] = route
+	}
+
+	// Only routes serving the current aliases count. A stale accepted route
+	// must not make the model look ready after the alias set changed.
+	routes := make([]gatewayv1.HTTPRoute, 0, len(desired))
+	missing := 0
+	for _, want := range desired {
+		route, ok := ownedByName[want.Name]
+		if !ok || route.DeletionTimestamp != nil {
+			missing++
+			continue
+		}
+		routes = append(routes, route)
+	}
+	if missing > 0 {
 		setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonHTTPRouteNotAccepted,
-			fmt.Sprintf("expected %d HTTPRoutes for served names %v, found %d", len(servedNames), servedNames, len(routes)))
+			fmt.Sprintf("%d of %d HTTPRoutes for served names %v missing or terminating", missing, len(desired), model.ModelNames()))
 		return false, nil
 	}
 
