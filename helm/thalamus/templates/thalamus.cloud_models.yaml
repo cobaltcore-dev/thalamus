@@ -49,6 +49,13 @@ spec:
             type: object
           spec:
             properties:
+              aliases:
+                items:
+                  minLength: 1
+                  type: string
+                maxItems: 32
+                type: array
+                x-kubernetes-list-type: set
               backend:
                 default: native
                 enum:

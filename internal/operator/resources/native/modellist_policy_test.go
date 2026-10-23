@@ -158,6 +158,22 @@ func TestBuildModelListResponse_NoSlashInRepoID(t *testing.T) {
 	}
 }
 
+func TestBuildModelListResponse_Aliases(t *testing.T) {
+	model := *testutil.NewModel("tiny-llm", "default")
+	model.Spec.Weights.HF.RepoID = "org/model-a"
+	model.Spec.Aliases = []string{"short", "other"}
+	model.Status.Phase = v1alpha1.ModelPhaseReady
+
+	body, err := BuildModelListResponse([]v1alpha1.Model{model})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"object":"list","data":[{"id":"other","object":"model","owned_by":"org"},{"id":"short","object":"model","owned_by":"org"}]}`
+	if body != want {
+		t.Errorf("model list response:\ngot:  %s\nwant: %s", body, want)
+	}
+}
+
 func TestBuildModelListResponse_Stable(t *testing.T) {
 	z := *testutil.NewModel("tiny-llm", "default")
 	z.Name = "z"

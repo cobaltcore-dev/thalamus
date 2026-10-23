@@ -29,6 +29,7 @@ func (r *ModelReconciler) syncNativeStatus(ctx context.Context, model *v1alpha1.
 		return nil
 	}
 
+	servedNames := model.ModelNames()
 	resources := []struct {
 		name          string
 		syncCondition func(context.Context, *v1alpha1.Model) (bool, error)
@@ -36,7 +37,9 @@ func (r *ModelReconciler) syncNativeStatus(ctx context.Context, model *v1alpha1.
 		{"engine", r.syncEngineCondition},
 		{"epp", r.syncEPPCondition},
 		{"inference pool", r.syncInferencePoolCondition},
-		{"http route", r.syncHTTPRouteCondition},
+		{"http routes", func(ctx context.Context, model *v1alpha1.Model) (bool, error) {
+			return r.syncHTTPRouteCondition(ctx, model, servedNames)
+		}},
 	}
 
 	for _, resource := range resources {
@@ -171,45 +174,55 @@ func (r *ModelReconciler) syncInferencePoolCondition(ctx context.Context, model 
 	return false, nil
 }
 
-// syncHTTPRouteCondition checks the HTTPRoute status and updates the model status.
-func (r *ModelReconciler) syncHTTPRouteCondition(ctx context.Context, model *v1alpha1.Model) (bool, error) {
-	route := &gatewayv1.HTTPRoute{}
-	if err := r.Get(ctx, types.NamespacedName{Name: model.EngineName(), Namespace: model.Namespace}, route); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonHTTPRouteNotAccepted, fmt.Sprintf("HTTPRoute %s not found", model.EngineName()))
-			return false, nil
-		}
-		return false, fmt.Errorf("get http route %s/%s: %w", model.Namespace, model.EngineName(), err)
+// syncHTTPRouteCondition checks the status of every HTTPRoute owned by the
+// model and updates the model status.
+func (r *ModelReconciler) syncHTTPRouteCondition(ctx context.Context, model *v1alpha1.Model, servedNames []string) (bool, error) {
+	routes, err := r.listOwnedHTTPRoutes(ctx, model)
+	if err != nil {
+		return false, fmt.Errorf("list http routes for model %s/%s: %w", model.Namespace, model.Name, err)
 	}
-
-	if len(route.Status.Parents) == 0 {
-		setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonHTTPRouteNotAccepted, fmt.Sprintf("HTTPRoute %s has no parent status yet", model.EngineName()))
+	if len(routes) != len(servedNames) {
+		setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonHTTPRouteNotAccepted,
+			fmt.Sprintf("expected %d HTTPRoutes for served names %v, found %d", len(servedNames), servedNames, len(routes)))
 		return false, nil
 	}
 
 	allReady := true
-	var failedMessage string
+	var failedMessage, pendingMessage string
 	partiallyInvalid := false
-	for _, parent := range route.Status.Parents {
-		pphase, pmessage := checkParentConditions(
-			parent.Conditions,
-			string(gatewayv1.RouteConditionAccepted),
-			string(gatewayv1.RouteConditionResolvedRefs),
-			func(condReason string) bool {
-				return condReason == string(gatewayv1.RouteReasonPending)
-			},
-			func(condReason string) bool {
-				return condReason == string(gatewayv1.RouteReasonBackendNotFound)
-			},
-		)
-		if pphase != v1alpha1.ModelPhaseReady {
+	for _, route := range routes {
+		if len(route.Status.Parents) == 0 {
 			allReady = false
+			if pendingMessage == "" {
+				pendingMessage = fmt.Sprintf("HTTPRoute %s has no parent status yet", route.Name)
+			}
+			continue
 		}
-		if pphase == v1alpha1.ModelPhaseFailed {
-			failedMessage = pmessage
-		}
-		if cond := meta.FindStatusCondition(parent.Conditions, string(gatewayv1.RouteConditionPartiallyInvalid)); cond != nil && cond.Status == metav1.ConditionTrue {
-			partiallyInvalid = true
+
+		for _, parent := range route.Status.Parents {
+			pphase, pmessage := checkParentConditions(
+				parent.Conditions,
+				string(gatewayv1.RouteConditionAccepted),
+				string(gatewayv1.RouteConditionResolvedRefs),
+				func(condReason string) bool {
+					return condReason == string(gatewayv1.RouteReasonPending)
+				},
+				func(condReason string) bool {
+					return condReason == string(gatewayv1.RouteReasonBackendNotFound)
+				},
+			)
+			if pphase != v1alpha1.ModelPhaseReady {
+				allReady = false
+			}
+			if pphase == v1alpha1.ModelPhaseFailed && failedMessage == "" {
+				failedMessage = fmt.Sprintf("HTTPRoute %s: %s", route.Name, pmessage)
+			}
+			if pphase == v1alpha1.ModelPhaseCreating && pendingMessage == "" {
+				pendingMessage = fmt.Sprintf("HTTPRoute %s: %s", route.Name, pmessage)
+			}
+			if cond := meta.FindStatusCondition(parent.Conditions, string(gatewayv1.RouteConditionPartiallyInvalid)); cond != nil && cond.Status == metav1.ConditionTrue {
+				partiallyInvalid = true
+			}
 		}
 	}
 
@@ -218,13 +231,16 @@ func (r *ModelReconciler) syncHTTPRouteCondition(ctx context.Context, model *v1a
 		return false, nil
 	}
 	if partiallyInvalid {
-		setModelStatus(model, v1alpha1.ModelPhaseFailed, v1alpha1.ModelReasonHTTPRoutePartiallyInvalid, fmt.Sprintf("HTTPRoute %s is partially invalid", model.EngineName()))
+		setModelStatus(model, v1alpha1.ModelPhaseFailed, v1alpha1.ModelReasonHTTPRoutePartiallyInvalid, fmt.Sprintf("One or more HTTPRoutes for model %s are partially invalid", model.Name))
 		return false, nil
 	}
 	if allReady {
 		return true, nil
 	}
-	setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonHTTPRouteNotAccepted, fmt.Sprintf("HTTPRoute %s not accepted by gateway", model.EngineName()))
+	if pendingMessage == "" {
+		pendingMessage = "HTTPRoutes not accepted by gateway"
+	}
+	setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonHTTPRouteNotAccepted, pendingMessage)
 	return false, nil
 }
 

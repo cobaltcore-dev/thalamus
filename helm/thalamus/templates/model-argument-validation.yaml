@@ -19,6 +19,8 @@ spec:
       message: "spec.serving.engine must not set --port (managed by the operator)"
     - expression: "!object.spec.serving.engine.containers.exists(c, c.name == 'engine' && has(c.args) && c.args.exists(a, a == '--served-model-name' || a.startsWith('--served-model-name=')))"
       message: "spec.serving.engine must not set --served-model-name (managed by the operator)"
+    - expression: "!object.spec.serving.engine.containers.exists(c, c.name == 'engine' && has(c.env) && c.env.exists(e, e.name == 'VLLM_SKIP_MODEL_NAME_VALIDATION'))"
+      message: "spec.serving.engine must not set VLLM_SKIP_MODEL_NAME_VALIDATION (managed by the operator)"
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicyBinding
