@@ -200,7 +200,7 @@ func (r *ModelReconciler) syncHTTPRouteCondition(ctx context.Context, model *v1a
 	}
 	if missing > 0 {
 		setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonHTTPRouteNotAccepted,
-			fmt.Sprintf("%d of %d HTTPRoutes for served names %v missing or terminating", missing, len(desired), model.ModelNames()))
+			fmt.Sprintf("%d of %d HTTPRoutes missing or terminating", missing, len(desired)))
 		return false, nil
 	}
 
