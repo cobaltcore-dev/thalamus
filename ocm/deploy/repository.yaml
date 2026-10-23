@@ -1,0 +1,10 @@
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Repository
+metadata:
+  name: thalamus-repository
+  namespace: thalamus
+spec:
+  repositorySpec:
+    baseUrl: ghcr.io/skarlso/thalamus
+    type: OCIRegistry
+  interval: 10m
