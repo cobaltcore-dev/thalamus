@@ -51,6 +51,7 @@ spec:
             properties:
               aliases:
                 items:
+                  maxLength: 4096
                   minLength: 1
                   type: string
                 maxItems: 32

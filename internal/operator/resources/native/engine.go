@@ -27,11 +27,6 @@ func BuildEngineDeployment(model *v1alpha1.Model) (*appsv1.Deployment, error) {
 		return nil, err
 	}
 
-	// The model path is the contract with the weights source and the gateway
-	// routing. It is applied after the merge so user args can't drop it.
-	// Aliases are not passed to the engine; the gateway routes them and the
-	// engine skips model name validation (see defaultEnginePodSpec).
-	// TODO: append other default arguments
 	if hf := model.Spec.Weights.HF; model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && hf != nil && model.DetectedEngineType() == v1alpha1.EngineTypeVLLM {
 		c := helpers.GetContainerByName(&podSpec, "engine")
 		c.Args = append([]string{hf.RepoID}, c.Args...)

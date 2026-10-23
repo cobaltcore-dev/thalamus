@@ -137,6 +137,7 @@ type ModelSpec struct {
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:MaxItems=32
 	// +kubebuilder:validation:items:MinLength=1
+	// +kubebuilder:validation:items:MaxLength=4096
 	// +listType=set
 	Aliases []string `json:"aliases,omitempty"`
 }
