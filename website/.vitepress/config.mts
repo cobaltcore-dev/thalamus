@@ -1,4 +1,3 @@
-import { withMermaid } from 'vitepress-plugin-mermaid'
 import markdownItFootnote from 'markdown-it-footnote'
 
 const docsVersion = process.env.DOCS_VERSION || 'main'
@@ -21,7 +20,7 @@ const docsBaseUrl = process.env.DOCS_BASE_URL || ''
 const repoUrl =
   process.env.DOCUMENTATION_REPOSITORY_URL || 'https://github.com/cobaltcore-dev/thalamus'
 
-export default withMermaid({
+export default {
   title: 'Thalamus',
   description: 'Vendor-neutral, Kubernetes-native LLM inference service.',
 
@@ -143,4 +142,4 @@ export default withMermaid({
       md.use(markdownItFootnote)
     },
   },
-})
+}
