@@ -21,20 +21,6 @@ const (
 	testGatewayListener = "custom-listener"
 )
 
-// routeServedNames returns the distinct model names the route matches on,
-// in the order they appear.
-func routeServedNames(route gatewayv1.HTTPRoute) []string {
-	var names []string
-	for _, match := range route.Spec.Rules[0].Matches {
-		for _, header := range match.Headers {
-			if header.Name == gatewayBaseModelHeaderName && !slices.Contains(names, header.Value) {
-				names = append(names, header.Value)
-			}
-		}
-	}
-	return names
-}
-
 func TestBuildInferencePool(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	model.Spec.Serving.Router = corev1.PodSpec{
@@ -63,7 +49,7 @@ func TestBuildHTTPRoute(t *testing.T) {
 	if route.Name != model.EngineName() {
 		t.Errorf("route.Name:\ngot:  %q\nwant: %q", route.Name, model.EngineName())
 	}
-	if got := routeServedNames(*route); !slices.Equal(got, []string{"arnir0/Tiny-LLM"}) {
+	if got := testutil.HTTPRouteHeaderValues(*route, GatewayBaseModelHeaderName); !slices.Equal(got, []string{"arnir0/Tiny-LLM"}) {
 		t.Errorf("served names:\ngot:  %q\nwant: %q", got, []string{"arnir0/Tiny-LLM"})
 	}
 	if route.Namespace != "default" {
@@ -92,7 +78,7 @@ func TestBuildHTTPRoute(t *testing.T) {
 		if *match.Path.Value != want.path {
 			t.Errorf("matches[%d].path.value:\ngot:  %q\nwant: %q", i, *match.Path.Value, want.path)
 		}
-		if len(match.Headers) != 1 || match.Headers[0].Name != gatewayBaseModelHeaderName || match.Headers[0].Value != "arnir0/Tiny-LLM" {
+		if len(match.Headers) != 1 || match.Headers[0].Name != GatewayBaseModelHeaderName || match.Headers[0].Value != "arnir0/Tiny-LLM" {
 			t.Errorf("matches[%d].headers: got %+v", i, match.Headers)
 		}
 	}
@@ -124,7 +110,7 @@ func TestBuildHTTPRoute_Aliases(t *testing.T) {
 	}
 	seenNames := make(map[string]bool)
 	for _, match := range rule.Matches {
-		if len(match.Headers) != 1 || match.Headers[0].Name != gatewayBaseModelHeaderName {
+		if len(match.Headers) != 1 || match.Headers[0].Name != GatewayBaseModelHeaderName {
 			t.Fatalf("unexpected match headers: %+v", match.Headers)
 		}
 		if !slices.Contains(model.Spec.Aliases, match.Headers[0].Value) {
@@ -171,8 +157,8 @@ func TestBuildBodyBasedRoutingPolicy(t *testing.T) {
 		t.Fatal("expected one request transformation set entry")
 	}
 	set := traffic.Transformation.Request.Set[0]
-	if set.Name != gatewayBaseModelHeaderName {
-		t.Errorf("transformation header name:\ngot:  %q\nwant: %q", set.Name, gatewayBaseModelHeaderName)
+	if set.Name != GatewayBaseModelHeaderName {
+		t.Errorf("transformation header name:\ngot:  %q\nwant: %q", set.Name, GatewayBaseModelHeaderName)
 	}
 	if set.Value != bodyBasedRoutingCELExpression {
 		t.Errorf("transformation CEL expression:\ngot:  %q\nwant: %q", set.Value, bodyBasedRoutingCELExpression)

@@ -22,6 +22,7 @@ import (
 	agentgatewayv1alpha1 "github.com/agentgateway/agentgateway/controller/api/v1alpha1/agentgateway"
 
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
+	"github.com/cobaltcore-dev/thalamus/internal/operator/resources/native"
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
 )
 
@@ -54,23 +55,6 @@ func newTestReconciler(t *testing.T, objs ...client.Object) (*ModelReconciler, c
 	return &ModelReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}, c
 }
 
-// routeServedNames returns the distinct model names the model's HTTPRoute
-// matches on, in the order they appear.
-func routeServedNames(route gatewayv1.HTTPRoute) []string {
-	if len(route.Spec.Rules) == 0 {
-		return nil
-	}
-	var names []string
-	for _, match := range route.Spec.Rules[0].Matches {
-		for _, header := range match.Headers {
-			if !slices.Contains(names, header.Value) {
-				names = append(names, header.Value)
-			}
-		}
-	}
-	return names
-}
-
 func TestReconcile_NotFound(t *testing.T) {
 	s := testutil.NewScheme(t)
 	r := &ModelReconciler{Client: fake.NewClientBuilder().WithScheme(s).Build(), Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
@@ -91,7 +75,7 @@ func TestReconcile_Native(t *testing.T) {
 	testutil.MustGet(t, c, "tiny-llm", testNamespace, backend)
 	route := &gatewayv1.HTTPRoute{}
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, route)
-	if got := routeServedNames(*route); !slices.Equal(got, []string{"arnir0/Tiny-LLM"}) {
+	if got := testutil.HTTPRouteHeaderValues(*route, native.GatewayBaseModelHeaderName); !slices.Equal(got, []string{"arnir0/Tiny-LLM"}) {
 		t.Errorf("served names:\ngot:  %q\nwant: %q", got, []string{"arnir0/Tiny-LLM"})
 	}
 
@@ -117,7 +101,7 @@ func TestReconcile_NativeWithAliases(t *testing.T) {
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, dep)
 	route := &gatewayv1.HTTPRoute{}
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, route)
-	if got := routeServedNames(*route); !slices.Equal(got, []string{"tiny"}) {
+	if got := testutil.HTTPRouteHeaderValues(*route, native.GatewayBaseModelHeaderName); !slices.Equal(got, []string{"tiny"}) {
 		t.Errorf("served names:\ngot:  %q\nwant: %q", got, []string{"tiny"})
 	}
 
@@ -180,7 +164,7 @@ func TestReconcile_NativeUpdatesRouteAliases(t *testing.T) {
 
 	route := &gatewayv1.HTTPRoute{}
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, route)
-	if got := routeServedNames(*route); !slices.Equal(got, []string{"tiny", "old"}) {
+	if got := testutil.HTTPRouteHeaderValues(*route, native.GatewayBaseModelHeaderName); !slices.Equal(got, []string{"tiny", "old"}) {
 		t.Fatalf("served names before update:\ngot:  %q\nwant: %q", got, []string{"tiny", "old"})
 	}
 
@@ -194,7 +178,7 @@ func TestReconcile_NativeUpdatesRouteAliases(t *testing.T) {
 	reconcileModelOnce(t, r, "tiny-llm")
 
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, route)
-	if got := routeServedNames(*route); !slices.Equal(got, []string{"tiny", "new"}) {
+	if got := testutil.HTTPRouteHeaderValues(*route, native.GatewayBaseModelHeaderName); !slices.Equal(got, []string{"tiny", "new"}) {
 		t.Errorf("served names after update:\ngot:  %q\nwant: %q", got, []string{"tiny", "new"})
 	}
 }

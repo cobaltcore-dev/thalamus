@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	gatewayBaseModelHeaderName    = "X-Gateway-Base-Model-Name"
+	GatewayBaseModelHeaderName    = "X-Gateway-Base-Model-Name"
 	BodyBasedRoutingPolicyName    = "body-based-routing"
 	bodyBasedRoutingCELExpression = "json(request.body).model"
 )
@@ -55,7 +55,7 @@ func BuildHTTPRoute(model *v1alpha1.Model, gatewayName, listenerName string) *ga
 				},
 				Headers: []gatewayv1.HTTPHeaderMatch{{
 					Type:  new(gatewayv1.HeaderMatchExact),
-					Name:  gatewayBaseModelHeaderName,
+					Name:  GatewayBaseModelHeaderName,
 					Value: modelName,
 				}},
 			})
@@ -111,7 +111,7 @@ func BuildBodyBasedRoutingPolicy(gateway *gatewayv1.Gateway, listenerName string
 					Request: &agentgatewayv1alpha1.Transform{
 						Set: []agentgatewayv1alpha1.HeaderTransformation{
 							{
-								Name:  gatewayBaseModelHeaderName,
+								Name:  GatewayBaseModelHeaderName,
 								Value: bodyBasedRoutingCELExpression,
 							},
 						},

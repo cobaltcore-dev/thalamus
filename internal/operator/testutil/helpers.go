@@ -5,6 +5,7 @@ package testutil
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -62,4 +63,22 @@ func MustNotGet(t *testing.T, c client.Client, name, namespace string, obj clien
 	if !apierrors.IsNotFound(err) {
 		t.Fatalf("unexpected error fetching %T %q: %v", obj, name, err)
 	}
+}
+
+// HTTPRouteHeaderValues returns the distinct values for headerName in the
+// route's first rule, preserving their order.
+func HTTPRouteHeaderValues(route gatewayv1.HTTPRoute, headerName gatewayv1.HTTPHeaderName) []string {
+	if len(route.Spec.Rules) == 0 {
+		return nil
+	}
+
+	var values []string
+	for _, match := range route.Spec.Rules[0].Matches {
+		for _, header := range match.Headers {
+			if header.Name == headerName && !slices.Contains(values, header.Value) {
+				values = append(values, header.Value)
+			}
+		}
+	}
+	return values
 }
