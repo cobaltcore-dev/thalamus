@@ -4,6 +4,7 @@
 package v1alpha1
 
 import (
+	"slices"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -211,7 +212,7 @@ func (m *Model) BaseModelName() string {
 // It falls back to the base model name when no aliases are set.
 func (m *Model) ModelNames() []string {
 	if len(m.Spec.Aliases) > 0 {
-		return m.Spec.Aliases
+		return slices.Clone(m.Spec.Aliases)
 	}
 	return []string{m.BaseModelName()}
 }
