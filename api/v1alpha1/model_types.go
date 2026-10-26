@@ -143,6 +143,8 @@ type ModelSpec struct {
 	Aliases []string `json:"aliases,omitempty"`
 	// The validation pattern above mirrors Gateway API's HTTPHeaderMatch contract:
 	// https://github.com/kubernetes-sigs/gateway-api/blob/v1.5.1/apis/v1/httproute_types.go#L625-L635
+	// MaxItems is 5: HTTPRouteRule allows 64 matches and each name uses 8
+	// (5*8=40), leaving headroom for future routes.
 }
 
 // ModelStatus defines the observed state of a Model.
