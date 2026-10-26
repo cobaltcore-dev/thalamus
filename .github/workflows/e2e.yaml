@@ -259,11 +259,13 @@ jobs:
         env:
           MODEL: HuggingFaceTB/SmolLM2-135M-Instruct
         run: |
-          if uv run test/e2e/validate.py; then
-            echo "FAIL: base model name is still valid after aliases replaced it"
-            exit 1
-          fi
-          echo "PASS: base model name no longer served"
+          for check in models completions responses messages; do
+            if uv run test/e2e/validate.py "$check"; then
+              echo "FAIL: base model name is still served by $check"
+              exit 1
+            fi
+          done
+          echo "PASS: base model name no longer served by any endpoint"
 
       - name: Debug on failure
         if: failure()
