@@ -138,7 +138,7 @@ func (r *ModelReconciler) syncInferencePoolCondition(ctx context.Context, model 
 	allReady := true
 	var failedMessage string
 	for _, parent := range pool.Status.Parents {
-		pphase, pmessage := checkParentConditions(parent.Conditions, inferencePoolParentPolicy)
+		pphase, pmessage := checkParentConditions(parent.Conditions, pool.Generation, inferencePoolParentPolicy)
 		if pphase != v1alpha1.ModelPhaseReady {
 			allReady = false
 		}
@@ -178,14 +178,16 @@ func (r *ModelReconciler) syncHTTPRouteCondition(ctx context.Context, model *v1a
 	var failedMessage string
 	partiallyInvalid := false
 	for _, parent := range route.Status.Parents {
-		pphase, pmessage := checkParentConditions(parent.Conditions, httpRouteParentPolicy)
+		pphase, pmessage := checkParentConditions(parent.Conditions, route.Generation, httpRouteParentPolicy)
 		if pphase != v1alpha1.ModelPhaseReady {
 			allReady = false
 		}
 		if pphase == v1alpha1.ModelPhaseFailed {
 			failedMessage = pmessage
 		}
-		if cond := meta.FindStatusCondition(parent.Conditions, string(gatewayv1.RouteConditionPartiallyInvalid)); cond != nil && cond.Status == metav1.ConditionTrue {
+		partiallyInvalidCond := meta.FindStatusCondition(parent.Conditions, string(gatewayv1.RouteConditionPartiallyInvalid))
+		if partiallyInvalidCond != nil && partiallyInvalidCond.Status == metav1.ConditionTrue &&
+			partiallyInvalidCond.ObservedGeneration >= route.Generation {
 			partiallyInvalid = true
 		}
 	}
@@ -233,17 +235,25 @@ var (
 	}
 )
 
-// checkParentConditions evaluates the conditions a controller wrote for a single
-// parent. It returns ModelPhaseReady only when the accepted condition is present
-// and True and the resolved condition is either absent or True. A False
-// condition is ModelPhaseFailed unless its reason is listed as transient.
+// checkParentConditions returns the model phase for one parent. Stale conditions
+// are pending. It is Ready only when the accepted condition is True and the
+// resolved condition is absent or True; a False condition is Failed unless its
+// reason is transient.
 func checkParentConditions(
 	conditions []metav1.Condition,
+	generation int64,
 	policy parentStatusPolicy,
 ) (phase v1alpha1.ModelPhase, message string) {
 
 	acceptedCond := meta.FindStatusCondition(conditions, policy.acceptedType)
 	resolvedCond := meta.FindStatusCondition(conditions, policy.resolvedType)
+
+	// Stale conditions may still report the previous spec as accepted.
+	for _, cond := range []*metav1.Condition{acceptedCond, resolvedCond} {
+		if cond != nil && cond.ObservedGeneration < generation {
+			return v1alpha1.ModelPhaseCreating, cond.Type + " condition is stale"
+		}
+	}
 
 	if acceptedCond != nil && acceptedCond.Status == metav1.ConditionTrue &&
 		(resolvedCond == nil || resolvedCond.Status == metav1.ConditionTrue) {
