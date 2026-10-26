@@ -146,7 +146,11 @@ def main(argv: list[str] | None = None) -> None:
             CHECKS[name].run(openai_client, anthropic_client, model)
         except Exception as exc:  # noqa: BLE001 - report every check failure
             failures += 1
-            print(f"FAIL: {name} -> {exc}", file=sys.stderr)
+            status = getattr(exc, "status_code", None)
+            if isinstance(status, int):
+                print(f"FAIL: {name} -> HTTP {status}: {exc}", file=sys.stderr)
+            else:
+                print(f"FAIL: {name} -> {exc}", file=sys.stderr)
 
     if failures:
         print(f"{failures} of {len(selected)} e2e checks failed", file=sys.stderr)

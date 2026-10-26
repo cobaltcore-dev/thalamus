@@ -269,10 +269,10 @@ jobs:
             exit 1
           fi
 
-          # The SDK error includes the status code; accept only a real 404.
+          # validate.py prints the HTTP status from the SDK exception.
           for check in completions responses messages; do
             output="$(uv run test/e2e/validate.py "$check" 2>&1)" || true
-            if ! grep -Fq "Error code: 404" <<< "$output"; then
+            if ! grep -Fq "HTTP 404" <<< "$output"; then
               echo "FAIL: $check did not reject the base model name with 404:"
               echo "$output"
               exit 1
