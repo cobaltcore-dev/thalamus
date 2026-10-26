@@ -263,13 +263,22 @@ jobs:
         env:
           MODEL: HuggingFaceTB/SmolLM2-135M-Instruct
         run: |
-          for check in models completions responses messages; do
-            if uv run test/e2e/validate.py "$check"; then
-              echo "FAIL: base model name is still served by $check"
+          # /v1/models returns 200 even when the model is absent.
+          if uv run test/e2e/validate.py models; then
+            echo "FAIL: base model name is still listed in /v1/models"
+            exit 1
+          fi
+
+          # The SDK error includes the status code; accept only a real 404.
+          for check in completions responses messages; do
+            output="$(uv run test/e2e/validate.py "$check" 2>&1)" || true
+            if ! grep -Fq "Error code: 404" <<< "$output"; then
+              echo "FAIL: $check did not reject the base model name with 404:"
+              echo "$output"
               exit 1
             fi
           done
-          echo "PASS: base model name no longer served by any endpoint"
+          echo "PASS: base model name is absent from /v1/models and rejected with 404"
 
       - name: Debug on failure
         if: failure()
