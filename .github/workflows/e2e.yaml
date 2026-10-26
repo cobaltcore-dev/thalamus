@@ -244,9 +244,13 @@ jobs:
             --namespace thalamus \
             --type merge \
             -p '{"spec":{"aliases":["HuggingFaceTB/SmolLM2-135M-Instruct-e2e"]}}'
-          # Ready only returns once the route with the new alias is accepted.
+
+          generation="$(kubectl get model smollm2-135m \
+            --namespace thalamus \
+            -o jsonpath='{.metadata.generation}')"
           kubectl wait model/smollm2-135m \
             --namespace thalamus \
+            --for=jsonpath='{.status.conditions[?(@.type=="Ready")].observedGeneration}'="$generation" \
             --for=condition=Ready \
             --timeout=120s
 
