@@ -491,6 +491,36 @@ func TestReconcile_ModelStatus(t *testing.T) {
 	}
 }
 
+// TestSyncHTTPRouteCondition_StaleMatches verifies that cached matches from an
+// older spec are not reported as ready. It calls the condition check directly
+// because reconcile re-applies the route.
+func TestSyncHTTPRouteCondition_StaleMatches(t *testing.T) {
+	model := testutil.NewModel("tiny-llm", testNamespace)
+	r, c := newTestReconciler(t, model)
+	reconcileModelOnce(t, r, "tiny-llm")
+	markHTTPRouteReady(t, c, model.EngineName())
+
+	route := &gatewayv1.HTTPRoute{}
+	testutil.MustGet(t, c, model.EngineName(), testNamespace, route)
+	route.Spec.Rules[0].Matches = route.Spec.Rules[0].Matches[:1]
+	if err := c.Update(context.Background(), route); err != nil {
+		t.Fatalf("update http route: %v", err)
+	}
+
+	testutil.MustGet(t, c, "tiny-llm", testNamespace, model)
+	ready, err := r.syncHTTPRouteCondition(context.Background(), model)
+	if err != nil {
+		t.Fatalf("sync http route condition: %v", err)
+	}
+	if ready {
+		t.Fatal("expected a route with stale matches to be not ready")
+	}
+	cond := meta.FindStatusCondition(model.Status.Conditions, v1alpha1.ModelConditionReady)
+	if cond == nil || cond.Reason != string(v1alpha1.ModelReasonHTTPRouteNotAccepted) {
+		t.Errorf("Ready condition: %+v, want reason %q", cond, v1alpha1.ModelReasonHTTPRouteNotAccepted)
+	}
+}
+
 func markDeploymentReady(t *testing.T, c client.Client, name string) {
 	t.Helper()
 	dep := &appsv1.Deployment{}

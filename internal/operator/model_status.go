@@ -9,6 +9,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -18,6 +19,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
+	"github.com/cobaltcore-dev/thalamus/internal/operator/resources/native"
 )
 
 // syncNativeStatus derives and updates the ready state of a model by checking:
@@ -169,6 +171,14 @@ func (r *ModelReconciler) syncHTTPRouteCondition(ctx context.Context, model *v1a
 		return false, fmt.Errorf("get http route %s/%s: %w", model.Namespace, model.EngineName(), err)
 	}
 
+	// The informer cache may still hold the route from before this apply.
+	desired := native.BuildHTTPRoute(model, r.GatewayName, r.ListenerName)
+	if !httpRouteServesDesiredMatches(route, desired) {
+		setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonHTTPRouteNotAccepted,
+			fmt.Sprintf("HTTPRoute %s does not serve the current model names", model.EngineName()))
+		return false, nil
+	}
+
 	if len(route.Status.Parents) == 0 {
 		setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonHTTPRouteNotAccepted, fmt.Sprintf("HTTPRoute %s has no parent status yet", model.EngineName()))
 		return false, nil
@@ -205,6 +215,20 @@ func (r *ModelReconciler) syncHTTPRouteCondition(ctx context.Context, model *v1a
 	}
 	setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonHTTPRouteNotAccepted, fmt.Sprintf("HTTPRoute %s not accepted by gateway", model.EngineName()))
 	return false, nil
+}
+
+// httpRouteServesDesiredMatches reports whether route serves the desired
+// matches. Other fields are skipped because the API server defaults them.
+func httpRouteServesDesiredMatches(route, desired *gatewayv1.HTTPRoute) bool {
+	if len(route.Spec.Rules) != len(desired.Spec.Rules) {
+		return false
+	}
+	for i := range desired.Spec.Rules {
+		if !apiequality.Semantic.DeepEqual(route.Spec.Rules[i].Matches, desired.Spec.Rules[i].Matches) {
+			return false
+		}
+	}
+	return true
 }
 
 // parentStatusPolicy describes how a parent's conditions are interpreted.
