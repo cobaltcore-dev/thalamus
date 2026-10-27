@@ -25,7 +25,7 @@ func newTestModelArtifactReconciler(t *testing.T, objs ...client.Object) (*Model
 	t.Helper()
 	s := testutil.NewScheme(t)
 	c := fake.NewClientBuilder().WithScheme(s).WithObjects(objs...).Build()
-	return &ModelArtifactReconciler{Client: c, Scheme: s}, c
+	return &ModelArtifactReconciler{Client: c, Scheme: s, APIReader: c}, c
 }
 
 // reconcileModelArtifactOnce reconciles the named artifact once.
@@ -144,6 +144,26 @@ func TestModelArtifactReconcile_CompletesUnreferencedDeletion(t *testing.T) {
 	reconcileModelArtifactOnce(t, r, "weights")
 
 	testutil.MustNotGet(t, c, "weights", testNamespace, &v1alpha1.ModelArtifact{})
+}
+
+func TestModelArtifactReconcile_ConfirmsZeroReferencesWithAPIReader(t *testing.T) {
+	s := testutil.NewScheme(t)
+	model, artifact := testutil.Fixture("tiny-llm", testNamespace).Build()
+	controllerutil.AddFinalizer(artifact, ModelArtifactFinalizer)
+
+	// The cached client has not observed the Model yet.
+	cached := fake.NewClientBuilder().WithScheme(s).WithObjects(artifact).Build()
+	apiReader := fake.NewClientBuilder().WithScheme(s).WithObjects(model, artifact).Build()
+	if err := cached.Delete(context.Background(), artifact); err != nil {
+		t.Fatalf("delete artifact: %v", err)
+	}
+
+	r := &ModelArtifactReconciler{Client: cached, APIReader: apiReader, Scheme: s}
+	reconcileModelArtifactOnce(t, r, artifact.Name)
+
+	if !artifactHasFinalizer(t, cached, artifact.Name) {
+		t.Error("artifact referenced only in the API reader must retain protection")
+	}
 }
 
 func TestModelArtifactEventHandler_UpdateEnqueuesOldAndNewReferences(t *testing.T) {

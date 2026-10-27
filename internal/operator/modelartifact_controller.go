@@ -24,7 +24,8 @@ const ModelArtifactFinalizer = "thalamus.cloud/artifact-protection"
 // ModelArtifactReconciler protects ModelArtifacts that are referenced by Models.
 type ModelArtifactReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme    *runtime.Scheme
+	APIReader client.Reader
 }
 
 // Reconcile keeps every live artifact protected and releases it once deletion is unreferenced.
@@ -76,10 +77,19 @@ func ensureArtifactFinalizer(ctx context.Context, c client.Client, artifact *v1a
 	return nil
 }
 
-// countReferencingModels counts the Models that reference the artifact.
+// countReferencingModels counts referencing Models, confirming zero references
+// with an uncached read.
 func (r *ModelArtifactReconciler) countReferencingModels(ctx context.Context, artifact *v1alpha1.ModelArtifact) (int, error) {
+	refs, err := countModelsReferencingArtifact(ctx, r.Client, artifact)
+	if err != nil || refs > 0 {
+		return refs, err
+	}
+	return countModelsReferencingArtifact(ctx, r.APIReader, artifact)
+}
+
+func countModelsReferencingArtifact(ctx context.Context, reader client.Reader, artifact *v1alpha1.ModelArtifact) (int, error) {
 	var models v1alpha1.ModelList
-	if err := r.List(ctx, &models, client.InNamespace(artifact.Namespace)); err != nil {
+	if err := reader.List(ctx, &models, client.InNamespace(artifact.Namespace)); err != nil {
 		return 0, fmt.Errorf("list models in namespace %s: %w", artifact.Namespace, err)
 	}
 	refs := 0
