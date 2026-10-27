@@ -19,6 +19,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -131,6 +132,20 @@ func markArtifactTerminating(t *testing.T, c client.Client, name, namespace stri
 	if artifact.GetDeletionTimestamp() == nil {
 		t.Fatal("artifact should be terminating with a deletion timestamp")
 	}
+}
+
+func TestReconcile_ProtectsArtifactBeforeDeploy(t *testing.T) {
+	model, artifact := testutil.Fixture("tiny-llm", testNamespace).Build()
+	r, c := newTestReconciler(t, model, artifact)
+
+	reconcileModelOnce(t, r, "tiny-llm")
+
+	updated := &v1alpha1.ModelArtifact{}
+	testutil.MustGet(t, c, artifact.Name, testNamespace, updated)
+	if !controllerutil.ContainsFinalizer(updated, ModelArtifactFinalizer) {
+		t.Error("artifact must be protected before the model is deployed")
+	}
+	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, &appsv1.Deployment{})
 }
 
 func TestReconcile_NotFound(t *testing.T) {
@@ -323,8 +338,14 @@ func TestReconcile_MissingArtifact_ScaleToZero(t *testing.T) {
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, &appsv1.Deployment{})
 	testutil.MustGet(t, c, "tiny-llm-epp", testNamespace, &appsv1.Deployment{})
 
-	// Delete the artifact, then scale to zero.
-	if err := c.Delete(context.Background(), artifact); err != nil {
+	// Force-remove protection, then delete the artifact and scale to zero.
+	updatedArtifact := &v1alpha1.ModelArtifact{}
+	testutil.MustGet(t, c, artifact.Name, testNamespace, updatedArtifact)
+	updatedArtifact.Finalizers = nil
+	if err := c.Update(context.Background(), updatedArtifact); err != nil {
+		t.Fatalf("remove artifact finalizer: %v", err)
+	}
+	if err := c.Delete(context.Background(), updatedArtifact); err != nil {
 		t.Fatalf("delete artifact: %v", err)
 	}
 	updatedModel := &v1alpha1.Model{}

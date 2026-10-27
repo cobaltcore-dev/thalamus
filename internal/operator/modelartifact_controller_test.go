@@ -54,14 +54,14 @@ func deleteArtifact(t *testing.T, c client.Client, name string) {
 	}
 }
 
-func TestModelArtifactReconcile_NoReferences(t *testing.T) {
+func TestModelArtifactReconcile_ProtectsUnreferencedArtifact(t *testing.T) {
 	artifact := testutil.NewModelArtifact("weights", testNamespace)
 	r, c := newTestModelArtifactReconciler(t, artifact)
 
 	reconcileModelArtifactOnce(t, r, "weights")
 
-	if artifactHasFinalizer(t, c, "weights") {
-		t.Error("unreferenced artifact must not carry the protection finalizer")
+	if !artifactHasFinalizer(t, c, "weights") {
+		t.Error("live artifacts must carry the protection finalizer")
 	}
 }
 
@@ -108,7 +108,7 @@ func TestModelArtifactReconcile_ReleasesWhenModelDeleted(t *testing.T) {
 	testutil.MustNotGet(t, c, artifact.Name, testNamespace, &v1alpha1.ModelArtifact{})
 }
 
-func TestModelArtifactReconcile_ReleasesWhenReferenceChanges(t *testing.T) {
+func TestModelArtifactReconcile_RetainsProtectionWhenReferenceChanges(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", testNamespace)
 	artifact := testutil.NewModelArtifact(model.Spec.ArtifactRef.Name, testNamespace)
 	r, c := newTestModelArtifactReconciler(t, model, artifact)
@@ -126,16 +126,20 @@ func TestModelArtifactReconcile_ReleasesWhenReferenceChanges(t *testing.T) {
 	}
 
 	reconcileModelArtifactOnce(t, r, artifact.Name)
-
-	if artifactHasFinalizer(t, c, artifact.Name) {
-		t.Error("artifact must lose the protection finalizer once no Model references it")
+	if !artifactHasFinalizer(t, c, artifact.Name) {
+		t.Error("live artifacts must retain the protection finalizer")
 	}
+
+	deleteArtifact(t, c, artifact.Name)
+	reconcileModelArtifactOnce(t, r, artifact.Name)
+	testutil.MustNotGet(t, c, artifact.Name, testNamespace, &v1alpha1.ModelArtifact{})
 }
 
 func TestModelArtifactReconcile_CompletesUnreferencedDeletion(t *testing.T) {
 	artifact := testutil.NewModelArtifact("weights", testNamespace)
 	r, c := newTestModelArtifactReconciler(t, artifact)
 
+	reconcileModelArtifactOnce(t, r, "weights")
 	deleteArtifact(t, c, "weights")
 	reconcileModelArtifactOnce(t, r, "weights")
 

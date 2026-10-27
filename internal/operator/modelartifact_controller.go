@@ -27,7 +27,7 @@ type ModelArtifactReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// Reconcile holds the finalizer while a Model references the artifact and releases it otherwise.
+// Reconcile keeps every live artifact protected and releases it once deletion is unreferenced.
 func (r *ModelArtifactReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	artifact := &v1alpha1.ModelArtifact{}
 	if err := r.Get(ctx, req.NamespacedName, artifact); err != nil {
@@ -37,33 +37,43 @@ func (r *ModelArtifactReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
+	if artifact.GetDeletionTimestamp() == nil {
+		return ctrl.Result{}, ensureArtifactFinalizer(ctx, r.Client, artifact)
+	}
+
+	if !controllerutil.ContainsFinalizer(artifact, ModelArtifactFinalizer) {
+		return ctrl.Result{}, nil
+	}
 	refs, err := r.countReferencingModels(ctx, artifact)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-
-	if controllerutil.ContainsFinalizer(artifact, ModelArtifactFinalizer) == (refs > 0) {
-		if refs > 0 && artifact.GetDeletionTimestamp() != nil {
-			log.FromContext(ctx).V(levelInfo).Info("holding terminating model artifact",
-				"namespace", artifact.Namespace, "name", artifact.Name, "models", refs)
-		}
+	if refs > 0 {
+		log.FromContext(ctx).V(levelInfo).Info("holding terminating model artifact",
+			"namespace", artifact.Namespace, "name", artifact.Name, "models", refs)
 		return ctrl.Result{}, nil
 	}
 
 	before := artifact.DeepCopy()
-	if refs > 0 {
-		controllerutil.AddFinalizer(artifact, ModelArtifactFinalizer)
-		log.FromContext(ctx).V(levelInfo).Info("protecting model artifact",
-			"namespace", artifact.Namespace, "name", artifact.Name, "models", refs)
-	} else {
-		controllerutil.RemoveFinalizer(artifact, ModelArtifactFinalizer)
-		log.FromContext(ctx).V(levelInfo).Info("releasing model artifact",
-			"namespace", artifact.Namespace, "name", artifact.Name)
-	}
+	controllerutil.RemoveFinalizer(artifact, ModelArtifactFinalizer)
 	if err := r.Patch(ctx, artifact, client.MergeFrom(before)); err != nil {
 		return ctrl.Result{}, fmt.Errorf("patch model artifact %s finalizer: %w", req.NamespacedName, err)
 	}
+	log.FromContext(ctx).V(levelInfo).Info("releasing model artifact",
+		"namespace", artifact.Namespace, "name", artifact.Name)
 	return ctrl.Result{}, nil
+}
+
+// ensureArtifactFinalizer adds the protection finalizer to a live artifact.
+func ensureArtifactFinalizer(ctx context.Context, c client.Client, artifact *v1alpha1.ModelArtifact) error {
+	before := artifact.DeepCopy()
+	if !controllerutil.AddFinalizer(artifact, ModelArtifactFinalizer) {
+		return nil
+	}
+	if err := c.Patch(ctx, artifact, client.MergeFrom(before)); err != nil {
+		return fmt.Errorf("patch model artifact %s/%s finalizer: %w", artifact.Namespace, artifact.Name, err)
+	}
+	return nil
 }
 
 // countReferencingModels counts the Models that reference the artifact.

@@ -81,6 +81,11 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, nil
 	}
 
+	// Protect the artifact before deploying anything that depends on it.
+	if err := ensureArtifactFinalizer(ctx, r.Client, artifact); err != nil {
+		return ctrl.Result{}, fmt.Errorf("protect model artifact %s: %w", artifactKey, err)
+	}
+
 	var err error
 	switch model.Spec.Backend {
 	case v1alpha1.BackendTypeNative:
