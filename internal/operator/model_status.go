@@ -25,7 +25,7 @@ import (
 // syncNativeStatus derives and updates the ready state of a model by checking:
 // engine Deployment, EPP Deployment, InferencePool acceptance,
 // and HTTPRoute acceptance.
-func (r *ModelReconciler) syncNativeStatus(ctx context.Context, model *v1alpha1.Model) error {
+func (r *ModelReconciler) syncNativeStatus(ctx context.Context, model *v1alpha1.Model, artifact *v1alpha1.ModelArtifact) error {
 	if model.Spec.Replicas == 0 {
 		setModelStatus(model, v1alpha1.ModelPhaseInactive, v1alpha1.ModelReasonNoReplicasDesired, "model has no desired replicas")
 		return nil
@@ -38,7 +38,9 @@ func (r *ModelReconciler) syncNativeStatus(ctx context.Context, model *v1alpha1.
 		{"engine", r.syncEngineCondition},
 		{"epp", r.syncEPPCondition},
 		{"inference pool", r.syncInferencePoolCondition},
-		{"http route", r.syncHTTPRouteCondition},
+		{"http route", func(ctx context.Context, m *v1alpha1.Model) (bool, error) {
+			return r.syncHTTPRouteCondition(ctx, m, artifact)
+		}},
 	}
 
 	for _, resource := range resources {
@@ -161,7 +163,7 @@ func (r *ModelReconciler) syncInferencePoolCondition(ctx context.Context, model 
 }
 
 // syncHTTPRouteCondition checks the HTTPRoute status and updates the model status.
-func (r *ModelReconciler) syncHTTPRouteCondition(ctx context.Context, model *v1alpha1.Model) (bool, error) {
+func (r *ModelReconciler) syncHTTPRouteCondition(ctx context.Context, model *v1alpha1.Model, artifact *v1alpha1.ModelArtifact) (bool, error) {
 	route := &gatewayv1.HTTPRoute{}
 	if err := r.Get(ctx, types.NamespacedName{Name: model.EngineName(), Namespace: model.Namespace}, route); err != nil {
 		if client.IgnoreNotFound(err) == nil {
@@ -172,7 +174,7 @@ func (r *ModelReconciler) syncHTTPRouteCondition(ctx context.Context, model *v1a
 	}
 
 	// The informer cache may still hold the route from before this apply.
-	desired := native.BuildHTTPRoute(model, r.GatewayName, r.ListenerName)
+	desired := native.BuildHTTPRoute(model, artifact, r.GatewayName, r.ListenerName)
 	if !httpRouteServesDesiredMatches(route, desired) {
 		setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonHTTPRouteNotAccepted,
 			fmt.Sprintf("HTTPRoute %s does not serve the current model names", model.EngineName()))

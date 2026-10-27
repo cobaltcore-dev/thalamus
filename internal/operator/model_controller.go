@@ -13,13 +13,16 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -48,10 +51,40 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, nil
 	}
 
+	// Missing or terminating artifact fails the Model, even at zero replicas.
+	artifact := &v1alpha1.ModelArtifact{}
+	artifactKey := types.NamespacedName{Name: model.Spec.ArtifactRef.Name, Namespace: model.Namespace}
+	var failureReason v1alpha1.ModelReason
+	var failureMessage string
+	switch err := r.Get(ctx, artifactKey, artifact); {
+	case apierrors.IsNotFound(err):
+		failureReason = v1alpha1.ModelReasonArtifactNotFound
+		failureMessage = fmt.Sprintf("model artifact %s not found; recreate the artifact or delete the Model to resolve this", artifactKey)
+	case err != nil:
+		return ctrl.Result{}, fmt.Errorf("get model artifact %s: %w", artifactKey, err)
+	case artifact.GetDeletionTimestamp() != nil:
+		failureReason = v1alpha1.ModelReasonArtifactTerminating
+		failureMessage = fmt.Sprintf("model artifact %s is being deleted; delete the Model or update spec.artifactRef to let the deletion complete", artifactKey)
+	}
+
+	if failureReason != "" {
+		// Teardown only needs names and owner refs, so an empty artifact is safe.
+		if model.Spec.Replicas == 0 {
+			if err := r.reconcileNative(ctx, model, &v1alpha1.ModelArtifact{}); err != nil {
+				return ctrl.Result{}, fmt.Errorf("reconcile model %s: %w", req.NamespacedName, err)
+			}
+		}
+		if err := r.setFailedStatus(ctx, model, failureReason, failureMessage); err != nil {
+			return ctrl.Result{}, err
+		}
+		log.FromContext(ctx).V(levelInfo).Info("model artifact unavailable", "namespace", model.Namespace, "name", model.Name, "reason", failureReason)
+		return ctrl.Result{}, nil
+	}
+
 	var err error
 	switch model.Spec.Backend {
 	case v1alpha1.BackendTypeNative:
-		err = r.reconcileNative(ctx, model)
+		err = r.reconcileNative(ctx, model, artifact)
 	case v1alpha1.BackendTypeKServe:
 		err = r.reconcileKServe(ctx, model)
 	case v1alpha1.BackendTypeKAITO:
@@ -60,9 +93,10 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, fmt.Errorf("unknown backend type %q", model.Spec.Backend)
 	}
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("reconcile model %s: %w", req.NamespacedName, r.setFailedStatus(ctx, model, err))
+		statusErr := r.setFailedStatus(ctx, model, v1alpha1.ModelReasonReconcileError, err.Error())
+		return ctrl.Result{}, errors.Join(fmt.Errorf("reconcile model %s: %w", req.NamespacedName, err), statusErr)
 	}
-	if err := r.syncStatus(ctx, model); err != nil {
+	if err := r.syncStatus(ctx, model, artifact); err != nil {
 		return ctrl.Result{}, err
 	}
 	log.FromContext(ctx).V(levelDebug).Info("reconciled model", "namespace", model.Namespace, "name", model.Name, "backend", model.Spec.Backend, "phase", model.Status.Phase)
@@ -80,8 +114,8 @@ func (r *ModelReconciler) reconcileKAITO(_ context.Context, _ *v1alpha1.Model) e
 }
 
 // reconcileNative creates, updates, or deletes all child resources for the native backend.
-func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.Model) error {
-	engineDeployment, err := native.BuildEngineDeployment(model)
+func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.Model, artifact *v1alpha1.ModelArtifact) error {
+	engineDeployment, err := native.BuildEngineDeployment(model, artifact)
 	if err != nil {
 		return fmt.Errorf("build engine deployment: %w", err)
 	}
@@ -92,7 +126,7 @@ func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.M
 		native.BuildEngineService(model),
 		native.BuildInferencePool(model),
 		native.BuildAIBackend(model),
-		native.BuildHTTPRoute(model, r.GatewayName, r.ListenerName),
+		native.BuildHTTPRoute(model, artifact, r.GatewayName, r.ListenerName),
 	}
 
 	eppDeployment, err := native.BuildEPPDeployment(model)
@@ -147,7 +181,7 @@ func (r *ModelReconciler) deleteOwned(ctx context.Context, owner *v1alpha1.Model
 }
 
 // syncStatus updates common status fields and dispatches to the backend-specific status sync.
-func (r *ModelReconciler) syncStatus(ctx context.Context, model *v1alpha1.Model) error {
+func (r *ModelReconciler) syncStatus(ctx context.Context, model *v1alpha1.Model, artifact *v1alpha1.ModelArtifact) error {
 	patch := client.MergeFrom(model.DeepCopy())
 	before := model.Status.DeepCopy()
 
@@ -157,7 +191,7 @@ func (r *ModelReconciler) syncStatus(ctx context.Context, model *v1alpha1.Model)
 	var err error
 	switch model.Spec.Backend {
 	case v1alpha1.BackendTypeNative:
-		err = r.syncNativeStatus(ctx, model)
+		err = r.syncNativeStatus(ctx, model, artifact)
 	case v1alpha1.BackendTypeKServe:
 		err = r.syncKServeStatus(ctx, model)
 	case v1alpha1.BackendTypeKAITO:
@@ -191,26 +225,46 @@ func (r *ModelReconciler) syncKAITOStatus(_ context.Context, _ *v1alpha1.Model) 
 	return nil
 }
 
-// setFailed marks the model as Failed and returns the original error.
-func (r *ModelReconciler) setFailedStatus(ctx context.Context, model *v1alpha1.Model, cause error) error {
+// setFailedStatus marks the model Failed and returns any status-patch error.
+func (r *ModelReconciler) setFailedStatus(ctx context.Context, model *v1alpha1.Model, reason v1alpha1.ModelReason, message string) error {
 	patch := client.MergeFrom(model.DeepCopy())
 	model.Status.Phase = v1alpha1.ModelPhaseFailed
 	meta.SetStatusCondition(&model.Status.Conditions, metav1.Condition{
 		Type:               v1alpha1.ModelConditionReady,
 		Status:             metav1.ConditionFalse,
-		Reason:             "ReconcileError",
-		Message:            cause.Error(),
+		Reason:             string(reason),
+		Message:            message,
 		ObservedGeneration: model.Generation,
 	})
-	if patchErr := r.Status().Patch(ctx, model, patch); patchErr != nil {
-		log.FromContext(ctx).Error(patchErr, "failed to patch status after reconcile error")
+	if err := r.Status().Patch(ctx, model, patch); err != nil {
+		return fmt.Errorf("patch failed status for model %s/%s: %w", model.Namespace, model.Name, err)
 	}
-	return cause
+	return nil
+}
+
+// mapArtifactToModels enqueues every Model in the artifact's namespace that references it.
+func (r *ModelReconciler) mapArtifactToModels(ctx context.Context, obj client.Object) []reconcile.Request {
+	var models v1alpha1.ModelList
+	if err := r.List(ctx, &models, client.InNamespace(obj.GetNamespace())); err != nil {
+		log.FromContext(ctx).Error(err, "list models for artifact", "namespace", obj.GetNamespace(), "name", obj.GetName())
+		return nil
+	}
+
+	requests := make([]reconcile.Request, 0)
+	for i := range models.Items {
+		model := &models.Items[i]
+		if model.Spec.ArtifactRef.Name != obj.GetName() {
+			continue
+		}
+		requests = append(requests, reconcile.Request{Name: model.Name, Namespace: model.Namespace})
+	}
+	return requests
 }
 
 func (r *ModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Model{}).
+		Watches(&v1alpha1.ModelArtifact{}, handler.EnqueueRequestsFromMapFunc(r.mapArtifactToModels)).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{}).
 		Owns(&corev1.ServiceAccount{}).

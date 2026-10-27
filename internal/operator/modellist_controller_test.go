@@ -44,6 +44,18 @@ func reconcileModelListOnce(t *testing.T, r *ModelListReconciler) ctrl.Result {
 	return res
 }
 
+// newTestModelListReconciler returns a reconciler backed by a fake client with
+// Model status subresources.
+func newTestModelListReconciler(t *testing.T, objs ...client.Object) (*ModelListReconciler, client.Client) {
+	t.Helper()
+	s := testutil.NewScheme(t)
+	c := fake.NewClientBuilder().WithScheme(s).
+		WithObjects(objs...).
+		WithStatusSubresource(&v1alpha1.Model{}).
+		Build()
+	return &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}, c
+}
+
 func mustGetPolicy(t *testing.T, r *ModelListReconciler) *agentgatewayv1alpha1.AgentgatewayPolicy {
 	t.Helper()
 	policy := &agentgatewayv1alpha1.AgentgatewayPolicy{}
@@ -92,9 +104,7 @@ func mustAssertOwnedByGateway(t *testing.T, obj client.Object, gateway *gatewayv
 }
 
 func TestModelListReconcile_NoGateway(t *testing.T) {
-	s := testutil.NewScheme(t)
-	c := fake.NewClientBuilder().WithScheme(s).Build()
-	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
+	r, c := newTestModelListReconciler(t)
 
 	reconcileModelListOnce(t, r)
 
@@ -103,10 +113,8 @@ func TestModelListReconcile_NoGateway(t *testing.T) {
 }
 
 func TestModelListReconcile_NoModels(t *testing.T) {
-	s := testutil.NewScheme(t)
 	gateway := newGateway()
-	c := fake.NewClientBuilder().WithScheme(s).WithObjects(gateway).Build()
-	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
+	r, _ := newTestModelListReconciler(t, gateway)
 
 	reconcileModelListOnce(t, r)
 
@@ -119,15 +127,10 @@ func TestModelListReconcile_NoModels(t *testing.T) {
 }
 
 func TestModelListReconcile_OneReadyModel(t *testing.T) {
-	s := testutil.NewScheme(t)
 	gateway := newGateway()
-	model := testutil.NewModel("tiny-llm", testNamespace)
+	model, artifact := testutil.Fixture("tiny-llm", testNamespace).Build()
 	model.Status.Phase = v1alpha1.ModelPhaseReady
-	c := fake.NewClientBuilder().WithScheme(s).
-		WithObjects(gateway).
-		WithObjects(model).WithStatusSubresource(model).
-		Build()
-	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
+	r, _ := newTestModelListReconciler(t, gateway, artifact, model)
 
 	reconcileModelListOnce(t, r)
 
@@ -139,16 +142,11 @@ func TestModelListReconcile_OneReadyModel(t *testing.T) {
 }
 
 func TestModelListReconcile_Aliases(t *testing.T) {
-	s := testutil.NewScheme(t)
 	gateway := newGateway()
-	model := testutil.NewModel("tiny-llm", testNamespace)
+	model, artifact := testutil.Fixture("tiny-llm", testNamespace).Build()
 	model.Spec.Aliases = []string{"tiny", "tiny-latest"}
 	model.Status.Phase = v1alpha1.ModelPhaseReady
-	c := fake.NewClientBuilder().WithScheme(s).
-		WithObjects(gateway).
-		WithObjects(model).WithStatusSubresource(model).
-		Build()
-	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
+	r, _ := newTestModelListReconciler(t, gateway, artifact, model)
 
 	reconcileModelListOnce(t, r)
 
@@ -159,20 +157,38 @@ func TestModelListReconcile_Aliases(t *testing.T) {
 	}
 }
 
-func TestModelListReconcile_OnlyReadyModelsListed(t *testing.T) {
-	s := testutil.NewScheme(t)
+func TestModelListReconcile_ArtifactChange(t *testing.T) {
 	gateway := newGateway()
-	ready := testutil.NewModel("ready", testNamespace)
-	ready.Spec.Weights.HF.RepoID = "org/ready-model"
+	model, artifact := testutil.Fixture("tiny-llm", testNamespace).Build()
+	model.Status.Phase = v1alpha1.ModelPhaseReady
+	r, c := newTestModelListReconciler(t, gateway, artifact, model)
+
+	reconcileModelListOnce(t, r)
+	expected := `{"object":"list","data":[{"id":"arnir0/Tiny-LLM","object":"model","owned_by":"arnir0"}]}`
+	if body := mustGetPolicyBody(t, r); body != expected {
+		t.Errorf("model list policy body:\ngot:  %s\nwant: %s", body, expected)
+	}
+
+	artifact.Spec.Base = "hf://other/new-base"
+	if err := c.Update(context.Background(), artifact); err != nil {
+		t.Fatalf("update artifact: %v", err)
+	}
+	reconcileModelListOnce(t, r)
+	expected = `{"object":"list","data":[{"id":"other/new-base","object":"model","owned_by":"other"}]}`
+	if body := mustGetPolicyBody(t, r); body != expected {
+		t.Errorf("model list policy body after artifact change:\ngot:  %s\nwant: %s", body, expected)
+	}
+}
+
+func TestModelListReconcile_OnlyReadyModelsListed(t *testing.T) {
+	gateway := newGateway()
+	ready, readyArtifact := testutil.Fixture("ready", testNamespace).Build()
+	readyArtifact.Spec.Base = "hf://org/ready-model"
 	ready.Status.Phase = v1alpha1.ModelPhaseReady
-	creating := testutil.NewModel("creating", testNamespace)
-	creating.Spec.Weights.HF.RepoID = "org/creating-model"
+	creating, creatingArtifact := testutil.Fixture("creating", testNamespace).Build()
+	creatingArtifact.Spec.Base = "hf://org/creating-model"
 	creating.Status.Phase = v1alpha1.ModelPhaseCreating
-	c := fake.NewClientBuilder().WithScheme(s).
-		WithObjects(gateway).
-		WithObjects(ready, creating).WithStatusSubresource(ready, creating).
-		Build()
-	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
+	r, _ := newTestModelListReconciler(t, gateway, readyArtifact, creatingArtifact, ready, creating)
 
 	reconcileModelListOnce(t, r)
 
@@ -184,12 +200,10 @@ func TestModelListReconcile_OnlyReadyModelsListed(t *testing.T) {
 }
 
 func TestModelListReconcile_ReappliesModifiedPolicy(t *testing.T) {
-	s := testutil.NewScheme(t)
 	gateway := newGateway()
 	policy := newModelListPolicy()
 	policy.Spec.Traffic.DirectResponse.Headers = nil
-	c := fake.NewClientBuilder().WithScheme(s).WithObjects(gateway, policy).Build()
-	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
+	r, _ := newTestModelListReconciler(t, gateway, policy)
 
 	reconcileModelListOnce(t, r)
 
@@ -213,10 +227,8 @@ func TestModelListReconcile_ReappliesModifiedPolicy(t *testing.T) {
 }
 
 func TestModelListReconcile_RecreatesDeletedRoute(t *testing.T) {
-	s := testutil.NewScheme(t)
 	gateway := newGateway()
-	c := fake.NewClientBuilder().WithScheme(s).WithObjects(gateway).Build()
-	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
+	r, _ := newTestModelListReconciler(t, gateway)
 
 	reconcileModelListOnce(t, r)
 	if err := r.Delete(context.Background(), mustGetRoute(t, r)); err != nil {

@@ -48,6 +48,7 @@ export default {
     nav: [
       { text: 'Getting Started', link: '/getting-started' },
       { text: 'Demo', link: '/demo' },
+      { text: 'Guides', link: '/guides/model-artifacts' },
       { text: 'Concepts', link: '/concepts/architecture' },
       { text: 'Reference', link: '/reference/model-crd-api' },
       { text: 'Community', link: '/ipcei-cis-workshop-2026/' },
@@ -70,6 +71,13 @@ export default {
         text: 'Demo',
         items: [
           { text: 'Demo', link: '/demo' },
+        ],
+      },
+      {
+        text: 'Guides',
+        collapsed: false,
+        items: [
+          { text: 'Models', link: '/guides/model-lifecycle' },
         ],
       },
       {

@@ -508,7 +508,9 @@ func TestSyncHTTPRouteCondition_StaleMatches(t *testing.T) {
 	}
 
 	testutil.MustGet(t, c, "tiny-llm", testNamespace, model)
-	ready, err := r.syncHTTPRouteCondition(context.Background(), model)
+	artifact := &v1alpha1.ModelArtifact{}
+	testutil.MustGet(t, c, model.Spec.ArtifactRef.Name, testNamespace, artifact)
+	ready, err := r.syncHTTPRouteCondition(context.Background(), model, artifact)
 	if err != nil {
 		t.Fatalf("sync http route condition: %v", err)
 	}

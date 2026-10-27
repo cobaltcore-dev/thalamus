@@ -20,16 +20,21 @@ const engineHTTPPort = 8000
 const ubuntuNobody int64 = 65534
 
 // BuildEngineDeployment returns the desired Deployment for the inference engine.
-func BuildEngineDeployment(model *v1alpha1.Model) (*appsv1.Deployment, error) {
+func BuildEngineDeployment(model *v1alpha1.Model, artifact *v1alpha1.ModelArtifact) (*appsv1.Deployment, error) {
 	// TODO: defaulted fields can't be cleared from the engine configuration in the Model CR
 	podSpec, err := helpers.MergePodSpecs(defaultEnginePodSpec(model), &model.Spec.Serving.Engine)
 	if err != nil {
 		return nil, err
 	}
 
-	if hf := model.Spec.Weights.HF; model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && hf != nil && model.DetectedEngineType() == v1alpha1.EngineTypeVLLM {
+	// Apply the model path after the merge so user args can't drop it.
+	// TODO: append other default arguments
+	if model.DetectedEngineType() == v1alpha1.EngineTypeVLLM {
 		c := helpers.GetContainerByName(&podSpec, "engine")
-		c.Args = append([]string{hf.RepoID}, c.Args...)
+		c.Args = append([]string{artifact.BaseRepoID()}, c.Args...)
+		if draft := artifact.DraftRepoID(); draft != "" {
+			c.Args = append(c.Args, "--spec-model="+draft)
+		}
 	}
 
 	labels := map[string]string{
@@ -63,12 +68,6 @@ func defaultEnginePodSpec(model *v1alpha1.Model) *corev1.PodSpec {
 		// Aliases are not passed to the engine; skip model name validation
 		// instead so alias changes do not require an engine restart.
 		{Name: "VLLM_SKIP_MODEL_NAME_VALIDATION", Value: "1"},
-	}
-	if hf := model.Spec.Weights.HF; model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && hf != nil && hf.TokenSecret != nil {
-		env = append(env, corev1.EnvVar{
-			Name:      "HF_TOKEN",
-			ValueFrom: &corev1.EnvVarSource{SecretKeyRef: hf.TokenSecret},
-		})
 	}
 
 	container := corev1.Container{

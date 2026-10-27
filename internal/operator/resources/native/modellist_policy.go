@@ -38,18 +38,27 @@ type modelListResponse struct {
 
 // BuildModelListResponse returns the model-list JSON body for Ready models,
 // sorted by name. Aliases replace the base model name when set.
-func BuildModelListResponse(models []v1alpha1.Model) (string, error) {
+func BuildModelListResponse(models []v1alpha1.Model, artifacts []v1alpha1.ModelArtifact) (string, error) {
+	artifactsByName := make(map[string]*v1alpha1.ModelArtifact, len(artifacts))
+	for i := range artifacts {
+		artifactsByName[artifacts[i].Name] = &artifacts[i]
+	}
+
 	entries := make([]modelEntry, 0, len(models))
 	for _, m := range models {
 		if m.Status.Phase != v1alpha1.ModelPhaseReady {
 			continue
 		}
-		base := m.BaseModelName()
+		artifact := artifactsByName[m.Spec.ArtifactRef.Name]
+		if artifact == nil {
+			continue
+		}
+		base := artifact.BaseRepoID()
 		ownedBy := base
 		if before, _, found := strings.Cut(base, "/"); found {
 			ownedBy = before
 		}
-		for _, name := range m.ModelNames() {
+		for _, name := range m.ModelNames(*artifact) {
 			entries = append(entries, modelEntry{
 				ID:      name,
 				Object:  "model",

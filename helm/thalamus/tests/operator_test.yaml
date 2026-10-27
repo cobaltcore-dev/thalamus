@@ -141,3 +141,13 @@ tests:
           path: spec.template.spec.containers[0].args
           content: --leader-election-namespace=thalamus
         documentIndex: 4
+
+  - it: should allow the operator to update ModelArtifact finalizers
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [thalamus.cloud]
+            resources: [modelartifacts]
+            verbs: [get, list, watch, update, patch]
+        documentIndex: 1

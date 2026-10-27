@@ -26,5 +26,5 @@ The shared inference gateway is a plain Gateway API gateway, backed by agentgate
 ## Artifacts and infrastructure
 
 The `Model` deployments in Thalamus depend on additional infrastructure that needs to be provided by cluster administrators.
-The container images are pulled from an OCI registry and the model weights are fetched from an object store.
+Container images come from an OCI registry. The operator reads base and optional draft weight locations from the model's `ModelArtifact` in the same namespace. The engine downloads the weights at startup.
 The reconciled workloads run on GPU nodes prepared by the vendor GPU operators (NVIDIA, AMD, Intel), and metrics collected by Prometheus and OpenTelemetry.
