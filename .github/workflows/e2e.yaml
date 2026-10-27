@@ -23,6 +23,9 @@ jobs:
     name: E2E (${{ matrix.gateway_api }} gateway-api, ${{ matrix.inference_extension }} inference-extension, ${{ matrix.agentgateway }} agentgateway)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      GATEWAY_HOST: localhost
+      GATEWAY_PORT: "8080"
     strategy:
       fail-fast: false
       matrix:
@@ -232,10 +235,50 @@ jobs:
 
       - name: Run e2e validation
         env:
-          GATEWAY_HOST: localhost
-          GATEWAY_PORT: "8080"
           MODEL: HuggingFaceTB/SmolLM2-135M-Instruct
         run: uv run test/e2e/validate.py
+
+      - name: Add alias to the Model
+        run: |
+          kubectl patch model smollm2-135m \
+            --namespace thalamus \
+            --type merge \
+            -p '{"spec":{"aliases":["HuggingFaceTB/SmolLM2-135M-Instruct-e2e"]}}'
+
+          generation="$(kubectl get model smollm2-135m \
+            --namespace thalamus \
+            -o jsonpath='{.metadata.generation}')"
+          kubectl wait model/smollm2-135m \
+            --namespace thalamus \
+            --for=jsonpath='{.status.conditions[?(@.type=="Ready")].observedGeneration}'="$generation" \
+            --for=condition=Ready \
+            --timeout=120s
+
+      - name: Run e2e validation with alias
+        env:
+          MODEL: HuggingFaceTB/SmolLM2-135M-Instruct-e2e
+        run: uv run test/e2e/validate.py
+
+      - name: Assert old model name is no longer served
+        env:
+          MODEL: HuggingFaceTB/SmolLM2-135M-Instruct
+        run: |
+          # /v1/models returns 200 even when the model is absent.
+          if uv run test/e2e/validate.py models; then
+            echo "FAIL: base model name is still listed in /v1/models"
+            exit 1
+          fi
+
+          # validate.py prints the HTTP status from the SDK exception.
+          for check in completions responses messages; do
+            output="$(uv run test/e2e/validate.py "$check" 2>&1)" || true
+            if ! grep -Fq "HTTP 404" <<< "$output"; then
+              echo "FAIL: $check did not reject the base model name with 404:"
+              echo "$output"
+              exit 1
+            fi
+          done
+          echo "PASS: base model name is absent from /v1/models and rejected with 404"
 
       - name: Debug on failure
         if: failure()

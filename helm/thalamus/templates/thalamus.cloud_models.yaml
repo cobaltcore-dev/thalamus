@@ -49,6 +49,15 @@ spec:
             type: object
           spec:
             properties:
+              aliases:
+                items:
+                  maxLength: 4096
+                  minLength: 1
+                  pattern: ^[!-~]+([\t ]?[!-~]+)*$
+                  type: string
+                maxItems: 5
+                type: array
+                x-kubernetes-list-type: set
               backend:
                 default: native
                 enum:

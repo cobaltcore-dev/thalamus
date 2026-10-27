@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	gatewayBaseModelHeaderName    = "X-Gateway-Base-Model-Name"
+	GatewayBaseModelHeaderName    = "X-Gateway-Base-Model-Name"
 	BodyBasedRoutingPolicyName    = "body-based-routing"
 	bodyBasedRoutingCELExpression = "json(request.body).model"
 )
@@ -43,25 +43,23 @@ func BuildInferencePool(model *v1alpha1.Model) *inferencev1.InferencePool {
 // BuildHTTPRoute returns the HTTPRoute for the model's AgentgatewayBackend,
 // so traffic is token-metered by the LLM pipeline. Unmatched paths 404 at the gateway.
 func BuildHTTPRoute(model *v1alpha1.Model, gatewayName, listenerName string) *gatewayv1.HTTPRoute {
-	modelName := ""
-	if model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && model.Spec.Weights.HF != nil {
-		modelName = model.Spec.Weights.HF.RepoID
-	}
-	headerValue := gatewayv1.HTTPHeaderMatch{
-		Type:  new(gatewayv1.HeaderMatchExact),
-		Name:  gatewayBaseModelHeaderName,
-		Value: modelName,
-	}
+	modelNames := model.ModelNames()
 
-	matches := make([]gatewayv1.HTTPRouteMatch, 0, len(modelRoutes))
-	for _, r := range modelRoutes {
-		matches = append(matches, gatewayv1.HTTPRouteMatch{
-			Path: &gatewayv1.HTTPPathMatch{
-				Type:  new(gatewayv1.PathMatchExact),
-				Value: new(r.path),
-			},
-			Headers: []gatewayv1.HTTPHeaderMatch{headerValue},
-		})
+	matches := make([]gatewayv1.HTTPRouteMatch, 0, len(modelNames)*len(modelRoutes))
+	for _, modelName := range modelNames {
+		for _, r := range modelRoutes {
+			matches = append(matches, gatewayv1.HTTPRouteMatch{
+				Path: &gatewayv1.HTTPPathMatch{
+					Type:  new(gatewayv1.PathMatchExact),
+					Value: new(r.path),
+				},
+				Headers: []gatewayv1.HTTPHeaderMatch{{
+					Type:  new(gatewayv1.HeaderMatchExact),
+					Name:  GatewayBaseModelHeaderName,
+					Value: modelName,
+				}},
+			})
+		}
 	}
 
 	return &gatewayv1.HTTPRoute{
@@ -113,7 +111,7 @@ func BuildBodyBasedRoutingPolicy(gateway *gatewayv1.Gateway, listenerName string
 					Request: &agentgatewayv1alpha1.Transform{
 						Set: []agentgatewayv1alpha1.HeaderTransformation{
 							{
-								Name:  gatewayBaseModelHeaderName,
+								Name:  GatewayBaseModelHeaderName,
 								Value: bodyBasedRoutingCELExpression,
 							},
 						},
