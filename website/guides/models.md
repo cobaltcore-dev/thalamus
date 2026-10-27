@@ -18,30 +18,91 @@ A model deployment has two Kubernetes resources:
 Create both resources in the same namespace. A `ModelArtifact` can be shared
 by more than one `Model`.
 
-## Configure weights
+## Base model
 
 Set `ModelArtifact.spec.base` to the location of the base weights. Thalamus
-currently supports the `hf://` scheme and passes the repository ID to vLLM.
+currently supports the `hf://` scheme and passes the repository ID to vLLM as
+the model path.
+
+```yaml
+apiVersion: thalamus.cloud/v1alpha1
+kind: ModelArtifact
+metadata:
+  name: gemma-4-26b-a4b-it
+  namespace: thalamus
+spec:
+  base: hf://google/gemma-4-26B-A4B-it
+```
+
+## Draft model
 
 Set `ModelArtifact.spec.draft` to add a draft model for speculative decoding.
 The operator passes it to vLLM as `--spec-model`. Configure the remaining
 speculative-decoding options in the engine arguments.
 
-## Configure a model
+```yaml
+spec:
+  base: hf://google/gemma-4-26B-A4B-it
+  draft: hf://google/gemma-4-26B-A4B-it-assistant
+```
+
+## Configure the model
 
 The native backend is the default backend.
 
 | Field | Purpose |
 | --- | --- |
 | `spec.artifactRef` | Selects the `ModelArtifact` to serve |
-| `spec.serving` | Configures the engine and router |
 | `spec.replicas` | Sets the desired number of engine replicas; defaults to 1 |
-| `spec.scheduling` | Constrains where the model's pods can run |
+| `spec.aliases` | Exposes alternate model names for routing and listing |
+| `spec.serving.engine` | Engine pod spec: image, args, resources, scheduling |
+| `spec.serving.router` | Router pod spec: image, args, resources, scheduling |
 
 ### Model names
 
-Clients address a model by the base repository ID in its artifact. The
-operator uses that name for gateway routing and in `GET /v1/models`.
+By default, clients address a model by its artifact's base repository ID. Set
+`spec.aliases` to expose other names. Aliases replace the base ID in gateway
+routing and `GET /v1/models`, so requests using the base ID no longer match.
+
+A common use case is keeping a stable client-facing name while switching
+models. To switch clients from Gemma 4-26B to Gemma 4-31B without changing
+their model name, apply the Gemma 4-31B Model without the shared alias, wait
+for it to become `Ready`, then move `gemma-4-latest` from the 26B Model to the
+31B Model.
+
+## Model example
+
+This Model references the artifact with `spec.draft` set and serves Gemma 4
+with its assistant model:
+
+```yaml
+apiVersion: thalamus.cloud/v1alpha1
+kind: Model
+metadata:
+  name: gemma-4-26b-a4b-it
+  namespace: thalamus
+spec:
+  artifactRef:
+    name: gemma-4-26b-a4b-it
+  aliases:
+    - gemma-4-latest
+  serving:
+    engine:
+      containers:
+        - name: engine
+          image: docker.io/vllm/vllm-openai:v0.27.0
+          args:
+            - --speculative-config={"method":"mtp","num_speculative_tokens":1}
+          resources:
+            requests:
+              nvidia.com/gpu: 1
+            limits:
+              nvidia.com/gpu: 1
+    router:
+      containers:
+        - name: router
+          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0
+```
 
 ## Observe a model
 
@@ -53,7 +114,7 @@ kubectl get models --namespace thalamus
 | --- | --- |
 | `Creating` | Serving resources are being created or are not ready yet |
 | `Ready` | The model serves traffic through the gateway |
-| `Inactive` | `spec.replicas` is 0; no serving resources are deployed |
+| `Inactive` | `spec.replicas` is 0 and the artifact is available; no serving resources are deployed |
 | `Failed` | The model cannot run; inspect the `Ready` condition |
 
 For the native backend, `Ready` means the engine and router deployments have
@@ -62,7 +123,7 @@ route is accepted by the gateway. Wait for this condition before sending
 inference traffic:
 
 ```bash
-kubectl wait model/qwen3-6-27b --namespace thalamus \
+kubectl wait model/gemma-4-26b-a4b-it --namespace thalamus \
   --for=condition=Ready --timeout=600s
 ```
 
@@ -70,7 +131,7 @@ kubectl wait model/qwen3-6-27b --namespace thalamus \
 inspect the `Ready` condition for the controller's current reason and message:
 
 ```bash
-kubectl describe model/qwen3-6-27b --namespace thalamus
+kubectl describe model/gemma-4-26b-a4b-it --namespace thalamus
 ```
 
 For example, `EngineNotReady` usually means that the engine deployment is
@@ -97,7 +158,7 @@ positive value to recreate the resources and move the model through
 ### Delete a model
 
 ```bash
-kubectl delete model/qwen3-6-27b --namespace thalamus
+kubectl delete model/gemma-4-26b-a4b-it --namespace thalamus
 ```
 
 Deleting a model removes its serving resources but leaves its referenced

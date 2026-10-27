@@ -145,7 +145,7 @@ kubectl wait model/smollm2-135m --namespace thalamus --for=condition=Ready --tim
 :::
 
 For details on model artifacts and draft models, see
-[Models](/guides/model-lifecycle).
+[Models](/guides/models).
 
 ## Step 4 — Access the stack
 
@@ -222,7 +222,7 @@ kubectl label secret apikey-<name> --namespace thalamus thalamus-apikey=true
 
 ## Next Steps
 
-- Read the [Models](/guides/model-lifecycle) guide to learn how to configure,
+- Read the [Models](/guides/models) guide to learn how to configure,
   observe, and manage models.
 - Browse the [Model CRD API Reference](/reference/model-crd-api) for all available fields.
 - Add a web frontend with [Open WebUI](/open-webui).
