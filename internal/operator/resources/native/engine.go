@@ -27,12 +27,12 @@ func BuildEngineDeployment(model *v1alpha1.Model, artifact *v1alpha1.ModelArtifa
 		return nil, err
 	}
 
-	// Apply the model path after the merge so user args can't drop it.
-	// TODO: append other default arguments
 	if model.DetectedEngineType() == v1alpha1.EngineTypeVLLM {
 		c := helpers.GetContainerByName(&podSpec, "engine")
+		// Prepend the model path after the merge so user args cannot drop it.
 		c.Args = append([]string{artifact.BaseRepoID()}, c.Args...)
 		if draft := artifact.DraftRepoID(); draft != "" {
+			// Append last so the artifact's draft overrides any user-provided --spec-model.
 			c.Args = append(c.Args, "--spec-model="+draft)
 		}
 	}

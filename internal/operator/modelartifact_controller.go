@@ -18,17 +18,17 @@ import (
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 )
 
-// ModelArtifactFinalizer blocks deletion of artifacts referenced by a Model.
+// ModelArtifactFinalizer holds an artifact open until no Model references it.
 const ModelArtifactFinalizer = "thalamus.cloud/artifact-protection"
 
-// ModelArtifactReconciler protects ModelArtifacts that are referenced by Models.
+// ModelArtifactReconciler keeps live ModelArtifacts protected from deletion.
 type ModelArtifactReconciler struct {
 	client.Client
 	Scheme    *runtime.Scheme
 	APIReader client.Reader
 }
 
-// Reconcile keeps every live artifact protected and releases it once deletion is unreferenced.
+// Reconcile adds protection to live artifacts and removes it when deletion is unreferenced.
 func (r *ModelArtifactReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	artifact := &v1alpha1.ModelArtifact{}
 	if err := r.Get(ctx, req.NamespacedName, artifact); err != nil {
