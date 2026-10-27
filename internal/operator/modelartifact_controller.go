@@ -57,7 +57,7 @@ func (r *ModelArtifactReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	before := artifact.DeepCopy()
 	controllerutil.RemoveFinalizer(artifact, ModelArtifactFinalizer)
-	if err := r.Patch(ctx, artifact, client.MergeFrom(before)); err != nil {
+	if err := r.Patch(ctx, artifact, client.MergeFromWithOptions(before, client.MergeFromWithOptimisticLock{})); err != nil {
 		return ctrl.Result{}, fmt.Errorf("patch model artifact %s finalizer: %w", req.NamespacedName, err)
 	}
 	log.FromContext(ctx).V(levelInfo).Info("releasing model artifact",
@@ -71,7 +71,7 @@ func ensureArtifactFinalizer(ctx context.Context, c client.Client, artifact *v1a
 	if !controllerutil.AddFinalizer(artifact, ModelArtifactFinalizer) {
 		return nil
 	}
-	if err := c.Patch(ctx, artifact, client.MergeFrom(before)); err != nil {
+	if err := c.Patch(ctx, artifact, client.MergeFromWithOptions(before, client.MergeFromWithOptimisticLock{})); err != nil {
 		return fmt.Errorf("patch model artifact %s/%s finalizer: %w", artifact.Namespace, artifact.Name, err)
 	}
 	return nil
