@@ -63,6 +63,7 @@ export default {
         items: [
           { text: 'Overview', link: '/getting-started' },
           { text: 'Gateway Integrations', link: '/gateway-integrations' },
+          { text: 'Migrating to v0.2.0', link: '/migrating-to-v0.2.0' },
           { text: 'Open WebUI', link: '/open-webui' },
           { text: 'Perses Dashboards', link: '/perses-dashboards' },
         ],
