@@ -98,6 +98,9 @@ func nativeStatus(model *v1alpha1.Model, obs nativeObservation, gatewayName, lis
 	if status := deploymentStatus(obs.engine, model.EngineName(), v1alpha1.ModelReasonEngineNotReady, v1alpha1.ModelReasonEngineDeploymentFailed); status != nil {
 		return *status
 	}
+	if obs.engine.Status.ReadyReplicas < model.Spec.Replicas {
+		return modelStatus{phase: v1alpha1.ModelPhaseCreating, reason: v1alpha1.ModelReasonEngineNotReady, message: fmt.Sprintf("Deployment %s has insufficient ready replicas", model.EngineName())}
+	}
 	if status := deploymentStatus(obs.router, model.EPPName(), v1alpha1.ModelReasonEPPNotReady, v1alpha1.ModelReasonEPPDeploymentFailed); status != nil {
 		return *status
 	}
