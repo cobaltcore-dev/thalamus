@@ -182,22 +182,6 @@ type Model struct {
 	Status ModelStatus `json:"status,omitempty,omitzero"`
 }
 
-// +kubebuilder:object:root=true
-
-// BaseRepoID returns the base model identifier without the hf:// scheme.
-func (a *ModelArtifact) BaseRepoID() string {
-	return strings.TrimPrefix(a.Spec.Base, "hf://")
-}
-
-// DraftRepoID returns the draft model identifier without the hf:// scheme,
-// or an empty string when no draft is configured.
-func (a *ModelArtifact) DraftRepoID() string {
-	if a.Spec.Draft == nil {
-		return ""
-	}
-	return strings.TrimPrefix(*a.Spec.Draft, "hf://")
-}
-
 // ModelNames returns the model identifiers this Model exposes. Aliases replace
 // the artifact's base model name when set.
 func (m *Model) ModelNames(artifact ModelArtifact) []string {

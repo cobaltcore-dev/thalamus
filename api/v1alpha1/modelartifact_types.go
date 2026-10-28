@@ -4,6 +4,8 @@
 package v1alpha1
 
 import (
+	"strings"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -40,6 +42,20 @@ type ModelArtifactList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []ModelArtifact `json:"items"`
+}
+
+// BaseRepoID returns the base model identifier without the hf:// scheme.
+func (a *ModelArtifact) BaseRepoID() string {
+	return strings.TrimPrefix(a.Spec.Base, "hf://")
+}
+
+// DraftRepoID returns the draft model identifier without the hf:// scheme,
+// or an empty string when no draft is configured.
+func (a *ModelArtifact) DraftRepoID() string {
+	if a.Spec.Draft == nil {
+		return ""
+	}
+	return strings.TrimPrefix(*a.Spec.Draft, "hf://")
 }
 
 func init() {
