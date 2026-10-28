@@ -12,7 +12,6 @@ import (
 type ModelArtifactSpec struct {
 	// Base is the remote location of the base model weights.
 	// +kubebuilder:validation:Pattern=`^hf://.+`
-	// +kubebuilder:validation:MinLength=1
 	Base string `json:"base"`
 
 	// Draft is the optional remote location of the draft model weights.

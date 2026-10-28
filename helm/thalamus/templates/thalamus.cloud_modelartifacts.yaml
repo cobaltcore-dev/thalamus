@@ -41,7 +41,6 @@ spec:
           spec:
             properties:
               base:
-                minLength: 1
                 pattern: ^hf://.+
                 type: string
               draft:

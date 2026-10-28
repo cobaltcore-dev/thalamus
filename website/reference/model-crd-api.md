@@ -164,7 +164,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `base` _string_ | Base is the remote location of the base model weights. |  | MinLength: 1 <br />Pattern: `^hf://.+` <br /> |
+| `base` _string_ | Base is the remote location of the base model weights. |  | Pattern: `^hf://.+` <br /> |
 | `draft` _string_ | Draft is the optional remote location of the draft model weights. |  | Optional: \{\} <br />Pattern: `^hf://.+` <br /> |
 
 
