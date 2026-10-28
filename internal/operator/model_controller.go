@@ -48,23 +48,26 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, nil
 	}
 
-	var err error
+	var reconcileErr error
 	switch model.Spec.Backend {
 	case v1alpha1.BackendTypeNative:
-		err = r.reconcileNative(ctx, model)
+		reconcileErr = r.reconcileNative(ctx, model)
 	case v1alpha1.BackendTypeKServe:
-		err = r.reconcileKServe(ctx, model)
+		reconcileErr = r.reconcileKServe(ctx, model)
 	case v1alpha1.BackendTypeKAITO:
-		err = r.reconcileKAITO(ctx, model)
+		reconcileErr = r.reconcileKAITO(ctx, model)
 	default:
 		return ctrl.Result{}, fmt.Errorf("unknown backend type %q", model.Spec.Backend)
 	}
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("reconcile model %s: %w", req.NamespacedName, r.setFailedStatus(ctx, model, err))
+	if reconcileErr != nil {
+		reconcileErr = fmt.Errorf("reconcile model %s: %w", req.NamespacedName, reconcileErr)
 	}
-	if err := r.syncStatus(ctx, model); err != nil {
-		return ctrl.Result{}, err
+
+	statusErr := r.syncStatus(ctx, model)
+	if reconcileErr != nil || statusErr != nil {
+		return ctrl.Result{}, errors.Join(reconcileErr, statusErr)
 	}
+
 	log.FromContext(ctx).V(levelDebug).Info("reconciled model", "namespace", model.Namespace, "name", model.Name, "backend", model.Spec.Backend, "phase", model.Status.Phase)
 	return ctrl.Result{}, nil
 }
@@ -168,23 +171,6 @@ func (r *ModelReconciler) syncKServeStatus(_ context.Context, _ *v1alpha1.Model)
 // syncKAITOStatus is a stub — not yet implemented.
 func (r *ModelReconciler) syncKAITOStatus(_ context.Context, _ *v1alpha1.Model) error {
 	return nil
-}
-
-// setFailed marks the model as Failed and returns the original error.
-func (r *ModelReconciler) setFailedStatus(ctx context.Context, model *v1alpha1.Model, cause error) error {
-	patch := client.MergeFrom(model.DeepCopy())
-	model.Status.Phase = v1alpha1.ModelPhaseFailed
-	meta.SetStatusCondition(&model.Status.Conditions, metav1.Condition{
-		Type:               v1alpha1.ModelConditionReady,
-		Status:             metav1.ConditionFalse,
-		Reason:             "ReconcileError",
-		Message:            cause.Error(),
-		ObservedGeneration: model.Generation,
-	})
-	if patchErr := r.Status().Patch(ctx, model, patch); patchErr != nil {
-		log.FromContext(ctx).Error(patchErr, "failed to patch status after reconcile error")
-	}
-	return cause
 }
 
 func (r *ModelReconciler) SetupWithManager(mgr ctrl.Manager) error {

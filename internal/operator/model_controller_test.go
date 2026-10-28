@@ -5,13 +5,16 @@ package operator
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -30,6 +33,14 @@ const testNamespace = "default"
 const testGatewayName = "test-gateway"
 const testGatewayListener = "test-listener"
 const testRouterSAName = "thalamus-router"
+
+type applyErrorClient struct {
+	client.Client
+}
+
+func (c applyErrorClient) Apply(context.Context, runtime.ApplyConfiguration, ...client.ApplyOption) error {
+	return errors.New("apply failed")
+}
 
 // reconcileModelOnce runs a single reconciliation for the named Model and fails
 // the test if Reconcile returns an error.
@@ -54,6 +65,36 @@ func newTestReconciler(t *testing.T, objs ...client.Object) (*ModelReconciler, c
 		WithStatusSubresource(&v1alpha1.Model{}, &appsv1.Deployment{}, &inferencev1.InferencePool{}, &gatewayv1.HTTPRoute{}).
 		Build()
 	return &ModelReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener, RouterServiceAccountName: testRouterSAName}, c
+}
+
+func TestReconcile_ApplyErrorStillSyncsStatus(t *testing.T) {
+	s := testutil.NewScheme(t)
+	model := testutil.NewModel("tiny-llm", testNamespace)
+	c := fake.NewClientBuilder().WithScheme(s).
+		WithObjects(model).
+		WithStatusSubresource(&v1alpha1.Model{}, &appsv1.Deployment{}, &inferencev1.InferencePool{}, &gatewayv1.HTTPRoute{}).
+		Build()
+	r := &ModelReconciler{
+		Client:       applyErrorClient{c},
+		Scheme:       s,
+		GatewayName:  testGatewayName,
+		ListenerName: testGatewayListener,
+	}
+
+	_, err := r.Reconcile(context.Background(), ctrl.Request{Name: model.Name, Namespace: testNamespace})
+	if err == nil {
+		t.Fatal("expected apply error")
+	}
+
+	updated := &v1alpha1.Model{}
+	testutil.MustGet(t, c, model.Name, testNamespace, updated)
+	if updated.Status.Phase != v1alpha1.ModelPhaseCreating {
+		t.Errorf("Phase:\ngot:  %q\nwant: %q", updated.Status.Phase, v1alpha1.ModelPhaseCreating)
+	}
+	cond := meta.FindStatusCondition(updated.Status.Conditions, v1alpha1.ModelConditionReady)
+	if cond == nil || cond.Reason != string(v1alpha1.ModelReasonEngineNotReady) {
+		t.Errorf("Ready condition:\ngot:  %+v\nwant reason: %q", cond, v1alpha1.ModelReasonEngineNotReady)
+	}
 }
 
 func TestReconcile_NotFound(t *testing.T) {
@@ -330,4 +371,11 @@ func TestReconcile_ScaleToZero_KeepsForeignOwnedObject(t *testing.T) {
 
 	// The foreign-owned deployment must not be deleted.
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, &appsv1.Deployment{})
+
+	// The model must not claim to be Inactive while resources remain.
+	updated := &v1alpha1.Model{}
+	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
+	if updated.Status.Phase == v1alpha1.ModelPhaseInactive {
+		t.Error("model must not be Inactive while owned resources remain")
+	}
 }
