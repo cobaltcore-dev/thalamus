@@ -81,43 +81,27 @@ func (r *ModelReconciler) reconcileKAITO(_ context.Context, _ *v1alpha1.Model) e
 
 // reconcileNative creates, updates, or deletes all child resources for the native backend.
 func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.Model) error {
-	engineDeployment, err := native.BuildEngineDeployment(model)
-	if err != nil {
-		return fmt.Errorf("build engine deployment: %w", err)
-	}
-
-	// Engine stack.
-	objs := []client.Object{
-		engineDeployment,
-		native.BuildEngineService(model),
-		native.BuildInferencePool(model),
-		native.BuildAIBackend(model),
-		native.BuildHTTPRoute(model, r.GatewayName, r.ListenerName),
-	}
-
-	eppDeployment, err := native.BuildEPPDeployment(model, r.RouterServiceAccountName)
-	if err != nil {
-		return fmt.Errorf("build epp deployment: %w", err)
-	}
-
-	// EPP stack.
-	objs = append(objs,
-		native.BuildEPPConfigMap(model),
-		eppDeployment,
-		native.BuildEPPService(model),
-	)
+	resources := native.Resources(model, r.GatewayName, r.ListenerName, r.RouterServiceAccountName)
 
 	if model.Spec.Replicas == 0 {
 		// Delete in reverse order so consumers are removed before their dependencies.
-		log.FromContext(ctx).V(levelDebug).Info("deleting owned resources", "namespace", model.Namespace, "name", model.Name, "resources", len(objs))
-		for _, obj := range slices.Backward(objs) {
-			if err := r.deleteOwned(ctx, model, obj); err != nil {
+		log.FromContext(ctx).V(levelDebug).Info("deleting owned resources", "namespace", model.Namespace, "name", model.Name, "resources", len(resources))
+		for _, resource := range slices.Backward(resources) {
+			if err := r.deleteOwned(ctx, model, resource.Object); err != nil {
 				return err
 			}
 		}
 		return nil
 	}
 
+	objs := make([]client.Object, 0, len(resources))
+	for _, resource := range resources {
+		obj, err := resource.Body()
+		if err != nil {
+			return err
+		}
+		objs = append(objs, obj)
+	}
 	for _, obj := range objs {
 		if err := applyOwned(ctx, r.Client, r.Scheme, model, obj); err != nil {
 			return err
