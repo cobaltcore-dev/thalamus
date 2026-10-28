@@ -34,6 +34,9 @@ spec:
   base: hf://google/gemma-4-26B-A4B-it
 ```
 
+For gated or private models, add `HF_TOKEN` to the engine container; see
+[Hugging Face authentication](#hugging-face-authentication).
+
 ## Draft model
 
 Set `ModelArtifact.spec.draft` to add a draft model for speculative decoding.
@@ -69,6 +72,31 @@ models. To switch clients from Gemma 4-26B to Gemma 4-31B without changing
 their model name, apply the Gemma 4-31B Model without the shared alias, wait
 for it to become `Ready`, then move `gemma-4-latest` from the 26B Model to the
 31B Model.
+
+### Hugging Face authentication
+
+Gated or private models need a Hugging Face token. The token is not part of
+`ModelArtifact`; create a Secret in the Model's namespace and add `HF_TOKEN` to
+the engine container.
+
+```bash
+kubectl create secret generic hf-token --namespace thalamus \
+  --from-literal=HF_TOKEN="$HF_TOKEN"
+```
+
+```yaml
+spec:
+  serving:
+    engine:
+      containers:
+        - name: engine
+          env:
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hf-token
+                  key: HF_TOKEN
+```
 
 ## Model example
 
