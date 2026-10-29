@@ -68,6 +68,12 @@ export default {
         ],
       },
       {
+        text: 'Releases',
+        items: [
+          { text: 'v0.2.0', link: '/releases/v0.2.0' },
+        ],
+      },
+      {
         text: 'Demo',
         items: [
           { text: 'Demo', link: '/demo' },

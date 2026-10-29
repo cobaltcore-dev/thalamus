@@ -200,6 +200,7 @@ curl "http://$GATEWAY_HOST/v1/chat/completions" \
 
 - Browse the [Model CRD API Reference](/reference/model-crd-api) for all available fields.
 - Secure the gateway and track usage with [Gateway Integrations](/gateway-integrations).
+- Upgrading from a previous release? See [v0.2.0 release notes](/releases/v0.2.0).
 - Add a web frontend with [Open WebUI](/open-webui).
 - Load the [Perses dashboards](/perses-dashboards) to monitor SLOs, usage, and GPU health.
 - Read the [Architecture overview](/concepts/architecture) to understand how the
