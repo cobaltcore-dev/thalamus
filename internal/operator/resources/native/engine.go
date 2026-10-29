@@ -29,6 +29,7 @@ func BuildEngineDeployment(model *v1alpha1.Model) (*appsv1.Deployment, error) {
 
 	// Set after the merge so the Model can't override the engine identity or token.
 	podSpec.ServiceAccountName = ""
+	podSpec.DeprecatedServiceAccount = ""
 	podSpec.AutomountServiceAccountToken = new(false)
 
 	if hf := model.Spec.Weights.HF; model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && hf != nil && model.DetectedEngineType() == v1alpha1.EngineTypeVLLM {

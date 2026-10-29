@@ -73,6 +73,7 @@ func BuildEPPDeployment(model *v1alpha1.Model, serviceAccountName string) (*apps
 	)
 	// Set after the merge so the Model can't override the router identity or token.
 	podSpec.ServiceAccountName = serviceAccountName
+	podSpec.DeprecatedServiceAccount = ""
 	podSpec.AutomountServiceAccountToken = new(true)
 
 	recreate := appsv1.RecreateDeploymentStrategyType

@@ -108,12 +108,16 @@ func TestBuildEPPDeployment(t *testing.T) {
 func TestBuildEPPDeployment_ServiceAccountIsNotUserOverridable(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	model.Spec.Serving.Router.ServiceAccountName = "attacker"
+	model.Spec.Serving.Router.DeprecatedServiceAccount = "attacker"
 	dep, err := BuildEPPDeployment(model, testRouterSAName)
 	if err != nil {
 		t.Fatalf("BuildEPPDeployment: %v", err)
 	}
 	if got := dep.Spec.Template.Spec.ServiceAccountName; got != testRouterSAName {
 		t.Errorf("ServiceAccountName:\ngot:  %q\nwant: %q", got, testRouterSAName)
+	}
+	if got := dep.Spec.Template.Spec.DeprecatedServiceAccount; got != "" {
+		t.Errorf("DeprecatedServiceAccount:\ngot:  %q\nwant: empty", got)
 	}
 }
 

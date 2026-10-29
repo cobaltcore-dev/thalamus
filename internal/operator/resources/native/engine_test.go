@@ -113,6 +113,7 @@ func TestBuildEngineDeployment(t *testing.T) {
 func TestBuildEngineDeployment_IdentityIsNotUserControllable(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	model.Spec.Serving.Engine.ServiceAccountName = "privileged"
+	model.Spec.Serving.Engine.DeprecatedServiceAccount = "privileged"
 	model.Spec.Serving.Engine.AutomountServiceAccountToken = new(true)
 
 	dep, err := BuildEngineDeployment(model)
@@ -122,6 +123,9 @@ func TestBuildEngineDeployment_IdentityIsNotUserControllable(t *testing.T) {
 	podSpec := dep.Spec.Template.Spec
 	if podSpec.ServiceAccountName != "" {
 		t.Errorf("ServiceAccountName:\ngot:  %q\nwant: default service account", podSpec.ServiceAccountName)
+	}
+	if podSpec.DeprecatedServiceAccount != "" {
+		t.Errorf("DeprecatedServiceAccount:\ngot:  %q\nwant: empty", podSpec.DeprecatedServiceAccount)
 	}
 	if podSpec.AutomountServiceAccountToken == nil || *podSpec.AutomountServiceAccountToken {
 		t.Error("AutomountServiceAccountToken must be false")
