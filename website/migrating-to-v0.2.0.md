@@ -33,7 +33,7 @@ is refactored.
 Follow the steps below to upgrade your Thalamus deployment from `v0.1.0` to
 `v0.2.0` while ensuring model availability. Alternatively, you can tear down
 Thalamus altogether for a simpler upgrade using `helm uninstall thalamus`, but
-this will terminate your models currently running.
+this will terminate your currently running models.
 
 ### 1. Backup your models
 
