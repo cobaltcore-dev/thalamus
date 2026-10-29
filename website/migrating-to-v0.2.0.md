@@ -43,8 +43,7 @@ kubectl get models --all-namespaces -o yaml > models-backup.yaml
 
 ### 2. Consolidate to the single chart and upgrade the stack
 
-v0.1.0 shipped two charts: `thalamus-crds` and `thalamus`. v0.2.0
-is one self-contained chart. Upgrade the `thalamus` release with
+Upgrade the `thalamus` release with
 `--take-ownership` so the new chart can adopt the CRDs that the
 `thalamus-crds` release previously owned. Scale the
 operator to zero in the same step. This applies the new CRD schema and the
