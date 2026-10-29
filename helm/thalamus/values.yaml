@@ -75,7 +75,7 @@ monitoring:
     # scrapeTimeout: 10s
     # additionalLabels: {}
 
-  epp:
+  router:
     # enabled: false
     # interval: 30s
     # scrapeTimeout: 10s
