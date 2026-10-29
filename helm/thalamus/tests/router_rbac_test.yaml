@@ -1,0 +1,74 @@
+suite: router rbac template
+
+templates:
+  - router-rbac.yaml
+
+release:
+  name: thalamus
+  namespace: thalamus
+
+tests:
+  - it: creates a shared service account, role and role binding
+    asserts:
+      - hasDocuments:
+          count: 3
+      - isKind:
+          of: ServiceAccount
+        documentIndex: 0
+      - equal:
+          path: metadata.name
+          value: thalamus-router
+        documentIndex: 0
+      - isKind:
+          of: Role
+        documentIndex: 1
+      - equal:
+          path: rules
+          value:
+            - apiGroups: [""]
+              resources: [pods]
+              verbs: [get, watch, list]
+            - apiGroups: [inference.networking.k8s.io]
+              resources: [inferencepools]
+              verbs: [get, watch, list]
+        documentIndex: 1
+      - isKind:
+          of: RoleBinding
+        documentIndex: 2
+      - equal:
+          path: subjects
+          value:
+            - kind: ServiceAccount
+              name: thalamus-router
+              namespace: thalamus
+        documentIndex: 2
+
+  - it: allows a custom service account name
+    set:
+      router.serviceAccount.name: custom-epp
+    asserts:
+      - equal:
+          path: metadata.name
+          value: custom-epp
+        documentIndex: 0
+      - equal:
+          path: roleRef.name
+          value: custom-epp
+        documentIndex: 2
+      - equal:
+          path: subjects[0].name
+          value: custom-epp
+        documentIndex: 2
+
+  - it: can omit the service account while keeping its rbac
+    set:
+      router.serviceAccount.create: false
+    asserts:
+      - hasDocuments:
+          count: 2
+      - isKind:
+          of: Role
+        documentIndex: 0
+      - isKind:
+          of: RoleBinding
+        documentIndex: 1

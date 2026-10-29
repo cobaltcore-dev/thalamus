@@ -11,7 +11,6 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,6 +36,8 @@ type ModelReconciler struct {
 	GatewayName string
 	// ListenerName is the gateway listener the model routes attach to.
 	ListenerName string
+	// RouterServiceAccountName is the ServiceAccount the router pods run as.
+	RouterServiceAccountName string
 }
 
 func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -95,16 +96,13 @@ func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.M
 		native.BuildHTTPRoute(model, r.GatewayName, r.ListenerName),
 	}
 
-	eppDeployment, err := native.BuildEPPDeployment(model)
+	eppDeployment, err := native.BuildEPPDeployment(model, r.RouterServiceAccountName)
 	if err != nil {
 		return fmt.Errorf("build epp deployment: %w", err)
 	}
 
 	// EPP stack.
 	objs = append(objs,
-		native.BuildEPPServiceAccount(model),
-		native.BuildEPPRole(model),
-		native.BuildEPPRoleBinding(model),
 		native.BuildEPPConfigMap(model),
 		eppDeployment,
 		native.BuildEPPService(model),
@@ -213,10 +211,7 @@ func (r *ModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&v1alpha1.Model{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{}).
-		Owns(&corev1.ServiceAccount{}).
 		Owns(&corev1.ConfigMap{}).
-		Owns(&rbacv1.Role{}).
-		Owns(&rbacv1.RoleBinding{}).
 		Owns(&inferencev1.InferencePool{}).
 		Owns(&gatewayv1.HTTPRoute{}).
 		Owns(&agentgatewayv1alpha1.AgentgatewayBackend{}).

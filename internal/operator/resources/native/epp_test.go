@@ -15,37 +15,10 @@ import (
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
 )
 
-const wantEPPUID = 65532
-
-func TestBuildEPPServiceAccount(t *testing.T) {
-	model := testutil.NewModel("tiny-llm", "default")
-	sa := BuildEPPServiceAccount(model)
-	if sa.Name != model.EPPName() {
-		t.Errorf("Name:\ngot:  %q\nwant: %q", sa.Name, model.EPPName())
-	}
-}
-
-func TestBuildEPPRole(t *testing.T) {
-	model := testutil.NewModel("tiny-llm", "default")
-	role := BuildEPPRole(model)
-	if role.Name != model.EPPName() {
-		t.Errorf("Name:\ngot:  %q\nwant: %q", role.Name, model.EPPName())
-	}
-	if len(role.Rules) != 2 {
-		t.Errorf("rules:\ngot:  %d\nwant: 2", len(role.Rules))
-	}
-}
-
-func TestBuildEPPRoleBinding(t *testing.T) {
-	model := testutil.NewModel("tiny-llm", "default")
-	rb := BuildEPPRoleBinding(model)
-	if rb.RoleRef.Name != model.EPPName() {
-		t.Errorf("RoleRef.Name:\ngot:  %q\nwant: %q", rb.RoleRef.Name, model.EPPName())
-	}
-	if rb.Subjects[0].Name != model.EPPName() {
-		t.Errorf("Subject.Name:\ngot:  %q\nwant: %q", rb.Subjects[0].Name, model.EPPName())
-	}
-}
+const (
+	wantEPPUID       = 65532
+	testRouterSAName = "thalamus-router"
+)
 
 func TestBuildEPPConfigMap(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
@@ -92,7 +65,7 @@ func wantEPPContractArgs(model *v1alpha1.Model) []string {
 
 func TestBuildEPPDeployment(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
-	dep, err := BuildEPPDeployment(model)
+	dep, err := BuildEPPDeployment(model, testRouterSAName)
 	if err != nil {
 		t.Fatalf("BuildEPPDeployment: %v", err)
 	}
@@ -111,8 +84,8 @@ func TestBuildEPPDeployment(t *testing.T) {
 	if !slices.Equal(c.Args, wantEPPContractArgs(model)) {
 		t.Errorf("Args:\ngot:  %v\nwant: %v", c.Args, wantEPPContractArgs(model))
 	}
-	if podSpec.ServiceAccountName != model.EPPName() {
-		t.Errorf("ServiceAccountName:\ngot:  %q\nwant: %q", podSpec.ServiceAccountName, model.EPPName())
+	if podSpec.ServiceAccountName != testRouterSAName {
+		t.Errorf("ServiceAccountName:\ngot:  %q\nwant: %q", podSpec.ServiceAccountName, testRouterSAName)
 	}
 	if podSpec.TerminationGracePeriodSeconds == nil || *podSpec.TerminationGracePeriodSeconds != 130 {
 		t.Errorf("TerminationGracePeriodSeconds:\ngot:  %v\nwant: 130", podSpec.TerminationGracePeriodSeconds)
@@ -132,10 +105,22 @@ func TestBuildEPPDeployment(t *testing.T) {
 	}
 }
 
+func TestBuildEPPDeployment_ServiceAccountIsNotUserOverridable(t *testing.T) {
+	model := testutil.NewModel("tiny-llm", "default")
+	model.Spec.Serving.Router.ServiceAccountName = "attacker"
+	dep, err := BuildEPPDeployment(model, testRouterSAName)
+	if err != nil {
+		t.Fatalf("BuildEPPDeployment: %v", err)
+	}
+	if got := dep.Spec.Template.Spec.ServiceAccountName; got != testRouterSAName {
+		t.Errorf("ServiceAccountName:\ngot:  %q\nwant: %q", got, testRouterSAName)
+	}
+}
+
 func TestBuildEPPDeployment_UserArgsBeforeContract(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	model.Spec.Serving.Router.Containers[0].Args = []string{"--log-level=debug"}
-	dep, err := BuildEPPDeployment(model)
+	dep, err := BuildEPPDeployment(model, testRouterSAName)
 	if err != nil {
 		t.Fatalf("BuildEPPDeployment: %v", err)
 	}
@@ -150,7 +135,7 @@ func TestBuildEPPDeployment_UserArgsBeforeContract(t *testing.T) {
 func TestBuildEPPDeployment_UserEnvWins(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	model.Spec.Serving.Router.Containers[0].Env = []corev1.EnvVar{{Name: "NAMESPACE", Value: "static"}}
-	dep, err := BuildEPPDeployment(model)
+	dep, err := BuildEPPDeployment(model, testRouterSAName)
 	if err != nil {
 		t.Fatalf("BuildEPPDeployment: %v", err)
 	}

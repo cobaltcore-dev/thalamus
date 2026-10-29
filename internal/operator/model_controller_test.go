@@ -29,6 +29,7 @@ import (
 const testNamespace = "default"
 const testGatewayName = "test-gateway"
 const testGatewayListener = "test-listener"
+const testRouterSAName = "thalamus-router"
 
 // reconcileModelOnce runs a single reconciliation for the named Model and fails
 // the test if Reconcile returns an error.
@@ -52,12 +53,12 @@ func newTestReconciler(t *testing.T, objs ...client.Object) (*ModelReconciler, c
 		WithObjects(objs...).
 		WithStatusSubresource(&v1alpha1.Model{}, &appsv1.Deployment{}, &inferencev1.InferencePool{}, &gatewayv1.HTTPRoute{}).
 		Build()
-	return &ModelReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}, c
+	return &ModelReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener, RouterServiceAccountName: testRouterSAName}, c
 }
 
 func TestReconcile_NotFound(t *testing.T) {
 	s := testutil.NewScheme(t)
-	r := &ModelReconciler{Client: fake.NewClientBuilder().WithScheme(s).Build(), Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
+	r := &ModelReconciler{Client: fake.NewClientBuilder().WithScheme(s).Build(), Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener, RouterServiceAccountName: testRouterSAName}
 	reconcileModelOnce(t, r, "missing")
 }
 
@@ -197,17 +198,25 @@ func TestReconcile_NativeWithEPP(t *testing.T) {
 		name string
 		obj  client.Object
 	}{
-		{"EPP ServiceAccount", &corev1.ServiceAccount{}},
 		{"EPP ConfigMap", &corev1.ConfigMap{}},
 		{"EPP Service", &corev1.Service{}},
-		{"EPP Role", &rbacv1.Role{}},
-		{"EPP RoleBinding", &rbacv1.RoleBinding{}},
 		{"EPP Deployment", &appsv1.Deployment{}},
 	} {
 		if err := c.Get(context.Background(), types.NamespacedName{Name: epp, Namespace: testNamespace}, check.obj); err != nil {
 			t.Errorf("%s missing: %v", check.name, err)
 		}
 	}
+
+	dep := &appsv1.Deployment{}
+	testutil.MustGet(t, c, epp, testNamespace, dep)
+	if got := dep.Spec.Template.Spec.ServiceAccountName; got != testRouterSAName {
+		t.Errorf("EPP serviceAccountName:\ngot:  %q\nwant: %q", got, testRouterSAName)
+	}
+
+	// The identity and RBAC are shared and chart-owned, not Model children.
+	testutil.MustNotGet(t, c, epp, testNamespace, &corev1.ServiceAccount{})
+	testutil.MustNotGet(t, c, epp, testNamespace, &rbacv1.Role{})
+	testutil.MustNotGet(t, c, epp, testNamespace, &rbacv1.RoleBinding{})
 }
 
 func TestReconcile_NativeMultipleReplicas(t *testing.T) {
@@ -215,7 +224,7 @@ func TestReconcile_NativeMultipleReplicas(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", testNamespace)
 	model.Spec.Replicas = 3
 	c := fake.NewClientBuilder().WithScheme(s).WithObjects(model).WithStatusSubresource(model).Build()
-	r := &ModelReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
+	r := &ModelReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener, RouterServiceAccountName: testRouterSAName}
 
 	reconcileModelOnce(t, r, "tiny-llm")
 
@@ -237,7 +246,7 @@ func TestReconcile_ScaleToZero(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", testNamespace)
 	model.Spec.Replicas = 0
 	c := fake.NewClientBuilder().WithScheme(s).WithObjects(model).WithStatusSubresource(model).Build()
-	r := &ModelReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
+	r := &ModelReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener, RouterServiceAccountName: testRouterSAName}
 
 	reconcileModelOnce(t, r, "tiny-llm")
 
@@ -247,9 +256,6 @@ func TestReconcile_ScaleToZero(t *testing.T) {
 	testutil.MustNotGet(t, c, "tiny-llm-engine", testNamespace, &inferencev1.InferencePool{})
 	testutil.MustNotGet(t, c, "tiny-llm", testNamespace, &agentgatewayv1alpha1.AgentgatewayBackend{})
 	testutil.MustNotGet(t, c, "tiny-llm-engine", testNamespace, &gatewayv1.HTTPRoute{})
-	testutil.MustNotGet(t, c, "tiny-llm-epp", testNamespace, &corev1.ServiceAccount{})
-	testutil.MustNotGet(t, c, "tiny-llm-epp", testNamespace, &rbacv1.Role{})
-	testutil.MustNotGet(t, c, "tiny-llm-epp", testNamespace, &rbacv1.RoleBinding{})
 	testutil.MustNotGet(t, c, "tiny-llm-epp", testNamespace, &corev1.ConfigMap{})
 	testutil.MustNotGet(t, c, "tiny-llm-epp", testNamespace, &appsv1.Deployment{})
 	testutil.MustNotGet(t, c, "tiny-llm-epp", testNamespace, &corev1.Service{})
@@ -266,7 +272,7 @@ func TestReconcile_ScaleDownFromOne(t *testing.T) {
 	s := testutil.NewScheme(t)
 	model := testutil.NewModel("tiny-llm", testNamespace)
 	c := fake.NewClientBuilder().WithScheme(s).WithObjects(model).WithStatusSubresource(model).Build()
-	r := &ModelReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
+	r := &ModelReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener, RouterServiceAccountName: testRouterSAName}
 
 	// Start with replicas=1 and resources created.
 	reconcileModelOnce(t, r, "tiny-llm")
@@ -313,7 +319,7 @@ func TestReconcile_ScaleToZero_KeepsForeignOwnedObject(t *testing.T) {
 	}
 
 	c := fake.NewClientBuilder().WithScheme(s).WithObjects(model, foreign).WithStatusSubresource(model).Build()
-	r := &ModelReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
+	r := &ModelReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener, RouterServiceAccountName: testRouterSAName}
 
 	_, err := r.Reconcile(context.Background(), ctrl.Request{
 		Name: "tiny-llm", Namespace: testNamespace,

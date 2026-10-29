@@ -56,6 +56,13 @@ operator:
   rbac:
     create: true
 
+router:
+  serviceAccount:
+    create: true
+    name: ""  # defaults to <release>-router
+  rbac:
+    create: true
+
 monitoring:
   enabled: false
   interval: 15s

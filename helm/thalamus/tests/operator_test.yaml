@@ -141,3 +141,20 @@ tests:
           path: spec.template.spec.containers[0].args
           content: --leader-election-namespace=thalamus
         documentIndex: 4
+
+  - it: should not grant rbac write or serviceaccount permissions
+    asserts:
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [rbac.authorization.k8s.io]
+            resources: [roles, rolebindings]
+            verbs: [get, list, watch, create, update, patch, delete]
+        documentIndex: 1
+      - notContains:
+          path: rules
+          content:
+            apiGroups: [""]
+            resources: [services, serviceaccounts, configmaps]
+            verbs: [get, list, watch, create, update, patch, delete]
+        documentIndex: 1

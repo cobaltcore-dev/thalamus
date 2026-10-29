@@ -15,7 +15,7 @@ Enter
 
 Sleep 5s
 
-Type `kubectl get deploy,svc,sa,role,rolebinding,configmap,inferencepool,httproute -n thalamus | grep qwen | sed 's/[0-9]\{1,3\}\(\.[0-9]\{1,3\}\)\{3\}/REDACTED/g'`
+Type `kubectl get deploy,svc,configmap,inferencepool,httproute -n thalamus | grep qwen | sed 's/[0-9]\{1,3\}\(\.[0-9]\{1,3\}\)\{3\}/REDACTED/g'`
 Enter
 
 Sleep 15s

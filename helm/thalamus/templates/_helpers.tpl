@@ -6,6 +6,10 @@
 {{- default (include "thalamus.operator.name" .) .Values.operator.serviceAccount.name }}
 {{- end }}
 
+{{- define "thalamus.router.serviceAccountName" -}}
+{{- default (printf "%s-router" .Release.Name) .Values.router.serviceAccount.name }}
+{{- end }}
+
 {{- define "thalamus.labels" -}}
 app.kubernetes.io/part-of: {{ .Release.Name }}
 app.kubernetes.io/instance: {{ .Release.Name }}
