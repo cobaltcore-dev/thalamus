@@ -1,0 +1,58 @@
+# SPDX-FileCopyrightText: Copyright 2026 SAP SE and cobaltcore-dev contributors
+# SPDX-License-Identifier: Apache-2.0
+
+name: Vendor agentgateway API pin
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'go.mod'
+
+concurrency:
+  group: vendor-agentgateway-api-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  vendor:
+    if: github.event.pull_request.user.login == 'renovate[bot]' && contains(github.head_ref, 'agentgateway')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Sync agentgateway/api pin
+        run: |
+          set -eu
+          api=github.com/agentgateway/agentgateway/api
+          agw=github.com/agentgateway/agentgateway
+          url=https://github.com/agentgateway/agentgateway
+          tag=$(awk -v module="$agw" '$1 == module { print $2; exit }' go.mod)
+          [ -n "$tag" ] || { echo "error: ${agw} not found in go.mod" >&2; exit 1; }
+          sha=$(git ls-remote "$url" "refs/tags/${tag}" | cut -f1)
+          peeled=$(git ls-remote "$url" "refs/tags/${tag}^{}" | cut -f1)
+          [ -n "$sha" ] || { echo "error: tag ${tag} not found" >&2; exit 1; }
+          # Annotated tags point at a tag object, use the peeled commit instead.
+          sha=${peeled:-$sha}
+          version=$(go list -m -f '{{.Version}}' "${api}@${sha}")
+          go mod edit -replace "${api}=${api}@${version}"
+          go mod tidy
+          if git diff --quiet && [ -z "$(git status --porcelain)" ]; then
+            echo "Nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add go.mod go.sum
+          git commit -m "chore: sync agentgateway/api pin"
+          git push origin HEAD

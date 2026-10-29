@@ -64,9 +64,10 @@
       "rebaseWhen": "never"
     },
     {
-      "description": ["Keep agentgateway and agentgateway-crds in lockstep"],
-      "matchDatasources": ["docker", "helm"],
+      "description": ["Keep all agentgateway dependencies (Go module and Helm charts) in lockstep"],
+      "matchDatasources": ["docker", "go", "helm"],
       "matchPackageNames": [
+        "github.com/agentgateway/agentgateway",
         "agentgateway",
         "agentgateway-crds",
         "cr.agentgateway.dev/charts/agentgateway",
@@ -75,6 +76,14 @@
       "allowedVersions": "/^v1\\./",
       "groupName": "agentgateway",
       "groupSlug": "agentgateway"
+    },
+    {
+      "description": [
+        "agentgateway/api must match the agentgateway release commit, not main. The pin is synced in lockstep with the agentgateway module by .github/workflows/vendor-agentgateway-api.yaml."
+      ],
+      "matchDatasources": ["go"],
+      "matchPackageNames": ["github.com/agentgateway/agentgateway/api"],
+      "enabled": false
     },
     {
       "description": ["Group plain helm open-webui dep with helmfile"],
