@@ -51,12 +51,14 @@ new operator image in one shot, without the operator touching any old-schema
 objects:
 
 ```bash
+kubectl -n thalamus annotate \
+  gateways.gateway.networking.k8s.io/inference-gateway \
+  helm.sh/resource-policy=keep --overwrite
 helm upgrade --install thalamus oci://ghcr.io/cobaltcore-dev/charts/thalamus \
   --namespace thalamus --create-namespace --wait \
   --version v0.2.0 \
   --set operator.replicas=0 \
   --take-ownership
-```
 
 The upgrade re-parents every CRD to the `thalamus` release. Do **not** run
 `helm uninstall thalamus-crds`. Uninstall deletes the resources listed in
