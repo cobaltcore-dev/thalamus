@@ -6,11 +6,13 @@ package operator
 import (
 	"context"
 	"slices"
+	"strings"
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -324,4 +326,56 @@ func TestReconcile_ScaleToZero_KeepsForeignOwnedObject(t *testing.T) {
 
 	// The foreign-owned deployment must not be deleted.
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, &appsv1.Deployment{})
+}
+
+// TestReconcile_RefusesToOverwriteForeignRBAC verifies a tenant Model cannot
+// make the operator take over a pre-existing Role/RoleBinding.
+func TestReconcile_RefusesToOverwriteForeignRBAC(t *testing.T) {
+	model := testutil.NewModel("admin", testNamespace)
+
+	// Pre-existing "privileged" Role and RoleBinding at the name the operator
+	// derives for the model's EPP (admin-epp), not controlled by the model.
+	privileged := &rbacv1.Role{
+		Name:      model.EPPName(),
+		Namespace: testNamespace,
+		Rules: []rbacv1.PolicyRule{
+			{APIGroups: []string{""}, Resources: []string{"secrets"}, Verbs: []string{"*"}},
+		},
+	}
+	binding := &rbacv1.RoleBinding{
+		Name:      model.EPPName(),
+		Namespace: testNamespace,
+		RoleRef:   rbacv1.RoleRef{APIGroup: rbacv1.GroupName, Kind: "Role", Name: model.EPPName()},
+		Subjects:  []rbacv1.Subject{{Kind: rbacv1.ServiceAccountKind, Name: "sensitive-sa", Namespace: testNamespace}},
+	}
+	r, c := newTestReconciler(t, model, privileged, binding)
+
+	_, err := r.Reconcile(context.Background(), ctrl.Request{Name: "admin", Namespace: testNamespace})
+	if err == nil {
+		t.Fatal("expected reconcile error for foreign-owned colliding Role, got nil")
+	}
+
+	// The privileged Role must not have been overwritten by the operator.
+	gotRole := &rbacv1.Role{}
+	testutil.MustGet(t, c, model.EPPName(), testNamespace, gotRole)
+	if len(gotRole.Rules) != 1 || len(gotRole.Rules[0].Resources) != 1 || gotRole.Rules[0].Resources[0] != "secrets" {
+		t.Errorf("foreign Role was overwritten:\ngot:  %+v\nwant: original privileged rules", gotRole.Rules)
+	}
+
+	// The RoleBinding must still bind the sensitive service account.
+	gotBinding := &rbacv1.RoleBinding{}
+	testutil.MustGet(t, c, model.EPPName(), testNamespace, gotBinding)
+	if len(gotBinding.Subjects) != 1 || gotBinding.Subjects[0].Name != "sensitive-sa" {
+		t.Errorf("foreign RoleBinding subject was overwritten:\ngot:  %+v", gotBinding.Subjects)
+	}
+
+	// The model must be reported Failed with a clear reason.
+	updated := &v1alpha1.Model{}
+	testutil.MustGet(t, c, "admin", testNamespace, updated)
+	if updated.Status.Phase != v1alpha1.ModelPhaseFailed {
+		t.Errorf("Phase:\ngot:  %q\nwant: Failed", updated.Status.Phase)
+	}
+	if cond := meta.FindStatusCondition(updated.Status.Conditions, v1alpha1.ModelConditionReady); cond == nil || cond.Reason != "ReconcileError" || !strings.Contains(cond.Message, "refusing to apply") {
+		t.Errorf("Ready condition:\ngot:  %+v\nwant: reason ReconcileError mentioning 'refusing to apply'", cond)
+	}
 }

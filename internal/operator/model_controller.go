@@ -16,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -114,7 +113,7 @@ func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.M
 		// Delete in reverse order so consumers are removed before their dependencies.
 		log.FromContext(ctx).V(levelDebug).Info("deleting owned resources", "namespace", model.Namespace, "name", model.Name, "resources", len(objs))
 		for _, obj := range slices.Backward(objs) {
-			if err := r.deleteOwned(ctx, model, obj); err != nil {
+			if err := deleteOwned(ctx, r.Client, model, obj); err != nil {
 				return err
 			}
 		}
@@ -125,23 +124,6 @@ func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.M
 		if err := applyOwned(ctx, r.Client, r.Scheme, model, obj); err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-// deleteOwned removes desired if it exists and is controlled by owner.
-func (r *ModelReconciler) deleteOwned(ctx context.Context, owner *v1alpha1.Model, desired client.Object) error {
-	if err := r.Get(ctx, types.NamespacedName{Name: desired.GetName(), Namespace: desired.GetNamespace()}, desired); err != nil {
-		if err = client.IgnoreNotFound(err); err != nil {
-			return fmt.Errorf("get %T %s/%s: %w", desired, desired.GetNamespace(), desired.GetName(), err)
-		}
-		return nil
-	}
-	if !metav1.IsControlledBy(desired, owner) {
-		return fmt.Errorf("refusing to delete %T %s/%s: not owned by model %s", desired, desired.GetNamespace(), desired.GetName(), owner.Name)
-	}
-	if err := client.IgnoreNotFound(r.Delete(ctx, desired)); err != nil {
-		return fmt.Errorf("delete %T %s/%s: %w", desired, desired.GetNamespace(), desired.GetName(), err)
 	}
 	return nil
 }

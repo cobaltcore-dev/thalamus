@@ -9,6 +9,7 @@ import (
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	agentgatewayv1alpha1 "github.com/agentgateway/agentgateway/controller/api/v1alpha1/agentgateway"
 
@@ -60,6 +61,9 @@ func TestBodyRoutingReconcile_ReappliesModifiedPolicy(t *testing.T) {
 	gateway := newGateway()
 	policy := native.BuildBodyBasedRoutingPolicy(gateway, testGatewayListener)
 	policy.Spec.Traffic.Transformation = nil
+	if err := controllerutil.SetControllerReference(gateway, policy, s); err != nil {
+		t.Fatalf("set controller reference: %v", err)
+	}
 	c := fake.NewClientBuilder().WithScheme(s).WithObjects(gateway, policy).Build()
 	r := &BodyRoutingReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
 

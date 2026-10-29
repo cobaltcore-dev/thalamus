@@ -12,6 +12,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	agentgatewayv1alpha1 "github.com/agentgateway/agentgateway/controller/api/v1alpha1/agentgateway"
@@ -188,6 +189,9 @@ func TestModelListReconcile_ReappliesModifiedPolicy(t *testing.T) {
 	gateway := newGateway()
 	policy := newModelListPolicy()
 	policy.Spec.Traffic.DirectResponse.Headers = nil
+	if err := controllerutil.SetControllerReference(gateway, policy, s); err != nil {
+		t.Fatalf("set controller reference: %v", err)
+	}
 	c := fake.NewClientBuilder().WithScheme(s).WithObjects(gateway, policy).Build()
 	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
 
