@@ -110,6 +110,24 @@ func TestBuildEngineDeployment(t *testing.T) {
 	}
 }
 
+func TestBuildEngineDeployment_IdentityIsNotUserControllable(t *testing.T) {
+	model := testutil.NewModel("tiny-llm", "default")
+	model.Spec.Serving.Engine.ServiceAccountName = "privileged"
+	model.Spec.Serving.Engine.AutomountServiceAccountToken = new(true)
+
+	dep, err := BuildEngineDeployment(model)
+	if err != nil {
+		t.Fatalf("BuildEngineDeployment: %v", err)
+	}
+	podSpec := dep.Spec.Template.Spec
+	if podSpec.ServiceAccountName != "" {
+		t.Errorf("ServiceAccountName:\ngot:  %q\nwant: default service account", podSpec.ServiceAccountName)
+	}
+	if podSpec.AutomountServiceAccountToken == nil || *podSpec.AutomountServiceAccountToken {
+		t.Error("AutomountServiceAccountToken must be false")
+	}
+}
+
 func TestBuildEngineDeployment_UserOverrides(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	userUID := int64(1234)

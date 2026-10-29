@@ -71,8 +71,9 @@ func BuildEPPDeployment(model *v1alpha1.Model, serviceAccountName string) (*apps
 		"--config-file", "/config/"+eppConfigKey,
 		"--metrics-endpoint-auth=false",
 	)
-	// Set after the merge so the identity can't be overridden from the Model spec.
+	// Set after the merge so the Model can't override the router identity or token.
 	podSpec.ServiceAccountName = serviceAccountName
+	podSpec.AutomountServiceAccountToken = new(true)
 
 	recreate := appsv1.RecreateDeploymentStrategyType
 	return &appsv1.Deployment{

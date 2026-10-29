@@ -117,6 +117,18 @@ func TestBuildEPPDeployment_ServiceAccountIsNotUserOverridable(t *testing.T) {
 	}
 }
 
+func TestBuildEPPDeployment_AutomountIsNotUserControllable(t *testing.T) {
+	model := testutil.NewModel("tiny-llm", "default")
+	model.Spec.Serving.Router.AutomountServiceAccountToken = new(false)
+	dep, err := BuildEPPDeployment(model, testRouterSAName)
+	if err != nil {
+		t.Fatalf("BuildEPPDeployment: %v", err)
+	}
+	if got := dep.Spec.Template.Spec.AutomountServiceAccountToken; got == nil || !*got {
+		t.Error("AutomountServiceAccountToken must be true")
+	}
+}
+
 func TestBuildEPPDeployment_UserArgsBeforeContract(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	model.Spec.Serving.Router.Containers[0].Args = []string{"--log-level=debug"}
