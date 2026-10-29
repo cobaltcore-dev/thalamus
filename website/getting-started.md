@@ -196,46 +196,10 @@ curl "http://$GATEWAY_HOST/v1/chat/completions" \
   }'
 ```
 
-## API key authentication (optional)
-
-By default, the Thalamus API accepts unauthenticated requests. To enable token-based authentication, save an `AgentgatewayPolicy` as a values file. The example policy below requires every request to include a valid `Authorization: Bearer <key>` header. API keys are loaded from Kubernetes secrets labeled `thalamus-apikey: "true"`.
-
-```yaml
-# apikey-auth.yaml
-extraDeploy:
-  apikey-auth:
-    apiVersion: agentgateway.dev/v1alpha1
-    kind: AgentgatewayPolicy
-    metadata:
-      namespace: thalamus
-    spec:
-      targetRefs:
-        - group: gateway.networking.k8s.io
-          kind: Gateway
-          name: inference-gateway
-          sectionName: api
-      traffic:
-        apiKeyAuthentication:
-          mode: Strict
-          secretSelector:
-            matchLabels:
-              thalamus-apikey: "true"
-```
-
-Add `-f apikey-auth.yaml` to the install command in Step 1.
-
-Create one secret per user or client:
-
-```bash
-kubectl create secret generic apikey-<name> \
-  --namespace thalamus \
-  --from-literal=api-key=$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')
-kubectl label secret apikey-<name> --namespace thalamus thalamus-apikey=true
-```
-
 ## Next Steps
 
 - Browse the [Model CRD API Reference](/reference/model-crd-api) for all available fields.
+- Secure the gateway and track usage with [Gateway Integrations](/gateway-integrations).
 - Add a web frontend with [Open WebUI](/open-webui).
 - Load the [Perses dashboards](/perses-dashboards) to monitor SLOs, usage, and GPU health.
 - Read the [Architecture overview](/concepts/architecture) to understand how the

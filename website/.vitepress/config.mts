@@ -62,6 +62,7 @@ export default {
         text: 'Getting Started',
         items: [
           { text: 'Overview', link: '/getting-started' },
+          { text: 'Gateway Integrations', link: '/gateway-integrations' },
           { text: 'Open WebUI', link: '/open-webui' },
           { text: 'Perses Dashboards', link: '/perses-dashboards' },
         ],
