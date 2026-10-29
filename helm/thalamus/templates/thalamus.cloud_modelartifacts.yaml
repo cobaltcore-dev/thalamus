@@ -1,0 +1,60 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.23.0
+  name: modelartifacts.thalamus.cloud
+spec:
+  group: thalamus.cloud
+  names:
+    categories:
+    - thalamus
+    kind: ModelArtifact
+    listKind: ModelArtifactList
+    plural: modelartifacts
+    shortNames:
+    - mart
+    singular: modelartifact
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.base
+      name: Base
+      type: string
+    - jsonPath: .spec.draft
+      name: Draft
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              base:
+                pattern: ^hf://.+
+                type: string
+              draft:
+                pattern: ^hf://.+
+                type: string
+            required:
+            - base
+            type: object
+            x-kubernetes-validations:
+            - message: spec.draft must differ from spec.base
+              rule: '!has(self.draft) || self.base != self.draft'
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources: {}

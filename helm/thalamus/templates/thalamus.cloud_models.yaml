@@ -28,8 +28,8 @@ spec:
     - jsonPath: .status.eppType
       name: EPP
       type: string
-    - jsonPath: .spec.weights.type
-      name: Weights
+    - jsonPath: .spec.artifactRef.name
+      name: Artifact
       type: string
     - jsonPath: .status.phase
       name: Phase
@@ -58,6 +58,14 @@ spec:
                 maxItems: 5
                 type: array
                 x-kubernetes-list-type: set
+              artifactRef:
+                properties:
+                  name:
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
               backend:
                 default: native
                 enum:
@@ -7886,41 +7894,9 @@ spec:
                 - engine
                 - router
                 type: object
-              weights:
-                properties:
-                  hf:
-                    properties:
-                      repoId:
-                        type: string
-                      tokenSecret:
-                        properties:
-                          key:
-                            type: string
-                          name:
-                            default: ""
-                            type: string
-                          optional:
-                            type: boolean
-                        required:
-                        - key
-                        type: object
-                        x-kubernetes-map-type: atomic
-                    required:
-                    - repoId
-                    type: object
-                  type:
-                    enum:
-                    - hf
-                    type: string
-                required:
-                - type
-                type: object
-                x-kubernetes-validations:
-                - message: spec.weights.hf is required when type is hf
-                  rule: self.type != 'hf' || has(self.hf)
             required:
+            - artifactRef
             - serving
-            - weights
             type: object
             x-kubernetes-validations:
             - message: spec.backend must be native

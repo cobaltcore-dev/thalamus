@@ -164,6 +164,7 @@ jobs:
             assert_skipped /tmp/agw-crds.yaml
           fi
           printf '%s' "$manifest" | grep -q '^  name: models.thalamus.cloud'
+          printf '%s' "$manifest" | grep -q '^  name: modelartifacts.thalamus.cloud'
           echo "PASS: thalamus skipped all disabled CRD dependencies"
 
       - name: Verify disabled agentgateway controller was skipped
@@ -185,7 +186,8 @@ jobs:
             crd/httproutes.gateway.networking.k8s.io \
             crd/inferencepools.inference.networking.k8s.io \
             crd/agentgatewaypolicies.agentgateway.dev \
-            crd/models.thalamus.cloud
+            crd/models.thalamus.cloud \
+            crd/modelartifacts.thalamus.cloud
 
       - name: Verify Model argument validation
         run: |
@@ -210,13 +212,7 @@ jobs:
             --for=condition=Programmed=True \
             --timeout=120s
 
-      - name: Create huggingface Secret
-        run: |
-          kubectl create secret generic hf-token \
-            --namespace thalamus \
-            --from-literal=HF_TOKEN=${{ secrets.HF_TOKEN }}
-
-      - name: Apply Model
+      - name: Apply Artifact and Model
         run: |
           kubectl apply -f ${{ github.workspace }}/examples/model-smollm2-cpu.yaml
 

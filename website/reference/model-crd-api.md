@@ -17,6 +17,8 @@ Package v1alpha1 contains API Schema definitions for the thalamus.cloud v1alpha1
 
 ### Resource Types
 - [Model](#model)
+- [ModelArtifact](#modelartifact)
+- [ModelArtifactList](#modelartifactlist)
 - [ModelList](#modellist)
 
 
@@ -76,23 +78,6 @@ _Appears in:_
 | `unknown` |  |
 
 
-#### HFWeightsSpec
-
-
-
-HFWeightsSpec configures model weights sourced from Hugging Face.
-
-
-
-_Appears in:_
-- [WeightsSpec](#weightsspec)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `repoId` _string_ | RepoID is the Hugging Face repository ID, e.g. "openai/gpt-oss-120b". |  |  |
-| `tokenSecret` _[SecretKeySelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#secretkeyselector-v1-core)_ | TokenSecret references the key within a Kubernetes secret containing the Hugging Face token. |  | Optional: \{\} <br /> |
-
-
 #### Model
 
 
@@ -111,6 +96,76 @@ _Appears in:_
 | `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  | Optional: \{\} <br /> |
 | `spec` _[ModelSpec](#modelspec)_ | spec defines the desired state of the Model. |  | Required: \{\} <br /> |
 | `status` _[ModelStatus](#modelstatus)_ | status defines the observed state of the Model. |  | Optional: \{\} <br /> |
+
+
+#### ModelArtifact
+
+
+
+
+
+
+
+_Appears in:_
+- [ModelArtifactList](#modelartifactlist)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `thalamus.cloud/v1alpha1` | | |
+| `kind` _string_ | `ModelArtifact` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  | Optional: \{\} <br /> |
+| `spec` _[ModelArtifactSpec](#modelartifactspec)_ |  |  | Required: \{\} <br /> |
+
+
+#### ModelArtifactList
+
+
+
+
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `thalamus.cloud/v1alpha1` | | |
+| `kind` _string_ | `ModelArtifactList` | | |
+| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `items` _[ModelArtifact](#modelartifact) array_ |  |  |  |
+
+
+#### ModelArtifactReference
+
+
+
+ModelArtifactReference identifies a ModelArtifact in the same namespace.
+
+
+
+_Appears in:_
+- [ModelSpec](#modelspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | Name is the name of the referenced ModelArtifact. |  | MinLength: 1 <br /> |
+
+
+#### ModelArtifactSpec
+
+
+
+ModelArtifactSpec describes remote model weights that an inference engine can load.
+
+
+
+_Appears in:_
+- [ModelArtifact](#modelartifact)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `base` _string_ | Base is the remote location of the base model weights. |  | Pattern: `^hf://.+` <br /> |
+| `draft` _string_ | Draft is the optional remote location of the draft model weights. |  | Optional: \{\} <br />Pattern: `^hf://.+` <br /> |
 
 
 #### ModelList
@@ -169,8 +224,8 @@ _Appears in:_
 | `backend` _[BackendType](#backendtype)_ | Backend selects which inference backend manages this model's resources.<br />Defaults to "native". | native | Enum: [native kserve kaito] <br />Optional: \{\} <br /> |
 | `replicas` _integer_ | Replicas defines the number of engine replicas to deploy for this model.<br />Defaults to 1. | 1 | Minimum: 0 <br />Optional: \{\} <br /> |
 | `serving` _[ServingSpec](#servingspec)_ | Serving defines how the model is served. |  |  |
-| `weights` _[WeightsSpec](#weightsspec)_ | Weights defines where the model weights are sourced from. |  |  |
-| `aliases` _string array_ | Aliases are the model names under which this model is exposed.<br />When empty, the base model name from the weights is used. |  | MaxItems: 5 <br />Optional: \{\} <br />items:MaxLength: 4096 <br />items:MinLength: 1 <br />items:Pattern: `^[!-~]+([\t ]?[!-~]+)*$` <br /> |
+| `artifactRef` _[ModelArtifactReference](#modelartifactreference)_ | ArtifactRef references the ModelArtifact that provides this model's weights. |  |  |
+| `aliases` _string array_ | Aliases are the model names under which this model is exposed.<br />When empty, the base model name from the artifact is used. |  | MaxItems: 5 <br />Optional: \{\} <br />items:MaxLength: 4096 <br />items:MinLength: 1 <br />items:Pattern: `^[!-~]+([\t ]?[!-~]+)*$` <br /> |
 
 
 #### ModelStatus
@@ -207,39 +262,5 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `engine` _[PodSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#podspec-v1-core)_ | Engine is the pod spec for the inference engine. The container named<br />'engine' is the main container and must set an image. Containers with<br />other names are added as sidecars. |  |  |
 | `router` _[PodSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#podspec-v1-core)_ | Router is the pod spec for the entry point. The container named<br />'router' is the main container and must set an image. Containers with<br />other names are added as sidecars. |  |  |
-
-
-#### WeightsSpec
-
-
-
-WeightsSpec defines where the model weights are sourced from.
-
-
-
-_Appears in:_
-- [ModelSpec](#modelspec)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `type` _[WeightsType](#weightstype)_ | Type of the weights source. |  | Enum: [hf] <br /> |
-| `hf` _[HFWeightsSpec](#hfweightsspec)_ | HF configures weights sourced from Hugging Face. |  | Optional: \{\} <br /> |
-
-
-#### WeightsType
-
-_Underlying type:_ _string_
-
-
-
-_Validation:_
-- Enum: [hf]
-
-_Appears in:_
-- [WeightsSpec](#weightsspec)
-
-| Field | Description |
-| --- | --- |
-| `hf` |  |
 
 

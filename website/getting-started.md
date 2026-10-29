@@ -33,10 +33,6 @@ following are expected to already be present in the cluster:
 The Gateway API, Gateway API inference extension, and agentgateway CRDs are
 bundled with the install (Step 1).
 
-### Accounts
-
-- A [Hugging Face](https://huggingface.co) account with a [read token](https://huggingface.co/settings/tokens) and access to the models you want to serve
-
 ## Step 1 — Deploy the stack
 
 Thalamus installs as a single Helm chart bundling the Thalamus operator, the agentgateway controller, and all required CRDs (Thalamus, Gateway API, inference extension, agentgateway). Everything is enabled by default:
@@ -50,8 +46,8 @@ helm upgrade --install thalamus oci://ghcr.io/cobaltcore-dev/charts/thalamus \
 > **Caution:** the CRDs are installed as ordinary release resources, not via
 > Helm's protected `crds/` mechanism. `helm uninstall thalamus` therefore
 > deletes every CRD and cascades into deleting all custom resources they own —
-> including every `Model` and its inference workloads. Only uninstall it when
-> you intend to tear down Thalamus.
+> including every `Model`, `ModelArtifact`, and inference workload. Only
+> uninstall it when you intend to tear down Thalamus.
 
 ### Already have some of these components?
 
@@ -74,17 +70,7 @@ Likewise, if you run agentgateway as separate releases, disable its bundled CRDs
 with `--set agentgateway-crds.enabled=false`, and
 disable its bundled controller with `--set agentgateway.enabled=false`.
 
-## Step 2 — Create the Hugging Face secret
-
-Model pods pull their weights from Hugging Face at startup. `tokenSecret` is optional — public models work without it — but providing a token avoids anonymous rate limits. To create a secret named `hf-token` with key `HF_TOKEN` in the `thalamus` namespace:
-
-```bash
-kubectl create secret generic hf-token \
-  --from-literal=HF_TOKEN="$HF_TOKEN" \
-  --namespace thalamus
-```
-
-## Step 3 — Create the inference gateway
+## Step 2 — Create the inference gateway
 
 The Gateway is not part of the helm release; you create and own it. The
 operator attaches all of its routes — per-model traffic and the
@@ -123,12 +109,10 @@ The example also shows how to configure the data plane through an
 <<< ../examples/gateway.yaml{yml}
 :::
 
-## Step 4 — Deploy a model
+## Step 3 — Deploy a model
 
-Models are declared as `thalamus.cloud/v1alpha1 Model` resources and applied
-independently of the helm release. See [`examples/model-qwen3-6-27b-gpu.yaml`](https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/model-qwen3-6-27b-gpu.yaml)
-for a GPU example and [`examples/model-smollm2-cpu.yaml`](https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/model-smollm2-cpu.yaml) for a
-CPU example.
+Apply a model example. It creates a `ModelArtifact` with the weight locations
+and a `Model` that references it.
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/model-qwen3-6-27b-gpu.yaml
@@ -160,7 +144,10 @@ kubectl wait model/smollm2-135m --namespace thalamus --for=condition=Ready --tim
 <<< ../examples/model-smollm2-cpu.yaml{yml}
 :::
 
-## Step 5 — Access the stack
+For details on model artifacts and draft models, see
+[Models](/guides/models).
+
+## Step 4 — Access the stack
 
 Once the pods are running, the inference gateway exposes an OpenAI-compatible
 API. Point `GATEWAY_HOST` at the endpoint you want to use, then send requests.
@@ -235,6 +222,8 @@ kubectl label secret apikey-<name> --namespace thalamus thalamus-apikey=true
 
 ## Next Steps
 
+- Read the [Models](/guides/models) guide to learn how to configure,
+  observe, and manage models.
 - Browse the [Model CRD API Reference](/reference/model-crd-api) for all available fields.
 - Add a web frontend with [Open WebUI](/open-webui).
 - Load the [Perses dashboards](/perses-dashboards) to monitor SLOs, usage, and GPU health.

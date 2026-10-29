@@ -113,6 +113,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := (&operator.ModelArtifactReconciler{
+		Client:    mgr.GetClient(),
+		Scheme:    mgr.GetScheme(),
+		APIReader: mgr.GetAPIReader(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "model-artifact")
+		os.Exit(1)
+	}
+
 	if err := (&operator.ModelListReconciler{
 		Client:       mgr.GetClient(),
 		Scheme:       mgr.GetScheme(),

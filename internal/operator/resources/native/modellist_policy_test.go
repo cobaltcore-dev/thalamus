@@ -74,7 +74,7 @@ func TestBuildModelListPolicy(t *testing.T) {
 func TestBuildModelListResponse_Empty(t *testing.T) {
 	want := `{"object":"list","data":[]}`
 
-	body, err := BuildModelListResponse(nil)
+	body, err := BuildModelListResponse(nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func TestBuildModelListResponse_Empty(t *testing.T) {
 		t.Errorf("model list response (nil):\ngot:  %s\nwant: %s", body, want)
 	}
 
-	body, err = BuildModelListResponse([]v1alpha1.Model{})
+	body, err = BuildModelListResponse([]v1alpha1.Model{}, []v1alpha1.ModelArtifact{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,22 +92,14 @@ func TestBuildModelListResponse_Empty(t *testing.T) {
 }
 
 func TestBuildModelListResponse_OnlyReady(t *testing.T) {
-	a := *testutil.NewModel("tiny-llm", "default")
-	a.Name = "a"
-	a.Spec.Weights.HF.RepoID = "org/model-a"
-	a.Status.Phase = v1alpha1.ModelPhaseReady
+	a, artifactA := testutil.Fixture("a", "default").Base("hf://org/model-a").Phase(v1alpha1.ModelPhaseReady).Build()
+	b, artifactB := testutil.Fixture("b", "default").Base("hf://org/model-b").Phase(v1alpha1.ModelPhaseCreating).Build()
+	c, artifactC := testutil.Fixture("c", "default").Base("hf://org/model-c").Phase(v1alpha1.ModelPhaseFailed).Build()
 
-	b := *testutil.NewModel("tiny-llm", "default")
-	b.Name = "b"
-	b.Spec.Weights.HF.RepoID = "org/model-b"
-	b.Status.Phase = v1alpha1.ModelPhaseCreating
-
-	c := *testutil.NewModel("tiny-llm", "default")
-	c.Name = "c"
-	c.Spec.Weights.HF.RepoID = "org/model-c"
-	c.Status.Phase = v1alpha1.ModelPhaseFailed
-
-	body, err := BuildModelListResponse([]v1alpha1.Model{a, b, c})
+	body, err := BuildModelListResponse(
+		[]v1alpha1.Model{*a, *b, *c},
+		[]v1alpha1.ModelArtifact{*artifactA, *artifactB, *artifactC},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,22 +110,14 @@ func TestBuildModelListResponse_OnlyReady(t *testing.T) {
 }
 
 func TestBuildModelListResponse_MultipleReady_Sorted(t *testing.T) {
-	z := *testutil.NewModel("tiny-llm", "default")
-	z.Name = "z"
-	z.Spec.Weights.HF.RepoID = "org/zzz"
-	z.Status.Phase = v1alpha1.ModelPhaseReady
+	z, artifactZ := testutil.Fixture("z", "default").Base("hf://org/zzz").Phase(v1alpha1.ModelPhaseReady).Build()
+	a, artifactA := testutil.Fixture("a", "default").Base("hf://org/aaa").Phase(v1alpha1.ModelPhaseReady).Build()
+	m, artifactM := testutil.Fixture("m", "default").Base("hf://org/mmm").Phase(v1alpha1.ModelPhaseReady).Build()
 
-	a := *testutil.NewModel("tiny-llm", "default")
-	a.Name = "a"
-	a.Spec.Weights.HF.RepoID = "org/aaa"
-	a.Status.Phase = v1alpha1.ModelPhaseReady
-
-	m := *testutil.NewModel("tiny-llm", "default")
-	m.Name = "m"
-	m.Spec.Weights.HF.RepoID = "org/mmm"
-	m.Status.Phase = v1alpha1.ModelPhaseReady
-
-	body, err := BuildModelListResponse([]v1alpha1.Model{z, a, m})
+	body, err := BuildModelListResponse(
+		[]v1alpha1.Model{*z, *a, *m},
+		[]v1alpha1.ModelArtifact{*artifactZ, *artifactA, *artifactM},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,11 +128,9 @@ func TestBuildModelListResponse_MultipleReady_Sorted(t *testing.T) {
 }
 
 func TestBuildModelListResponse_NoSlashInRepoID(t *testing.T) {
-	model := *testutil.NewModel("tiny-llm", "default")
-	model.Spec.Weights.HF.RepoID = "somemodel"
-	model.Status.Phase = v1alpha1.ModelPhaseReady
+	model, artifact := testutil.Fixture("tiny-llm", "default").Base("hf://somemodel").Phase(v1alpha1.ModelPhaseReady).Build()
 
-	body, err := BuildModelListResponse([]v1alpha1.Model{model})
+	body, err := BuildModelListResponse([]v1alpha1.Model{*model}, []v1alpha1.ModelArtifact{*artifact})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,12 +141,10 @@ func TestBuildModelListResponse_NoSlashInRepoID(t *testing.T) {
 }
 
 func TestBuildModelListResponse_Aliases(t *testing.T) {
-	model := *testutil.NewModel("tiny-llm", "default")
-	model.Spec.Weights.HF.RepoID = "org/model-a"
+	model, artifact := testutil.Fixture("tiny-llm", "default").Base("hf://org/model-a").Phase(v1alpha1.ModelPhaseReady).Build()
 	model.Spec.Aliases = []string{"short", "other"}
-	model.Status.Phase = v1alpha1.ModelPhaseReady
 
-	body, err := BuildModelListResponse([]v1alpha1.Model{model})
+	body, err := BuildModelListResponse([]v1alpha1.Model{*model}, []v1alpha1.ModelArtifact{*artifact})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,23 +154,30 @@ func TestBuildModelListResponse_Aliases(t *testing.T) {
 	}
 }
 
-func TestBuildModelListResponse_Stable(t *testing.T) {
-	z := *testutil.NewModel("tiny-llm", "default")
-	z.Name = "z"
-	z.Spec.Weights.HF.RepoID = "org/zzz"
-	z.Status.Phase = v1alpha1.ModelPhaseReady
+func TestBuildModelListResponse_MissingArtifact(t *testing.T) {
+	model, _ := testutil.Fixture("tiny-llm", "default").Base("hf://org/model-a").Phase(v1alpha1.ModelPhaseReady).Build()
 
-	a := *testutil.NewModel("tiny-llm", "default")
-	a.Name = "a"
-	a.Spec.Weights.HF.RepoID = "org/aaa"
-	a.Status.Phase = v1alpha1.ModelPhaseReady
-
-	models := []v1alpha1.Model{z, a}
-	first, err := BuildModelListResponse(models)
+	body, err := BuildModelListResponse([]v1alpha1.Model{*model}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := BuildModelListResponse(models)
+	want := `{"object":"list","data":[]}`
+	if body != want {
+		t.Errorf("model list response:\ngot:  %s\nwant: %s", body, want)
+	}
+}
+
+func TestBuildModelListResponse_Stable(t *testing.T) {
+	z, artifactZ := testutil.Fixture("z", "default").Base("hf://org/zzz").Phase(v1alpha1.ModelPhaseReady).Build()
+	a, artifactA := testutil.Fixture("a", "default").Base("hf://org/aaa").Phase(v1alpha1.ModelPhaseReady).Build()
+
+	models := []v1alpha1.Model{*z, *a}
+	artifacts := []v1alpha1.ModelArtifact{*artifactZ, *artifactA}
+	first, err := BuildModelListResponse(models, artifacts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := BuildModelListResponse(models, artifacts)
 	if err != nil {
 		t.Fatal(err)
 	}

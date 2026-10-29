@@ -11,11 +11,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// +kubebuilder:validation:Enum=hf
-type WeightsType string
-
-const WeightsTypeHF WeightsType = "hf"
-
 type ModelPhase string
 
 const (
@@ -46,6 +41,9 @@ const (
 	ModelReasonHTTPRouteNotAccepted      ModelReason = "HTTPRouteNotAccepted"
 	ModelReasonHTTPRouteRejected         ModelReason = "HTTPRouteRejected"
 	ModelReasonHTTPRoutePartiallyInvalid ModelReason = "HTTPRoutePartiallyInvalid"
+	ModelReasonArtifactNotFound          ModelReason = "ArtifactNotFound"
+	ModelReasonArtifactTerminating       ModelReason = "ArtifactTerminating"
+	ModelReasonReconcileError            ModelReason = "ReconcileError"
 )
 
 // +kubebuilder:validation:Enum=native;kserve;kaito
@@ -73,25 +71,11 @@ const (
 	EPPTypeUnknown EPPType = "unknown"
 )
 
-// HFWeightsSpec configures model weights sourced from Hugging Face.
-type HFWeightsSpec struct {
-	// RepoID is the Hugging Face repository ID, e.g. "openai/gpt-oss-120b".
-	RepoID string `json:"repoId"`
-
-	// TokenSecret references the key within a Kubernetes secret containing the Hugging Face token.
-	// +kubebuilder:validation:Optional
-	TokenSecret *corev1.SecretKeySelector `json:"tokenSecret,omitempty"`
-}
-
-// WeightsSpec defines where the model weights are sourced from.
-// +kubebuilder:validation:XValidation:rule="self.type != 'hf' || has(self.hf)",message="spec.weights.hf is required when type is hf"
-type WeightsSpec struct {
-	// Type of the weights source.
-	Type WeightsType `json:"type"`
-
-	// HF configures weights sourced from Hugging Face.
-	// +kubebuilder:validation:Optional
-	HF *HFWeightsSpec `json:"hf,omitempty"`
+// ModelArtifactReference identifies a ModelArtifact in the same namespace.
+type ModelArtifactReference struct {
+	// Name is the name of the referenced ModelArtifact.
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
 }
 
 // ServingSpec defines the serving configuration for the model instance.
@@ -130,11 +114,11 @@ type ModelSpec struct {
 	// Serving defines how the model is served.
 	Serving ServingSpec `json:"serving"`
 
-	// Weights defines where the model weights are sourced from.
-	Weights WeightsSpec `json:"weights"`
+	// ArtifactRef references the ModelArtifact that provides this model's weights.
+	ArtifactRef ModelArtifactReference `json:"artifactRef"`
 
 	// Aliases are the model names under which this model is exposed.
-	// When empty, the base model name from the weights is used.
+	// When empty, the base model name from the artifact is used.
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:MaxItems=5
 	// +kubebuilder:validation:items:MinLength=1
@@ -173,7 +157,7 @@ type ModelStatus struct {
 // +kubebuilder:printcolumn:name="Backend",type="string",JSONPath=".spec.backend"
 // +kubebuilder:printcolumn:name="Engine",type="string",JSONPath=".status.engineType"
 // +kubebuilder:printcolumn:name="EPP",type="string",JSONPath=".status.eppType"
-// +kubebuilder:printcolumn:name="Weights",type="string",JSONPath=".spec.weights.type"
+// +kubebuilder:printcolumn:name="Artifact",type="string",JSONPath=".spec.artifactRef.name"
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // Service names must be DNS-1035 labels.
@@ -198,23 +182,13 @@ type Model struct {
 	Status ModelStatus `json:"status,omitempty,omitzero"`
 }
 
-// +kubebuilder:object:root=true
-
-// BaseModelName returns the model identifier from the weights configuration.
-func (m *Model) BaseModelName() string {
-	if m.Spec.Weights.Type == WeightsTypeHF && m.Spec.Weights.HF != nil {
-		return m.Spec.Weights.HF.RepoID
-	}
-	return ""
-}
-
-// ModelNames returns the model identifiers this Model exposes.
-// It falls back to the base model name when no aliases are set.
-func (m *Model) ModelNames() []string {
+// ModelNames returns the model identifiers this Model exposes. Aliases replace
+// the artifact's base model name when set.
+func (m *Model) ModelNames(artifact ModelArtifact) []string {
 	if len(m.Spec.Aliases) > 0 {
 		return slices.Clone(m.Spec.Aliases)
 	}
-	return []string{m.BaseModelName()}
+	return []string{artifact.BaseRepoID()}
 }
 
 // EngineName returns the Kubernetes resource name for the model's inference engine.
