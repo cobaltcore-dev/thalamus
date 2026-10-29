@@ -1,6 +1,6 @@
-{{- $op  := .Values.monitoring.operator | default dict }}
-{{- $eng := .Values.monitoring.engine   | default dict }}
-{{- $epp := .Values.monitoring.epp      | default dict }}
+{{- $op     := .Values.monitoring.operator | default dict }}
+{{- $eng    := .Values.monitoring.engine   | default dict }}
+{{- $router := .Values.monitoring.router   | default dict }}
 
 {{- if dig "enabled" .Values.monitoring.enabled $op }}
 ---
@@ -47,16 +47,16 @@ spec:
       scrapeTimeout: {{ $eng.scrapeTimeout | default .Values.monitoring.scrapeTimeout }}
 {{- end }}
 
-{{- if dig "enabled" .Values.monitoring.enabled $epp }}
+{{- if dig "enabled" .Values.monitoring.enabled $router }}
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: {{ .Release.Name }}-epp
+  name: {{ .Release.Name }}-router
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "thalamus.epp.labels" . | nindent 4 }}
-    {{- with merge ($epp.additionalLabels | default dict) .Values.monitoring.additionalLabels }}
+    {{- include "thalamus.router.labels" . | nindent 4 }}
+    {{- with merge ($router.additionalLabels | default dict) .Values.monitoring.additionalLabels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
@@ -66,6 +66,6 @@ spec:
         operator: Exists
   endpoints:
     - port: http-metrics
-      interval: {{ $epp.interval | default .Values.monitoring.interval }}
-      scrapeTimeout: {{ $epp.scrapeTimeout | default .Values.monitoring.scrapeTimeout }}
+      interval: {{ $router.interval | default .Values.monitoring.interval }}
+      scrapeTimeout: {{ $router.scrapeTimeout | default .Values.monitoring.scrapeTimeout }}
 {{- end }}

@@ -30,10 +30,10 @@ app.kubernetes.io/name: {{ .Release.Name }}-engine
 app.kubernetes.io/component: engine
 {{- end }}
 
-{{- define "thalamus.epp.labels" -}}
+{{- define "thalamus.router.labels" -}}
 {{ include "thalamus.labels" . }}
-app.kubernetes.io/name: {{ .Release.Name }}-epp
-app.kubernetes.io/component: epp
+app.kubernetes.io/name: {{ .Release.Name }}-router
+app.kubernetes.io/component: router
 {{- end }}
 
 {{/* Render an image ref from {registry, repository, tag, digest} (bitnami-style: digest wins over tag). */}}
