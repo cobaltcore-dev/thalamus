@@ -12,7 +12,8 @@ It requires an AI-enabled Kubernetes cluster, for example one provided by [Garde
 
 ## Inference API
 
-A single OpenAI-compatible HTTP endpoint serves all clients. Thalamus has no data plane of its own: the operator reconciles each `Model` into CRDs from both the [Gateway API](https://gateway-api.sigs.k8s.io/) and [agentgateway](https://agentgateway.dev). agentgateway is the only supported data plane today. Others may follow as opt-in integrations.
+A single OpenAI-compatible HTTP endpoint serves all clients. Other standards, such as Anthropic Messages, are also supported. Thalamus does not route traffic itself, but integrates with a gateway data plane. The operator reconciles each `Model` into CRDs from both the [Gateway API](https://gateway-api.sigs.k8s.io/) and [agentgateway](https://agentgateway.dev). 
+Thalamus natively supports agentgateway as the data plane, with other integrations following in the future.
 
 See [Request flow](/concepts/backends/native/request-flow) for how a request is routed to a model and replica, and [Gateway Integrations](/gateway-integrations) for what can be configured on the gateway.
 

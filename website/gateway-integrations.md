@@ -4,7 +4,7 @@ title: Gateway Integrations
 
 # Gateway Integrations
 
-Thalamus uses [agentgateway](https://agentgateway.dev) as its data plane, and the helm release ships its controller and proxies. Other data planes may follow as opt-in integrations, so nothing on this page is part of the Thalamus API. See the [Architecture overview](/concepts/architecture) for how the pieces fit together.
+Thalamus uses [agentgateway](https://agentgateway.dev) as its data plane, and the helm release ships its controller and proxies. Native support for other data planes will follow in the future. See the [Architecture overview](/concepts/architecture) for how the pieces fit together.
 
 This guide shows where to attach common options: authentication, token counting, and rate limiting. Everything beyond these examples is described in the [agentgateway documentation](https://agentgateway.dev/docs/kubernetes/latest/).
 
