@@ -1,0 +1,42 @@
+{{- if .Values.router.serviceAccount.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "thalamus.router.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "thalamus.router.labels" . | nindent 4 }}
+{{- end }}
+{{- if .Values.router.rbac.create }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "thalamus.router.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "thalamus.router.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, watch, list]
+  - apiGroups: [inference.networking.k8s.io]
+    resources: [inferencepools]
+    verbs: [get, watch, list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "thalamus.router.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "thalamus.router.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "thalamus.router.serviceAccountName" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "thalamus.router.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

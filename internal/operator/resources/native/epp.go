@@ -8,7 +8,6 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
@@ -41,54 +40,6 @@ const (
 //go:embed epp_config.yaml
 var eppConfig string
 
-// BuildEPPServiceAccount returns the ServiceAccount for the EPP.
-func BuildEPPServiceAccount(model *v1alpha1.Model) *corev1.ServiceAccount {
-	return &corev1.ServiceAccount{
-		Name:      model.EPPName(),
-		Namespace: model.Namespace,
-	}
-}
-
-// BuildEPPRole returns the Role granting the EPP the access it needs.
-func BuildEPPRole(model *v1alpha1.Model) *rbacv1.Role {
-	return &rbacv1.Role{
-		Name:      model.EPPName(),
-		Namespace: model.Namespace,
-		Rules: []rbacv1.PolicyRule{
-			{
-				APIGroups: []string{""},
-				Resources: []string{"pods"},
-				Verbs:     []string{"get", "watch", "list"},
-			},
-			{
-				APIGroups: []string{inferencev1.GroupName},
-				Resources: []string{"inferencepools"},
-				Verbs:     []string{"get", "watch", "list"},
-			},
-		},
-	}
-}
-
-// BuildEPPRoleBinding binds the EPP Role to its ServiceAccount.
-func BuildEPPRoleBinding(model *v1alpha1.Model) *rbacv1.RoleBinding {
-	return &rbacv1.RoleBinding{
-		Name:      model.EPPName(),
-		Namespace: model.Namespace,
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: rbacv1.GroupName,
-			Kind:     "Role",
-			Name:     model.EPPName(),
-		},
-		Subjects: []rbacv1.Subject{
-			{
-				Kind:      rbacv1.ServiceAccountKind,
-				Name:      model.EPPName(),
-				Namespace: model.Namespace,
-			},
-		},
-	}
-}
-
 // BuildEPPConfigMap returns the ConfigMap carrying the EPP plugin configuration.
 func BuildEPPConfigMap(model *v1alpha1.Model) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
@@ -101,7 +52,7 @@ func BuildEPPConfigMap(model *v1alpha1.Model) *corev1.ConfigMap {
 }
 
 // BuildEPPDeployment returns the Deployment for the Endpoint Picker Proxy.
-func BuildEPPDeployment(model *v1alpha1.Model) (*appsv1.Deployment, error) {
+func BuildEPPDeployment(model *v1alpha1.Model, serviceAccountName string) (*appsv1.Deployment, error) {
 	// TODO: defaulted fields can't be cleared from the epp configuration in the Model CR
 	podSpec, err := helpers.MergePodSpecs(defaultEPPPodSpec(model), &model.Spec.Serving.Router)
 	if err != nil {
@@ -120,7 +71,10 @@ func BuildEPPDeployment(model *v1alpha1.Model) (*appsv1.Deployment, error) {
 		"--config-file", "/config/"+eppConfigKey,
 		"--metrics-endpoint-auth=false",
 	)
-	podSpec.ServiceAccountName = model.EPPName()
+	// Set after the merge so the Model can't override the router identity or token.
+	podSpec.ServiceAccountName = serviceAccountName
+	podSpec.DeprecatedServiceAccount = ""
+	podSpec.AutomountServiceAccountToken = new(true)
 
 	recreate := appsv1.RecreateDeploymentStrategyType
 	return &appsv1.Deployment{
@@ -146,7 +100,6 @@ func BuildEPPDeployment(model *v1alpha1.Model) (*appsv1.Deployment, error) {
 // configuration from spec.serving.router is merged on top of it.
 func defaultEPPPodSpec(model *v1alpha1.Model) *corev1.PodSpec {
 	return &corev1.PodSpec{
-		ServiceAccountName:            model.EPPName(),
 		TerminationGracePeriodSeconds: new(int64(130)),
 		SecurityContext: &corev1.PodSecurityContext{
 			RunAsNonRoot: new(true),

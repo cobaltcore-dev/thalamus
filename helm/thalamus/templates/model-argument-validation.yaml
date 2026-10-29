@@ -21,6 +21,18 @@ spec:
       message: "spec.serving.engine must not set --served-model-name (managed by the operator)"
     - expression: "!object.spec.serving.engine.containers.exists(c, c.name == 'engine' && has(c.env) && c.env.exists(e, e.name == 'VLLM_SKIP_MODEL_NAME_VALIDATION'))"
       message: "spec.serving.engine must not set VLLM_SKIP_MODEL_NAME_VALIDATION (managed by the operator)"
+    - expression: "!has(object.spec.serving.engine.serviceAccountName)"
+      message: "spec.serving.engine.serviceAccountName is managed by the operator"
+    - expression: "!has(object.spec.serving.engine.serviceAccount)"
+      message: "spec.serving.engine.serviceAccount is managed by the operator"
+    - expression: "!has(object.spec.serving.engine.automountServiceAccountToken)"
+      message: "spec.serving.engine.automountServiceAccountToken is managed by the operator"
+    - expression: "!has(object.spec.serving.router.serviceAccountName)"
+      message: "spec.serving.router.serviceAccountName is managed by the operator"
+    - expression: "!has(object.spec.serving.router.serviceAccount)"
+      message: "spec.serving.router.serviceAccount is managed by the operator"
+    - expression: "!has(object.spec.serving.router.automountServiceAccountToken)"
+      message: "spec.serving.router.automountServiceAccountToken is managed by the operator"
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicyBinding

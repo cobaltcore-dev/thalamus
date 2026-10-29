@@ -32,14 +32,11 @@ rules:
     resources: [deployments]
     verbs: [get, list, watch, create, update, patch, delete]
   - apiGroups: [""]
-    resources: [services, serviceaccounts, configmaps]
+    resources: [services, configmaps]
     verbs: [get, list, watch, create, update, patch, delete]
   - apiGroups: [""]
     resources: [pods]
     verbs: [get, list, watch]
-  - apiGroups: [rbac.authorization.k8s.io]
-    resources: [roles, rolebindings]
-    verbs: [get, list, watch, create, update, patch, delete]
   - apiGroups: [inference.networking.k8s.io]
     resources: [inferencepools]
     verbs: [get, list, watch, create, update, patch, delete]
@@ -127,6 +124,7 @@ spec:
             - --namespace={{ .Release.Namespace }}
             - --gateway-name={{ .Values.gateway.name }}
             - --gateway-listener={{ .Values.gateway.listener }}
+            - --router-service-account-name={{ include "thalamus.router.serviceAccountName" . }}
             {{- if $metricsEnabled }}
             - --metrics-bind-address=:8080
             {{- end }}

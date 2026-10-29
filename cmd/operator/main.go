@@ -43,6 +43,7 @@ func main() {
 	var watchNamespace string
 	var gatewayName string
 	var gatewayListener string
+	var routerServiceAccountName string
 	var leaderElection bool
 	var leaderElectionID string
 	var leaderElectionNamespace string
@@ -52,6 +53,7 @@ func main() {
 	flag.StringVar(&watchNamespace, "namespace", "", "Namespace to watch. Must match the namespace the operator is deployed in.")
 	flag.StringVar(&gatewayName, "gateway-name", "", "Name of the gateway the operator attaches its routes to. Required.")
 	flag.StringVar(&gatewayListener, "gateway-listener", "", "Name of the gateway listener the operator attaches its routes to. Required.")
+	flag.StringVar(&routerServiceAccountName, "router-service-account-name", "thalamus-router", "Name of the ServiceAccount the router pods run as.")
 	flag.BoolVar(&leaderElection, "leader-election", true, "Enable leader election for the controller manager.")
 	flag.StringVar(&leaderElectionID, "leader-election-id", "thalamus-operator", "Name of the Lease resource used for leader election.")
 	flag.StringVar(&leaderElectionNamespace, "leader-election-namespace", "", "Namespace of the Lease resource. Defaults to --namespace, then POD_NAMESPACE.")
@@ -68,6 +70,10 @@ func main() {
 	}
 	if gatewayListener == "" {
 		setupLog.Error(nil, "--gateway-listener must be set")
+		os.Exit(1)
+	}
+	if routerServiceAccountName == "" {
+		setupLog.Error(nil, "--router-service-account-name must be set")
 		os.Exit(1)
 	}
 
@@ -104,10 +110,11 @@ func main() {
 	}
 
 	if err := (&operator.ModelReconciler{
-		Client:       mgr.GetClient(),
-		Scheme:       mgr.GetScheme(),
-		GatewayName:  gatewayName,
-		ListenerName: gatewayListener,
+		Client:                   mgr.GetClient(),
+		Scheme:                   mgr.GetScheme(),
+		GatewayName:              gatewayName,
+		ListenerName:             gatewayListener,
+		RouterServiceAccountName: routerServiceAccountName,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "model")
 		os.Exit(1)
