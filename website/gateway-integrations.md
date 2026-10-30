@@ -64,15 +64,14 @@ Counts are exposed as the `agentgateway_gen_ai_client_token_usage` metric on the
 
 To break down usage per tenant, attach the key metadata as a metric label by extending the `apikey-auth` policy from [Authentication](#authentication):
 
-```bash
-kubectl patch agentgatewaypolicy/apikey-auth -n thalamus --type merge --patch \
-'spec:
+```yaml
+spec:
   frontend:
     metrics:
       attributes:
         add:
           - name: tenant
-            expression: apiKey.tenant'
+            expression: apiKey.tenant
 ```
 
 Usage can then be grouped by tenant, for example with `sum by (tenant, gen_ai_token_type) (agentgateway_gen_ai_client_token_usage_sum)`. The full per-key setup is described in [Virtual keys](https://agentgateway.dev/docs/kubernetes/latest/documentation/llm/cost-controls/virtual-keys/) in the agentgateway docs.
