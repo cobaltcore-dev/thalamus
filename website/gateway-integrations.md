@@ -60,7 +60,16 @@ Keys can also be stored in Secrets instead of ConfigMaps. Both ways, plus other 
 
 For every `Model`, the operator creates an `AgentgatewayBackend` of type `ai`. The gateway counts input and output tokens of every request against these backends, including streamed responses. No configuration is needed for this.
 
-Counts are exposed as the `agentgateway_gen_ai_client_token_usage` metric on the gateway proxies, labeled by model and token type. To scrape them, enable agentgateway metrics in the thalamus release as described in [Perses Dashboards](/perses-dashboards).
+Counts are exposed as the `agentgateway_gen_ai_client_token_usage` metric on the gateway proxies, labeled by model and token type. To scrape them, enable agentgateway metrics in the thalamus release (see [Perses Dashboards](/perses-dashboards) for the full setup):
+
+```yaml
+agentgateway:
+  monitoring:
+    enabled: true
+    serviceMonitor:
+      extraLabels:
+        release: monitoring
+```
 
 To break down usage per tenant, attach the key metadata as a metric label by extending the `apikey-auth` policy from [Authentication](#authentication):
 
