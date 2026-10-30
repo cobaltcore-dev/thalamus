@@ -7,50 +7,60 @@ import (
 	"context"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
 )
 
 func TestGetObject(t *testing.T) {
-	s := testutil.NewScheme(t)
+	pod := &corev1.Pod{Name: "test-pod", Namespace: "default"}
 
-	t.Run("returns the object", func(t *testing.T) {
-		gateway := newGateway()
-		c := fake.NewClientBuilder().WithScheme(s).WithObjects(gateway).Build()
+	tests := []struct {
+		name    string
+		scheme  *runtime.Scheme
+		objects []client.Object
+		want    string
+		wantErr bool
+	}{
+		{
+			name:    "returns the object",
+			objects: []client.Object{pod},
+			want:    pod.Name,
+		},
+		{
+			name: "returns nil when missing",
+		},
+		{
+			name:    "returns errors from the client",
+			scheme:  runtime.NewScheme(),
+			wantErr: true,
+		},
+	}
 
-		got, err := getObject(context.Background(), c, gateway.Namespace, gateway.Name, &gatewayv1.Gateway{})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if got == nil || got.Name != testGatewayName {
-			t.Fatalf("expected gateway %q, got %v", testGatewayName, got)
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			scheme := tt.scheme
+			if scheme == nil {
+				scheme = testutil.NewScheme(t)
+			}
+			c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(tt.objects...).Build()
 
-	t.Run("nil when missing", func(t *testing.T) {
-		c := fake.NewClientBuilder().WithScheme(s).Build()
-
-		got, err := getObject(context.Background(), c, testNamespace, testGatewayName, &gatewayv1.Gateway{})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if got != nil {
-			t.Fatalf("expected nil gateway, got %v", got)
-		}
-	})
-
-	t.Run("errors are passed through", func(t *testing.T) {
-		c := fake.NewClientBuilder().WithScheme(runtime.NewScheme()).Build()
-
-		got, err := getObject(context.Background(), c, testNamespace, testGatewayName, &gatewayv1.Gateway{})
-		if err == nil {
-			t.Fatal("expected error for unregistered type")
-		}
-		if got != nil {
-			t.Fatalf("expected nil gateway, got %v", got)
-		}
-	})
+			got, err := getObject(context.Background(), c, pod.Namespace, pod.Name, &corev1.Pod{})
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("error:\ngot:  %v\nwant error: %t", err, tt.wantErr)
+			}
+			if tt.want == "" {
+				if got != nil {
+					t.Fatalf("expected nil object, got %v", got)
+				}
+				return
+			}
+			if got == nil || got.Name != tt.want {
+				t.Fatalf("object:\ngot:  %v\nwant name: %q", got, tt.want)
+			}
+		})
+	}
 }
