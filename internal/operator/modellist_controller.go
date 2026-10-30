@@ -34,11 +34,11 @@ type ModelListReconciler struct {
 }
 
 func (r *ModelListReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	gateway, err := getGateway(ctx, r.Client, req.NamespacedName)
+	gateway, err := getObject(ctx, r.Client, req.Namespace, req.Name, &gatewayv1.Gateway{})
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if gateway == nil {
+	if gateway == nil || !gateway.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
 	}
 

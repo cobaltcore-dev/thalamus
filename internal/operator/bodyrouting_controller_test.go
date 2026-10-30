@@ -7,6 +7,7 @@ import (
 	"context"
 	"testing"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -28,14 +29,26 @@ func reconcileBodyRoutingOnce(t *testing.T, r *BodyRoutingReconciler) {
 
 func mustGetBodyRoutingPolicy(t *testing.T, r *BodyRoutingReconciler) *agentgatewayv1alpha1.AgentgatewayPolicy {
 	t.Helper()
-	policy := &agentgatewayv1alpha1.AgentgatewayPolicy{}
-	testutil.MustGet(t, r.Client, native.BodyBasedRoutingPolicyName, testNamespace, policy)
-	return policy
+	return testutil.MustGet(t, r.Client, native.BodyBasedRoutingPolicyName, testNamespace, &agentgatewayv1alpha1.AgentgatewayPolicy{})
 }
 
 func TestBodyRoutingReconcile_NoGateway(t *testing.T) {
 	s := testutil.NewScheme(t)
 	c := fake.NewClientBuilder().WithScheme(s).Build()
+	r := &BodyRoutingReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
+
+	reconcileBodyRoutingOnce(t, r)
+
+	testutil.MustNotGet(t, c, native.BodyBasedRoutingPolicyName, testNamespace, &agentgatewayv1alpha1.AgentgatewayPolicy{})
+}
+
+func TestBodyRoutingReconcile_DeletingGateway(t *testing.T) {
+	s := testutil.NewScheme(t)
+	gateway := newGateway()
+	now := metav1.Now()
+	gateway.DeletionTimestamp = &now
+	gateway.Finalizers = []string{"example.com/test"}
+	c := fake.NewClientBuilder().WithScheme(s).WithObjects(gateway).Build()
 	r := &BodyRoutingReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
 
 	reconcileBodyRoutingOnce(t, r)

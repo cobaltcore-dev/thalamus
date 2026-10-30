@@ -523,63 +523,51 @@ func TestSyncHTTPRouteCondition_StaleMatches(t *testing.T) {
 
 func markDeploymentReady(t *testing.T, c client.Client, name string) {
 	t.Helper()
-	dep := &appsv1.Deployment{}
-	testutil.MustGet(t, c, name, testNamespace, dep)
-	dep.Status.ReadyReplicas = 1
-	dep.Status.ObservedGeneration = dep.Generation
-	if err := c.Status().Update(context.Background(), dep); err != nil {
-		t.Fatalf("update deployment status: %v", err)
-	}
+	testutil.UpdateStatus(t, c, name, testNamespace, &appsv1.Deployment{}, func(dep *appsv1.Deployment) {
+		dep.Status.ReadyReplicas = 1
+		dep.Status.ObservedGeneration = dep.Generation
+	})
 }
 
 func markDeploymentFailed(t *testing.T, c client.Client, name string, cond appsv1.DeploymentCondition) {
 	t.Helper()
-	dep := &appsv1.Deployment{}
-	testutil.MustGet(t, c, name, testNamespace, dep)
-	dep.Status.Conditions = append(dep.Status.Conditions, cond)
-	dep.Status.ObservedGeneration = dep.Generation
-	if err := c.Status().Update(context.Background(), dep); err != nil {
-		t.Fatalf("update deployment status: %v", err)
-	}
+	testutil.UpdateStatus(t, c, name, testNamespace, &appsv1.Deployment{}, func(dep *appsv1.Deployment) {
+		dep.Status.Conditions = append(dep.Status.Conditions, cond)
+		dep.Status.ObservedGeneration = dep.Generation
+	})
 }
 
 func markDeploymentAvailableButStalled(t *testing.T, c client.Client, name string) {
 	t.Helper()
-	dep := &appsv1.Deployment{}
-	testutil.MustGet(t, c, name, testNamespace, dep)
-	dep.Status.ReadyReplicas = 1
-	dep.Status.AvailableReplicas = 1
-	dep.Status.ObservedGeneration = dep.Generation
-	dep.Status.Conditions = append(dep.Status.Conditions,
-		appsv1.DeploymentCondition{
-			Type:    appsv1.DeploymentAvailable,
-			Status:  corev1.ConditionTrue,
-			Reason:  "MinimumReplicasAvailable",
-			Message: "Deployment has minimum availability.",
-		},
-		appsv1.DeploymentCondition{
-			Type:    appsv1.DeploymentProgressing,
-			Status:  corev1.ConditionFalse,
-			Reason:  "ProgressDeadlineExceeded",
-			Message: "progress deadline exceeded",
-		},
-	)
-	if err := c.Status().Update(context.Background(), dep); err != nil {
-		t.Fatalf("update deployment status: %v", err)
-	}
+	testutil.UpdateStatus(t, c, name, testNamespace, &appsv1.Deployment{}, func(dep *appsv1.Deployment) {
+		dep.Status.ReadyReplicas = 1
+		dep.Status.AvailableReplicas = 1
+		dep.Status.ObservedGeneration = dep.Generation
+		dep.Status.Conditions = append(dep.Status.Conditions,
+			appsv1.DeploymentCondition{
+				Type:    appsv1.DeploymentAvailable,
+				Status:  corev1.ConditionTrue,
+				Reason:  "MinimumReplicasAvailable",
+				Message: "Deployment has minimum availability.",
+			},
+			appsv1.DeploymentCondition{
+				Type:    appsv1.DeploymentProgressing,
+				Status:  corev1.ConditionFalse,
+				Reason:  "ProgressDeadlineExceeded",
+				Message: "progress deadline exceeded",
+			},
+		)
+	})
 }
 
 func markInferencePoolStatus(t *testing.T, c client.Client, name string, conds ...metav1.Condition) {
 	t.Helper()
-	pool := &inferencev1.InferencePool{}
-	testutil.MustGet(t, c, name, testNamespace, pool)
-	pool.Status.Parents = []inferencev1.ParentStatus{{
-		ParentRef:  inferencev1.ParentReference{Name: "gw"},
-		Conditions: conds,
-	}}
-	if err := c.Status().Update(context.Background(), pool); err != nil {
-		t.Fatalf("update inference pool status: %v", err)
-	}
+	testutil.UpdateStatus(t, c, name, testNamespace, &inferencev1.InferencePool{}, func(pool *inferencev1.InferencePool) {
+		pool.Status.Parents = []inferencev1.ParentStatus{{
+			ParentRef:  inferencev1.ParentReference{Name: "gw"},
+			Conditions: conds,
+		}}
+	})
 }
 
 func markInferencePoolReady(t *testing.T, c client.Client, name string) {
@@ -592,16 +580,13 @@ func markInferencePoolReady(t *testing.T, c client.Client, name string) {
 
 func markHTTPRouteStatus(t *testing.T, c client.Client, name string, conds ...metav1.Condition) {
 	t.Helper()
-	route := &gatewayv1.HTTPRoute{}
-	testutil.MustGet(t, c, name, testNamespace, route)
-	route.Status.Parents = []gatewayv1.RouteParentStatus{{
-		ParentRef:      gatewayv1.ParentReference{Name: gatewayv1.ObjectName("gw")},
-		ControllerName: "test-controller",
-		Conditions:     conds,
-	}}
-	if err := c.Status().Update(context.Background(), route); err != nil {
-		t.Fatalf("update http route status: %v", err)
-	}
+	testutil.UpdateStatus(t, c, name, testNamespace, &gatewayv1.HTTPRoute{}, func(route *gatewayv1.HTTPRoute) {
+		route.Status.Parents = []gatewayv1.RouteParentStatus{{
+			ParentRef:      gatewayv1.ParentReference{Name: gatewayv1.ObjectName("gw")},
+			ControllerName: "test-controller",
+			Conditions:     conds,
+		}}
+	})
 }
 
 func markHTTPRouteReady(t *testing.T, c client.Client, name string) {
@@ -614,12 +599,9 @@ func markHTTPRouteReady(t *testing.T, c client.Client, name string) {
 
 func markInferencePoolParents(t *testing.T, c client.Client, name string, parents ...inferencev1.ParentStatus) {
 	t.Helper()
-	pool := &inferencev1.InferencePool{}
-	testutil.MustGet(t, c, name, testNamespace, pool)
-	pool.Status.Parents = parents
-	if err := c.Status().Update(context.Background(), pool); err != nil {
-		t.Fatalf("update inference pool status: %v", err)
-	}
+	testutil.UpdateStatus(t, c, name, testNamespace, &inferencev1.InferencePool{}, func(pool *inferencev1.InferencePool) {
+		pool.Status.Parents = parents
+	})
 }
 
 // setGeneration simulates a spec update the status writer has not observed.
@@ -634,12 +616,9 @@ func setGeneration(t *testing.T, c client.Client, name string, obj client.Object
 
 func markHTTPRouteParents(t *testing.T, c client.Client, name string, parents ...gatewayv1.RouteParentStatus) {
 	t.Helper()
-	route := &gatewayv1.HTTPRoute{}
-	testutil.MustGet(t, c, name, testNamespace, route)
-	route.Status.Parents = parents
-	if err := c.Status().Update(context.Background(), route); err != nil {
-		t.Fatalf("update http route status: %v", err)
-	}
+	testutil.UpdateStatus(t, c, name, testNamespace, &gatewayv1.HTTPRoute{}, func(route *gatewayv1.HTTPRoute) {
+		route.Status.Parents = parents
+	})
 }
 
 func TestReconcile_ModelStatus_AvailableButIncomplete(t *testing.T) {

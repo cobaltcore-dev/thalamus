@@ -46,10 +46,21 @@ func NewScheme(t *testing.T) *runtime.Scheme {
 }
 
 // MustGet fetches obj by name/namespace from c, fataling the test if not found.
-func MustGet(t *testing.T, c client.Client, name, namespace string, obj client.Object) {
+func MustGet[T client.Object](t *testing.T, c client.Client, name, namespace string, obj T) T {
 	t.Helper()
 	if err := c.Get(context.Background(), types.NamespacedName{Name: name, Namespace: namespace}, obj); err != nil {
 		t.Fatalf("Get %T %q: %v", obj, name, err)
+	}
+	return obj
+}
+
+// UpdateStatus fetches obj, applies mutate, and updates its status subresource.
+func UpdateStatus[T client.Object](t *testing.T, c client.Client, name, namespace string, obj T, mutate func(T)) {
+	t.Helper()
+	MustGet(t, c, name, namespace, obj)
+	mutate(obj)
+	if err := c.Status().Update(context.Background(), obj); err != nil {
+		t.Fatalf("update %T status: %v", obj, err)
 	}
 }
 
