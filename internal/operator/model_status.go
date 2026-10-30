@@ -12,9 +12,7 @@ import (
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -84,13 +82,13 @@ func (r *ModelReconciler) syncEPPCondition(ctx context.Context, model *v1alpha1.
 
 // syncDeploymentCondition checks a child Deployment and updates the model status.
 func (r *ModelReconciler) syncDeploymentCondition(ctx context.Context, model *v1alpha1.Model, name string, notReadyReason, failedReason v1alpha1.ModelReason) (bool, error) {
-	dep := &appsv1.Deployment{}
-	if err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: model.Namespace}, dep); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			setModelStatus(model, v1alpha1.ModelPhaseCreating, notReadyReason, fmt.Sprintf("Deployment %s not found", name))
-			return false, nil
-		}
-		return false, fmt.Errorf("get deployment %s/%s: %w", model.Namespace, name, err)
+	dep, err := getObject(ctx, r.Client, model.Namespace, name, &appsv1.Deployment{})
+	if err != nil {
+		return false, err
+	}
+	if dep == nil {
+		setModelStatus(model, v1alpha1.ModelPhaseCreating, notReadyReason, fmt.Sprintf("Deployment %s not found", name))
+		return false, nil
 	}
 
 	if dep.Status.ObservedGeneration < dep.Generation {
@@ -123,13 +121,13 @@ func deploymentReplicasReady(dep *appsv1.Deployment) bool {
 
 // syncInferencePoolCondition checks the InferencePool status and updates the model status.
 func (r *ModelReconciler) syncInferencePoolCondition(ctx context.Context, model *v1alpha1.Model) (bool, error) {
-	pool := &inferencev1.InferencePool{}
-	if err := r.Get(ctx, types.NamespacedName{Name: model.EngineName(), Namespace: model.Namespace}, pool); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonInferencePoolNotAccepted, fmt.Sprintf("InferencePool %s not found", model.EngineName()))
-			return false, nil
-		}
-		return false, fmt.Errorf("get inference pool %s/%s: %w", model.Namespace, model.EngineName(), err)
+	pool, err := getObject(ctx, r.Client, model.Namespace, model.EngineName(), &inferencev1.InferencePool{})
+	if err != nil {
+		return false, err
+	}
+	if pool == nil {
+		setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonInferencePoolNotAccepted, fmt.Sprintf("InferencePool %s not found", model.EngineName()))
+		return false, nil
 	}
 
 	if len(pool.Status.Parents) == 0 {
@@ -162,13 +160,13 @@ func (r *ModelReconciler) syncInferencePoolCondition(ctx context.Context, model 
 
 // syncHTTPRouteCondition checks the HTTPRoute status and updates the model status.
 func (r *ModelReconciler) syncHTTPRouteCondition(ctx context.Context, model *v1alpha1.Model) (bool, error) {
-	route := &gatewayv1.HTTPRoute{}
-	if err := r.Get(ctx, types.NamespacedName{Name: model.EngineName(), Namespace: model.Namespace}, route); err != nil {
-		if client.IgnoreNotFound(err) == nil {
-			setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonHTTPRouteNotAccepted, fmt.Sprintf("HTTPRoute %s not found", model.EngineName()))
-			return false, nil
-		}
-		return false, fmt.Errorf("get http route %s/%s: %w", model.Namespace, model.EngineName(), err)
+	route, err := getObject(ctx, r.Client, model.Namespace, model.EngineName(), &gatewayv1.HTTPRoute{})
+	if err != nil {
+		return false, err
+	}
+	if route == nil {
+		setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonHTTPRouteNotAccepted, fmt.Sprintf("HTTPRoute %s not found", model.EngineName()))
+		return false, nil
 	}
 
 	// The informer cache may still hold the route from before this apply.

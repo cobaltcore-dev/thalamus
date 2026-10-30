@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -46,20 +45,12 @@ func reconcileModelListOnce(t *testing.T, r *ModelListReconciler) ctrl.Result {
 
 func mustGetPolicy(t *testing.T, r *ModelListReconciler) *agentgatewayv1alpha1.AgentgatewayPolicy {
 	t.Helper()
-	policy := &agentgatewayv1alpha1.AgentgatewayPolicy{}
-	if err := r.Get(context.Background(), types.NamespacedName{Name: native.ModelListPolicyName, Namespace: testNamespace}, policy); err != nil {
-		t.Fatalf("get policy: %v", err)
-	}
-	return policy
+	return testutil.MustGet(t, r.Client, native.ModelListPolicyName, testNamespace, &agentgatewayv1alpha1.AgentgatewayPolicy{})
 }
 
 func mustGetRoute(t *testing.T, r *ModelListReconciler) *gatewayv1.HTTPRoute {
 	t.Helper()
-	route := &gatewayv1.HTTPRoute{}
-	if err := r.Get(context.Background(), types.NamespacedName{Name: native.ModelListRouteName, Namespace: testNamespace}, route); err != nil {
-		t.Fatalf("get route: %v", err)
-	}
-	return route
+	return testutil.MustGet(t, r.Client, native.ModelListRouteName, testNamespace, &gatewayv1.HTTPRoute{})
 }
 
 func mustGetPolicyBody(t *testing.T, r *ModelListReconciler) string {
@@ -94,6 +85,21 @@ func mustAssertOwnedByGateway(t *testing.T, obj client.Object, gateway *gatewayv
 func TestModelListReconcile_NoGateway(t *testing.T) {
 	s := testutil.NewScheme(t)
 	c := fake.NewClientBuilder().WithScheme(s).Build()
+	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
+
+	reconcileModelListOnce(t, r)
+
+	testutil.MustNotGet(t, c, native.ModelListPolicyName, testNamespace, &agentgatewayv1alpha1.AgentgatewayPolicy{})
+	testutil.MustNotGet(t, c, native.ModelListRouteName, testNamespace, &gatewayv1.HTTPRoute{})
+}
+
+func TestModelListReconcile_DeletingGateway(t *testing.T) {
+	s := testutil.NewScheme(t)
+	gateway := newGateway()
+	now := metav1.Now()
+	gateway.DeletionTimestamp = &now
+	gateway.Finalizers = []string{"example.com/test"}
+	c := fake.NewClientBuilder().WithScheme(s).WithObjects(gateway).Build()
 	r := &ModelListReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}
 
 	reconcileModelListOnce(t, r)
