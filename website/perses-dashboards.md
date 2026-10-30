@@ -26,7 +26,7 @@ queue depth, and endpoint availability._
   e.g. through [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack),
   which also provides [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics)
   (required for some panels).
-- [Perses](https://perses.dev/helm-charts/docs/installation/) with a Prometheus datasource pointing at your Prometheus.
+- [Perses](https://perses.dev/docs/helm-charts/installation/) with a Prometheus datasource pointing at your Prometheus.
 
 ## Enable metric scraping
 
@@ -35,7 +35,7 @@ operator, the vLLM engine, and the endpoint picker, and the bundled
 `agentgateway` chart creates monitors for the gateway controller and its
 proxies. Enable both with values passed to the `thalamus` release:
 
-Make sure `release` field matches the namespace where you have deployed Prometheus. In this guide, the Prometheus package is deployed as `monitoring` release.
+Make sure `release` field matches the namespace where you have deployed Prometheus. In this guide, the Prometheus and Perses packages are deployed as `monitoring` release.
 
 ```yaml
 # my-cluster.yaml (values for the thalamus release)
@@ -61,7 +61,7 @@ helm upgrade --install thalamus oci://ghcr.io/cobaltcore-dev/charts/thalamus \
 ## Load the dashboards
 
 You can add all the dashboards manually:
-1. Run `kubectl port-forward -n <perses-namespace> svc/perses 9090:8080` depending on your Perses installation and go to `localhost:9090` or the respective port.
+1. Run `kubectl port-forward -n monitoring svc/perses 9090:8080` depending on your Perses installation and go to `localhost:9090` or the respective port.
 2. Create the project named `thalamus`.
 3. For each dashboard in `examples/perses-dashboards`, click "Add dashboard", specity name, click "Edit JSON" button with **"{}"** symbol, copy and paste the full dashboard code.
 4. Save.
@@ -79,5 +79,6 @@ done
 
 Then add a Prometheus datasource to the `thalamus` project (Data
 Sources tab) and open the project in the Perses UI.
-- Type name and scrape interval (recommended 15s)
-- Select "Proxy" in **HTTP Settings** and write the respective in-cluster Prometheus service address, depending on your installation (for the upstream Prometheus chat with default installation into `monitoring` namespace it is `http://monitoring-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090`)
+- Enter scrape interval (recommended 15s)
+- Select "Proxy" in **HTTP Settings** and write the respective in-cluster Prometheus service address, depending on your installation (for the upstream Prometheus chart with default installation into `monitoring` namespace it is `http://monitoring-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090`)
+- Click **Test connection** in order for it to become visible for dashboards

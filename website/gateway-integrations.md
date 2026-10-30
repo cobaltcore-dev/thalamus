@@ -75,7 +75,6 @@ To break down usage per tenant, attach the key metadata as a metric label by ext
 
 ```yaml
 spec:
-  # targetRefs as in the apikey-auth policy
   frontend:
     metrics:
       attributes:
@@ -98,7 +97,11 @@ metadata:
   name: rate-limit
   namespace: thalamus
 spec:
-  # targetRefs as in the apikey-auth policy
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: inference-gateway
+      sectionName: api
   traffic:
     rateLimit:
       local:
