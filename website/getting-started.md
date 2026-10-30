@@ -28,7 +28,7 @@ following are expected to already be present in the cluster:
 - **GPU workloads:** a GPU driver/operator and node feature discovery for your
   hardware vendor (e.g. the [NVIDIA GPU Operator](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/latest/) for NVIDIA).
 - **Observability (optional):** a monitoring stack such as
-  [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts) if you want Thalamus metrics scraped.
+  [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack) if you want Thalamus metrics scraped.
 
 The Gateway API, Gateway API inference extension, and agentgateway CRDs are
 bundled with the install (Step 1).
