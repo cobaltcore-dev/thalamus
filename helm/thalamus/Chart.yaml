@@ -6,7 +6,7 @@ version: 0.1.0
 appVersion: latest
 dependencies:
   - name: gateway-api
-    version: v1.6.2
+    version: v1.6.3
     repository: file://../gateway-api
     condition: gateway-api.enabled
   - name: gateway-api-inference-extension
