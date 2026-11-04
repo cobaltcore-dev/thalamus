@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kimi-k2-7-code
+  namespace: thalamus
+spec:
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Ti
+  storageClassName: csi-manila-nfs-eu-de-1d
+---
+apiVersion: thalamus.cloud/v1alpha1
+kind: Model
+metadata:
+  name: kimi-k2-7-code
+  namespace: thalamus
+spec:
+  backend: native
+  replicas: 1
+  scheduling:
+    nodeSelector:
+      nvidia.com/gpu.product: NVIDIA-H200
+  serving:
+    engine:
+      args:
+      - --compilation-config={"cudagraph_mode":"FULL_AND_PIECEWISE","cudagraph_capture_sizes":[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,24,32],"compile_sizes":["cudagraph_capture_sizes"]}
+      - --disable-uvicorn-access-log
+      - --enable-auto-tool-choice
+      - --enable-expert-parallel
+      - --enable-prefix-caching
+      - --enable-prompt-tokens-details
+      - --gpu-memory-utilization=0.95
+      - --kv-transfer-config={"kv_connector":"SimpleCPUOffloadConnector","kv_role":"kv_both","kv_connector_extra_config":{"cpu_bytes_to_use_per_rank":236223201280,"lazy_offload":"false"}}
+      - --max-num-seqs=32
+      - --reasoning-parser=kimi_k2
+      - --speculative-config={"model":"lightseekorg/kimi-k2.7-coder-eagle3.1-mla","method":"eagle3","num_speculative_tokens":3}
+      - --tensor-parallel-size=8
+      - --tool-call-parser=kimi_k2
+      - --trust-remote-code
+      cache:
+        persistentVolumeClaim:
+          claimName: kimi-k2-7-code
+      env:
+      - name: NCCL_IB_DISABLE
+        value: "1"
+      - name: VLLM_USE_V2_MODEL_RUNNER
+        value: "1"
+      image: keppel.global.cloud.sap/ccloud-dockerhub-mirror/vllm/vllm-openai:v0.28.0
+      resources:
+        limits:
+          nvidia.com/gpu: "8"
+        requests:
+          nvidia.com/gpu: "8"
+    epp:
+      image: keppel.global.cloud.sap/ccloud-ghcr-io-mirror/llm-d/llm-d-router-endpoint-picker:v0.9.0
+      resources:
+        limits:
+          memory: 2Gi
+        requests:
+          cpu: "1"
+          memory: 1Gi
+  weights:
+    hf:
+      repoId: moonshotai/Kimi-K2.7-Code
+      tokenSecret:
+        key: HF_TOKEN
+        name: hf-token
+    type: hf
