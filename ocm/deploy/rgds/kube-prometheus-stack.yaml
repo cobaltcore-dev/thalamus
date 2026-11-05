@@ -1,0 +1,288 @@
+# SPDX-FileCopyrightText: Copyright 2026 SAP SE or an SAP affiliate company and cobaltcore-dev contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: kro.run/v1alpha1
+kind: ResourceGraphDefinition
+metadata:
+  name: thalamus-kube-prometheus-stack
+spec:
+  schema:
+    apiVersion: v1alpha1
+    kind: ThalamusKubePrometheusStack
+    scope: Namespaced
+    spec:
+      version: string | default="87.15.1"
+      prefix: string | default="thalamus-kube-prometheus-stack"
+      myNamespace: string | default="monitoring"
+      repository: object
+      insecureRegistry: boolean | default=false
+    status:
+      ready: ${helmRelease.status.conditions.exists(c, c.type == "Ready" && c.status == "True")}
+  resources:
+    - id: myNamespace
+      template:
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: ${schema.spec.myNamespace}
+
+    - id: repository
+      readyWhen:
+        - ${repository.status.conditions.exists(c, c.type == "Ready" && c.status == "True")}
+      template:
+        apiVersion: delivery.ocm.software/v1alpha1
+        kind: Repository
+        metadata:
+          name: ${schema.spec.prefix}-repository
+          namespace: ${myNamespace.metadata.name}
+        spec:
+          repositorySpec: ${schema.spec.repository}
+          interval: 10m
+
+    - id: component
+      readyWhen:
+        - ${component.status.conditions.exists(c, c.type == "Ready" && c.status == "True")}
+      template:
+        apiVersion: delivery.ocm.software/v1alpha1
+        kind: Component
+        metadata:
+          name: ${schema.spec.prefix}-component
+          namespace: ${myNamespace.metadata.name}
+        spec:
+          component: github.com/cobaltcore-dev/thalamus/kube-prometheus-stack
+          repositoryRef:
+            name: ${repository.metadata.name}
+          semver: ${schema.spec.version}
+          interval: 1m
+
+    - id: chartResource
+      readyWhen:
+        - ${chartResource.status.conditions.exists(c, c.type == "Ready" && c.status == "True")}
+      template:
+        apiVersion: delivery.ocm.software/v1alpha1
+        kind: Resource
+        metadata:
+          name: ${schema.spec.prefix}-resource-chart
+          namespace: ${myNamespace.metadata.name}
+        spec:
+          componentRef:
+            name: ${component.metadata.name}
+          resource:
+            byReference:
+              resource:
+                name: kube-prometheus-stack-chart
+          additionalStatusFields:
+            oci: resource.access.toOCI()
+
+    - id: prometheusOperatorImage
+      readyWhen:
+        - ${prometheusOperatorImage.status.conditions.exists(c, c.type == "Ready" && c.status == "True")}
+      template:
+        apiVersion: delivery.ocm.software/v1alpha1
+        kind: Resource
+        metadata:
+          name: ${schema.spec.prefix}-image-prometheus-operator
+          namespace: ${myNamespace.metadata.name}
+        spec:
+          componentRef:
+            name: ${component.metadata.name}
+          resource:
+            byReference:
+              resource:
+                name: prometheus-operator-image
+          additionalStatusFields:
+            oci: resource.access.toOCI()
+
+    - id: configReloaderImage
+      readyWhen:
+        - ${configReloaderImage.status.conditions.exists(c, c.type == "Ready" && c.status == "True")}
+      template:
+        apiVersion: delivery.ocm.software/v1alpha1
+        kind: Resource
+        metadata:
+          name: ${schema.spec.prefix}-image-config-reloader
+          namespace: ${myNamespace.metadata.name}
+        spec:
+          componentRef:
+            name: ${component.metadata.name}
+          resource:
+            byReference:
+              resource:
+                name: config-reloader-image
+          additionalStatusFields:
+            oci: resource.access.toOCI()
+
+    - id: thanosImage
+      readyWhen:
+        - ${thanosImage.status.conditions.exists(c, c.type == "Ready" && c.status == "True")}
+      template:
+        apiVersion: delivery.ocm.software/v1alpha1
+        kind: Resource
+        metadata:
+          name: ${schema.spec.prefix}-image-thanos
+          namespace: ${myNamespace.metadata.name}
+        spec:
+          componentRef:
+            name: ${component.metadata.name}
+          resource:
+            byReference:
+              resource:
+                name: thanos-image
+          additionalStatusFields:
+            oci: resource.access.toOCI()
+
+    - id: prometheusImage
+      readyWhen:
+        - ${prometheusImage.status.conditions.exists(c, c.type == "Ready" && c.status == "True")}
+      template:
+        apiVersion: delivery.ocm.software/v1alpha1
+        kind: Resource
+        metadata:
+          name: ${schema.spec.prefix}-image-prometheus
+          namespace: ${myNamespace.metadata.name}
+        spec:
+          componentRef:
+            name: ${component.metadata.name}
+          resource:
+            byReference:
+              resource:
+                name: prometheus-image
+          additionalStatusFields:
+            oci: resource.access.toOCI()
+
+    - id: alertmanagerImage
+      readyWhen:
+        - ${alertmanagerImage.status.conditions.exists(c, c.type == "Ready" && c.status == "True")}
+      template:
+        apiVersion: delivery.ocm.software/v1alpha1
+        kind: Resource
+        metadata:
+          name: ${schema.spec.prefix}-image-alertmanager
+          namespace: ${myNamespace.metadata.name}
+        spec:
+          componentRef:
+            name: ${component.metadata.name}
+          resource:
+            byReference:
+              resource:
+                name: alertmanager-image
+          additionalStatusFields:
+            oci: resource.access.toOCI()
+
+    - id: webhookCertgenImage
+      readyWhen:
+        - ${webhookCertgenImage.status.conditions.exists(c, c.type == "Ready" && c.status == "True")}
+      template:
+        apiVersion: delivery.ocm.software/v1alpha1
+        kind: Resource
+        metadata:
+          name: ${schema.spec.prefix}-image-webhook-certgen
+          namespace: ${myNamespace.metadata.name}
+        spec:
+          componentRef:
+            name: ${component.metadata.name}
+          resource:
+            byReference:
+              resource:
+                name: webhook-certgen-image
+          additionalStatusFields:
+            oci: resource.access.toOCI()
+
+    - id: kubeStateMetricsImage
+      readyWhen:
+        - ${kubeStateMetricsImage.status.conditions.exists(c, c.type == "Ready" && c.status == "True")}
+      template:
+        apiVersion: delivery.ocm.software/v1alpha1
+        kind: Resource
+        metadata:
+          name: ${schema.spec.prefix}-image-kube-state-metrics
+          namespace: ${myNamespace.metadata.name}
+        spec:
+          componentRef:
+            name: ${component.metadata.name}
+          resource:
+            byReference:
+              resource:
+                name: kube-state-metrics-image
+          additionalStatusFields:
+            oci: resource.access.toOCI()
+
+    - id: ociRepository
+      readyWhen:
+        - ${ociRepository.status.conditions.exists(c, c.type == "Ready" && c.status == "True")}
+      template:
+        apiVersion: source.toolkit.fluxcd.io/v1
+        kind: OCIRepository
+        metadata:
+          name: ${schema.spec.prefix}-oci-repository
+          namespace: ${myNamespace.metadata.name}
+        spec:
+          interval: 1m0s
+          insecure: ${schema.spec.insecureRegistry}
+          layerSelector:
+            mediaType: "application/vnd.cncf.helm.chart.content.v1.tar+gzip"
+            operation: copy
+          url: oci://${chartResource.status.additional.oci.registry}/${chartResource.status.additional.oci.repository}
+          ref:
+            digest: ${chartResource.status.additional.oci.digest}
+
+    - id: helmRelease
+      readyWhen:
+        - ${helmRelease.status.conditions.exists(c, c.type == "Ready" && c.status == "True")}
+      template:
+        apiVersion: helm.toolkit.fluxcd.io/v2
+        kind: HelmRelease
+        metadata:
+          name: kube-prometheus-stack
+          namespace: ${myNamespace.metadata.name}
+        spec:
+          releaseName: kube-prometheus-stack
+          targetNamespace: ${myNamespace.metadata.name}
+          interval: 1m
+          timeout: 5m
+          chartRef:
+            kind: OCIRepository
+            name: ${ociRepository.metadata.name}
+          values:
+            nodeExporter:
+              enabled: false
+            grafana:
+              enabled: false
+            prometheusOperator:
+              image:
+                registry: ${prometheusOperatorImage.status.additional.oci.registry}
+                repository: ${prometheusOperatorImage.status.additional.oci.repository}
+                tag: v0.92.1@${prometheusOperatorImage.status.additional.oci.digest}
+              prometheusConfigReloader:
+                image:
+                  registry: ${configReloaderImage.status.additional.oci.registry}
+                  repository: ${configReloaderImage.status.additional.oci.repository}
+                  tag: v0.92.1@${configReloaderImage.status.additional.oci.digest}
+              thanosImage:
+                registry: ${thanosImage.status.additional.oci.registry}
+                repository: ${thanosImage.status.additional.oci.repository}
+                tag: v0.42.0@${thanosImage.status.additional.oci.digest}
+              admissionWebhooks:
+                patch:
+                  image:
+                    registry: ${webhookCertgenImage.status.additional.oci.registry}
+                    repository: ${webhookCertgenImage.status.additional.oci.repository}
+                    tag: 1.8.4@${webhookCertgenImage.status.additional.oci.digest}
+            prometheus:
+              prometheusSpec:
+                image:
+                  registry: ${prometheusImage.status.additional.oci.registry}
+                  repository: ${prometheusImage.status.additional.oci.repository}
+                  tag: v3.13.1-distroless@${prometheusImage.status.additional.oci.digest}
+            alertmanager:
+              alertmanagerSpec:
+                image:
+                  registry: ${alertmanagerImage.status.additional.oci.registry}
+                  repository: ${alertmanagerImage.status.additional.oci.repository}
+                  tag: v0.33.1@${alertmanagerImage.status.additional.oci.digest}
+            kube-state-metrics:
+              image:
+                registry: ${kubeStateMetricsImage.status.additional.oci.registry}
+                repository: ${kubeStateMetricsImage.status.additional.oci.repository}
+                tag: v2.19.1@${kubeStateMetricsImage.status.additional.oci.digest}

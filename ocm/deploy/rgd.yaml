@@ -1,0 +1,210 @@
+# SPDX-FileCopyrightText: Copyright 2026 SAP SE or an SAP affiliate company and cobaltcore-dev contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Root orchestrator. Instantiates the child RGD kinds (RGD chaining) and
+# waits for their readiness. It does not override anything inside the
+# children; it only forwards the repository configuration and models the
+# install ordering from the helmfile via dependency annotations.
+apiVersion: kro.run/v1alpha1
+kind: ResourceGraphDefinition
+metadata:
+  name: thalamus-root
+spec:
+  schema:
+    apiVersion: v1alpha1
+    kind: Thalamus
+    scope: Namespaced
+    spec:
+      prefix: string | default="thalamus"
+      repository: object
+      insecureRegistry: boolean | default=false
+      nodeFeatureDiscovery:
+        enabled: boolean | default=true
+      gpuOperator:
+        enabled: boolean | default=true
+      kubePrometheusStack:
+        enabled: boolean | default=true
+      agentgateway:
+        enabled: boolean | default=true
+      externalDns:
+        enabled: boolean | default=false
+      openWebui:
+        enabled: boolean | default=true
+    status:
+      ready: ${thalamusCore.status.ready}
+
+  resources:
+    - id: thalamusNamespace
+      template:
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: thalamus
+
+    - id: gatewayApiCrds
+      readyWhen:
+        - ${gatewayApiCrds.status.ready}
+      template:
+        apiVersion: kro.run/v1alpha1
+        kind: ThalamusGatewayApiCrds
+        metadata:
+          name: ${schema.spec.prefix}-gateway-api-crds
+          namespace: ${thalamusNamespace.metadata.name}
+        spec:
+          repository: ${schema.spec.repository}
+          insecureRegistry: ${schema.spec.insecureRegistry}
+
+    - id: gatewayApiInfExtCrds
+      readyWhen:
+        - ${gatewayApiInfExtCrds.status.ready}
+      template:
+        apiVersion: kro.run/v1alpha1
+        kind: ThalamusGatewayApiInferenceExtensionCrds
+        metadata:
+          name: ${schema.spec.prefix}-gateway-api-inference-extension-crds
+          namespace: ${thalamusNamespace.metadata.name}
+        spec:
+          repository: ${schema.spec.repository}
+          insecureRegistry: ${schema.spec.insecureRegistry}
+
+    - id: nodeFeatureDiscovery
+      includeWhen:
+        - ${schema.spec.nodeFeatureDiscovery.enabled}
+      readyWhen:
+        - ${nodeFeatureDiscovery.status.ready}
+      template:
+        apiVersion: kro.run/v1alpha1
+        kind: ThalamusNodeFeatureDiscovery
+        metadata:
+          name: ${schema.spec.prefix}-node-feature-discovery
+          namespace: ${thalamusNamespace.metadata.name}
+        spec:
+          repository: ${schema.spec.repository}
+          insecureRegistry: ${schema.spec.insecureRegistry}
+
+    - id: gpuOperator
+      includeWhen:
+        - ${schema.spec.gpuOperator.enabled}
+      readyWhen:
+        - ${gpuOperator.status.ready}
+      template:
+        apiVersion: kro.run/v1alpha1
+        kind: ThalamusGpuOperator
+        metadata:
+          name: ${schema.spec.prefix}-gpu-operator
+          namespace: ${thalamusNamespace.metadata.name}
+          annotations:
+            thalamus.cobaltcore.dev/after: ${nodeFeatureDiscovery.metadata.name}
+        spec:
+          repository: ${schema.spec.repository}
+          insecureRegistry: ${schema.spec.insecureRegistry}
+
+    - id: kubePrometheusStack
+      includeWhen:
+        - ${schema.spec.kubePrometheusStack.enabled}
+      readyWhen:
+        - ${kubePrometheusStack.status.ready}
+      template:
+        apiVersion: kro.run/v1alpha1
+        kind: ThalamusKubePrometheusStack
+        metadata:
+          name: ${schema.spec.prefix}-kube-prometheus-stack
+          namespace: ${thalamusNamespace.metadata.name}
+        spec:
+          repository: ${schema.spec.repository}
+          insecureRegistry: ${schema.spec.insecureRegistry}
+
+    - id: agentgatewayCrds
+      includeWhen:
+        - ${schema.spec.agentgateway.enabled}
+      readyWhen:
+        - ${agentgatewayCrds.status.ready}
+      template:
+        apiVersion: kro.run/v1alpha1
+        kind: ThalamusAgentgatewayCrds
+        metadata:
+          name: ${schema.spec.prefix}-agentgateway-crds
+          namespace: ${thalamusNamespace.metadata.name}
+        spec:
+          repository: ${schema.spec.repository}
+          insecureRegistry: ${schema.spec.insecureRegistry}
+
+    - id: agentgateway
+      includeWhen:
+        - ${schema.spec.agentgateway.enabled}
+      readyWhen:
+        - ${agentgateway.status.ready}
+      template:
+        apiVersion: kro.run/v1alpha1
+        kind: ThalamusAgentgateway
+        metadata:
+          name: ${schema.spec.prefix}-agentgateway
+          namespace: ${thalamusNamespace.metadata.name}
+          annotations:
+            thalamus.cobaltcore.dev/after: ${gatewayApiCrds.metadata.name},${gatewayApiInfExtCrds.metadata.name},${agentgatewayCrds.metadata.name}
+        spec:
+          repository: ${schema.spec.repository}
+          insecureRegistry: ${schema.spec.insecureRegistry}
+
+    - id: externalDns
+      includeWhen:
+        - ${schema.spec.externalDns.enabled}
+      readyWhen:
+        - ${externalDns.status.ready}
+      template:
+        apiVersion: kro.run/v1alpha1
+        kind: ThalamusExternalDns
+        metadata:
+          name: ${schema.spec.prefix}-external-dns
+          namespace: ${thalamusNamespace.metadata.name}
+          annotations:
+            thalamus.cobaltcore.dev/after: ${gatewayApiCrds.metadata.name}
+        spec:
+          repository: ${schema.spec.repository}
+          insecureRegistry: ${schema.spec.insecureRegistry}
+
+    - id: thalamusCrds
+      readyWhen:
+        - ${thalamusCrds.status.ready}
+      template:
+        apiVersion: kro.run/v1alpha1
+        kind: ThalamusCrds
+        metadata:
+          name: ${schema.spec.prefix}-crds
+          namespace: ${thalamusNamespace.metadata.name}
+        spec:
+          repository: ${schema.spec.repository}
+          insecureRegistry: ${schema.spec.insecureRegistry}
+
+    - id: thalamusCore
+      readyWhen:
+        - ${thalamusCore.status.ready}
+      template:
+        apiVersion: kro.run/v1alpha1
+        kind: ThalamusCore
+        metadata:
+          name: ${schema.spec.prefix}-core
+          namespace: ${thalamusNamespace.metadata.name}
+          annotations:
+            thalamus.cobaltcore.dev/after: ${thalamusCrds.metadata.name},${agentgateway.metadata.name}
+        spec:
+          repository: ${schema.spec.repository}
+          insecureRegistry: ${schema.spec.insecureRegistry}
+
+    - id: openWebui
+      includeWhen:
+        - ${schema.spec.openWebui.enabled}
+      readyWhen:
+        - ${openWebui.status.ready}
+      template:
+        apiVersion: kro.run/v1alpha1
+        kind: ThalamusOpenWebui
+        metadata:
+          name: ${schema.spec.prefix}-open-webui
+          namespace: ${thalamusNamespace.metadata.name}
+          annotations:
+            thalamus.cobaltcore.dev/after: ${thalamusCore.metadata.name}
+        spec:
+          repository: ${schema.spec.repository}
+          insecureRegistry: ${schema.spec.insecureRegistry}
