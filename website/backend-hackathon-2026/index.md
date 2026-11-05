@@ -46,7 +46,7 @@ The architecture we landed on splits the system into two clearly separated respo
    controller: it watches the central `Model` resources assigned to it and translates them into whatever internal
    CRD or vendor API its backend understands.
 
-![Old in-tree adapter dispatch versus the new central API with out-of-tree providers](/hackathon-2026-backend/architecture-comparison.svg)
+![Old in-tree adapter dispatch versus the new central API with out-of-tree providers](./architecture-comparison.svg)
 
 The comparison is the clearest way to see the shift. On the left, every backend is an adapter compiled into one
 operator binary. On the right, the central repository shrinks to a stable API plus a common controller, and each
@@ -123,7 +123,7 @@ now purely additive: deploy another controller that claims a `providerID`. Nothi
 
 ## How a model flows through the new architecture
 
-![Flow of a Model through the central API, an out-of-tree provider, and the backend runtime](/hackathon-2026-backend/new-architecture.svg)
+![Flow of a Model through the central API, an out-of-tree provider, and the backend runtime](./new-architecture.svg)
 
 1. A maintainer applies a `Model` (referencing a `Provider`) and the `Provider` itself.
 2. The **out-of-tree provider controller** for that `providerID` picks up the `Model`, reconciles it into
