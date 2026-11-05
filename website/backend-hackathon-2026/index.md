@@ -24,6 +24,8 @@ binary that dispatched on a `spec.backend` field:
 - `native` was implemented.
 - `kserve` and `kaito` were accepted by the schema but returned "not yet implemented".
 
+![Old in-tree adapter dispatch versus the new central API with out-of-tree providers](./architecture-comparison.svg)
+
 Adding a real backend this way means adding its adapter, its resource builders, its dependencies, its RBAC, and its
 tests **into the central repository**. That is fine for one backend we own. It does not scale to the backends we
 actually want to support:
@@ -45,8 +47,6 @@ The architecture we landed on splits the system into two clearly separated respo
 2. **A provider**, one per backend, that lives **out-of-tree** in its own repository. A provider is just a dedicated
    controller: it watches the central `Model` resources assigned to it and translates them into whatever internal
    CRD or vendor API its backend understands.
-
-![Old in-tree adapter dispatch versus the new central API with out-of-tree providers](./architecture-comparison.svg)
 
 The comparison is the clearest way to see the shift. On the left, every backend is an adapter compiled into one
 operator binary. On the right, the central repository shrinks to a stable API plus a common controller, and each
