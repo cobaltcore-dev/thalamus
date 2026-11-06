@@ -53,7 +53,7 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	if err := r.observe(ctx, model); err != nil {
 		return ctrl.Result{}, err
 	}
-	log.FromContext(ctx).V(levelDebug).Info("reconciled model", "namespace", model.Namespace, "name", model.Name, "phase", model.Status.Phase)
+	log.FromContext(ctx).V(levelDebug).Info("reconciled model", "namespace", model.Namespace, "name", model.Name, "ready", model.IsReady())
 	return ctrl.Result{}, nil
 }
 
@@ -135,7 +135,7 @@ func (r *ModelReconciler) observe(ctx context.Context, model *v1alpha1.Model) er
 		return nil
 	}
 	if cond := meta.FindStatusCondition(model.Status.Conditions, v1alpha1.ModelConditionReady); cond != nil {
-		log.FromContext(ctx).V(levelInfo).Info("model status changed", "namespace", model.Namespace, "name", model.Name, "phase", model.Status.Phase, "reason", cond.Reason, "message", cond.Message)
+		log.FromContext(ctx).V(levelInfo).Info("model status changed", "namespace", model.Namespace, "name", model.Name, "ready", cond.Status, "reason", cond.Reason, "message", cond.Message)
 	}
 	if err := r.Status().Patch(ctx, model, patch); err != nil {
 		return fmt.Errorf("patch model status %s/%s: %w", model.Namespace, model.Name, err)
@@ -143,10 +143,9 @@ func (r *ModelReconciler) observe(ctx context.Context, model *v1alpha1.Model) er
 	return nil
 }
 
-// setFailed marks the model as Failed and returns the original error.
+// setFailedStatus records the reconcile error on the model and returns the original error.
 func (r *ModelReconciler) setFailedStatus(ctx context.Context, model *v1alpha1.Model, cause error) error {
 	patch := client.MergeFrom(model.DeepCopy())
-	model.Status.Phase = v1alpha1.ModelPhaseFailed
 	meta.SetStatusCondition(&model.Status.Conditions, metav1.Condition{
 		Type:               v1alpha1.ModelConditionReady,
 		Status:             metav1.ConditionFalse,

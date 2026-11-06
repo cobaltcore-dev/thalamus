@@ -41,7 +41,7 @@ type modelListResponse struct {
 func BuildModelListResponse(models []v1alpha1.Model) (string, error) {
 	entries := make([]modelEntry, 0, len(models))
 	for _, m := range models {
-		if m.Status.Phase != v1alpha1.ModelPhaseReady {
+		if !m.IsReady() {
 			continue
 		}
 		base := m.BaseModelName()

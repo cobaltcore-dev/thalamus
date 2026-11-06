@@ -11,6 +11,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -260,11 +261,18 @@ func TestReconcile_ScaleToZero(t *testing.T) {
 	testutil.MustNotGet(t, c, "tiny-llm-epp", testNamespace, &appsv1.Deployment{})
 	testutil.MustNotGet(t, c, "tiny-llm-epp", testNamespace, &corev1.Service{})
 
-	// Model CR should remain and be reported as Inactive.
+	// Model CR should remain and be reported as not ready.
 	updated := &v1alpha1.Model{}
 	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
-	if updated.Status.Phase != v1alpha1.ModelPhaseInactive {
-		t.Errorf("Phase:\ngot:  %q\nwant: Inactive", updated.Status.Phase)
+	cond := meta.FindStatusCondition(updated.Status.Conditions, v1alpha1.ModelConditionReady)
+	if cond == nil {
+		t.Fatal("Ready condition not found on model")
+	}
+	if cond.Status != metav1.ConditionFalse {
+		t.Errorf("Ready condition status:\ngot:  %q\nwant: %q", cond.Status, metav1.ConditionFalse)
+	}
+	if cond.Reason != string(v1alpha1.ModelReasonNoReplicasDesired) {
+		t.Errorf("Ready condition reason:\ngot:  %q\nwant: %q", cond.Reason, v1alpha1.ModelReasonNoReplicasDesired)
 	}
 }
 
@@ -294,8 +302,15 @@ func TestReconcile_ScaleDownFromOne(t *testing.T) {
 
 	updated := &v1alpha1.Model{}
 	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
-	if updated.Status.Phase != v1alpha1.ModelPhaseInactive {
-		t.Errorf("Phase:\ngot:  %q\nwant: Inactive", updated.Status.Phase)
+	cond := meta.FindStatusCondition(updated.Status.Conditions, v1alpha1.ModelConditionReady)
+	if cond == nil {
+		t.Fatal("Ready condition not found on model")
+	}
+	if cond.Status != metav1.ConditionFalse {
+		t.Errorf("Ready condition status:\ngot:  %q\nwant: %q", cond.Status, metav1.ConditionFalse)
+	}
+	if cond.Reason != string(v1alpha1.ModelReasonNoReplicasDesired) {
+		t.Errorf("Ready condition reason:\ngot:  %q\nwant: %q", cond.Reason, v1alpha1.ModelReasonNoReplicasDesired)
 	}
 }
 

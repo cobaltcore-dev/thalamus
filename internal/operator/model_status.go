@@ -25,7 +25,7 @@ import (
 // and HTTPRoute acceptance.
 func (r *ModelReconciler) syncModelStatus(ctx context.Context, model *v1alpha1.Model) error {
 	if model.Spec.Replicas == 0 {
-		setModelStatus(model, v1alpha1.ModelPhaseInactive, v1alpha1.ModelReasonNoReplicasDesired, "model has no desired replicas")
+		setModelReady(model, metav1.ConditionFalse, v1alpha1.ModelReasonNoReplicasDesired, "model has no desired replicas")
 		return nil
 	}
 
@@ -49,18 +49,13 @@ func (r *ModelReconciler) syncModelStatus(ctx context.Context, model *v1alpha1.M
 		}
 	}
 
-	setModelStatus(model, v1alpha1.ModelPhaseReady, v1alpha1.ModelReasonReady, "Model is reachable")
+	setModelReady(model, metav1.ConditionTrue, v1alpha1.ModelReasonReady, "Model is reachable")
 	return nil
 }
 
-// setModelStatus updates the Model's Phase and Ready condition in-place.
+// setModelReady updates the Model's Ready condition in-place.
 // The caller is responsible for patching the status.
-func setModelStatus(model *v1alpha1.Model, phase v1alpha1.ModelPhase, reason v1alpha1.ModelReason, message string) {
-	model.Status.Phase = phase
-	status := metav1.ConditionFalse
-	if phase == v1alpha1.ModelPhaseReady {
-		status = metav1.ConditionTrue
-	}
+func setModelReady(model *v1alpha1.Model, status metav1.ConditionStatus, reason v1alpha1.ModelReason, message string) {
 	meta.SetStatusCondition(&model.Status.Conditions, metav1.Condition{
 		Type:               v1alpha1.ModelConditionReady,
 		Status:             status,
@@ -87,12 +82,12 @@ func (r *ModelReconciler) syncDeploymentCondition(ctx context.Context, model *v1
 		return false, err
 	}
 	if dep == nil {
-		setModelStatus(model, v1alpha1.ModelPhaseCreating, notReadyReason, fmt.Sprintf("Deployment %s not found", name))
+		setModelReady(model, metav1.ConditionFalse, notReadyReason, fmt.Sprintf("Deployment %s not found", name))
 		return false, nil
 	}
 
 	if dep.Status.ObservedGeneration < dep.Generation {
-		setModelStatus(model, v1alpha1.ModelPhaseCreating, notReadyReason, fmt.Sprintf("Deployment %s status is stale", name))
+		setModelReady(model, metav1.ConditionFalse, notReadyReason, fmt.Sprintf("Deployment %s status is stale", name))
 		return false, nil
 	}
 
@@ -101,11 +96,11 @@ func (r *ModelReconciler) syncDeploymentCondition(ctx context.Context, model *v1
 	}
 
 	if failed, msg := deploymentFailed(dep); failed {
-		setModelStatus(model, v1alpha1.ModelPhaseFailed, failedReason, fmt.Sprintf("Deployment %s %s", name, msg))
+		setModelReady(model, metav1.ConditionFalse, failedReason, fmt.Sprintf("Deployment %s %s", name, msg))
 		return false, nil
 	}
 
-	setModelStatus(model, v1alpha1.ModelPhaseCreating, notReadyReason, fmt.Sprintf("Deployment %s has insufficient ready replicas", name))
+	setModelReady(model, metav1.ConditionFalse, notReadyReason, fmt.Sprintf("Deployment %s has insufficient ready replicas", name))
 	return false, nil
 }
 
@@ -126,35 +121,35 @@ func (r *ModelReconciler) syncInferencePoolCondition(ctx context.Context, model 
 		return false, err
 	}
 	if pool == nil {
-		setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonInferencePoolNotAccepted, fmt.Sprintf("InferencePool %s not found", model.EngineName()))
+		setModelReady(model, metav1.ConditionFalse, v1alpha1.ModelReasonInferencePoolNotAccepted, fmt.Sprintf("InferencePool %s not found", model.EngineName()))
 		return false, nil
 	}
 
 	if len(pool.Status.Parents) == 0 {
-		setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonInferencePoolNotAccepted, fmt.Sprintf("InferencePool %s has no parent status yet", model.EngineName()))
+		setModelReady(model, metav1.ConditionFalse, v1alpha1.ModelReasonInferencePoolNotAccepted, fmt.Sprintf("InferencePool %s has no parent status yet", model.EngineName()))
 		return false, nil
 	}
 
 	allReady := true
 	var failedMessage string
 	for _, parent := range pool.Status.Parents {
-		pphase, pmessage := checkParentConditions(parent.Conditions, pool.Generation, inferencePoolParentPolicy)
-		if pphase != v1alpha1.ModelPhaseReady {
+		ready, failed, message := checkParentConditions(parent.Conditions, pool.Generation, inferencePoolParentPolicy)
+		if !ready {
 			allReady = false
 		}
-		if pphase == v1alpha1.ModelPhaseFailed {
-			failedMessage = pmessage
+		if failed {
+			failedMessage = message
 		}
 	}
 
 	if failedMessage != "" {
-		setModelStatus(model, v1alpha1.ModelPhaseFailed, v1alpha1.ModelReasonInferencePoolRejected, failedMessage)
+		setModelReady(model, metav1.ConditionFalse, v1alpha1.ModelReasonInferencePoolRejected, failedMessage)
 		return false, nil
 	}
 	if allReady {
 		return true, nil
 	}
-	setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonInferencePoolNotAccepted, fmt.Sprintf("InferencePool %s not accepted by gateway", model.EngineName()))
+	setModelReady(model, metav1.ConditionFalse, v1alpha1.ModelReasonInferencePoolNotAccepted, fmt.Sprintf("InferencePool %s not accepted by gateway", model.EngineName()))
 	return false, nil
 }
 
@@ -165,20 +160,20 @@ func (r *ModelReconciler) syncHTTPRouteCondition(ctx context.Context, model *v1a
 		return false, err
 	}
 	if route == nil {
-		setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonHTTPRouteNotAccepted, fmt.Sprintf("HTTPRoute %s not found", model.EngineName()))
+		setModelReady(model, metav1.ConditionFalse, v1alpha1.ModelReasonHTTPRouteNotAccepted, fmt.Sprintf("HTTPRoute %s not found", model.EngineName()))
 		return false, nil
 	}
 
 	// The informer cache may still hold the route from before this apply.
 	desired := native.BuildHTTPRoute(model, r.GatewayName, r.ListenerName)
 	if !httpRouteServesDesiredMatches(route, desired) {
-		setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonHTTPRouteNotAccepted,
+		setModelReady(model, metav1.ConditionFalse, v1alpha1.ModelReasonHTTPRouteNotAccepted,
 			fmt.Sprintf("HTTPRoute %s does not serve the current model names", model.EngineName()))
 		return false, nil
 	}
 
 	if len(route.Status.Parents) == 0 {
-		setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonHTTPRouteNotAccepted, fmt.Sprintf("HTTPRoute %s has no parent status yet", model.EngineName()))
+		setModelReady(model, metav1.ConditionFalse, v1alpha1.ModelReasonHTTPRouteNotAccepted, fmt.Sprintf("HTTPRoute %s has no parent status yet", model.EngineName()))
 		return false, nil
 	}
 
@@ -186,12 +181,12 @@ func (r *ModelReconciler) syncHTTPRouteCondition(ctx context.Context, model *v1a
 	var failedMessage string
 	partiallyInvalid := false
 	for _, parent := range route.Status.Parents {
-		pphase, pmessage := checkParentConditions(parent.Conditions, route.Generation, httpRouteParentPolicy)
-		if pphase != v1alpha1.ModelPhaseReady {
+		ready, failed, message := checkParentConditions(parent.Conditions, route.Generation, httpRouteParentPolicy)
+		if !ready {
 			allReady = false
 		}
-		if pphase == v1alpha1.ModelPhaseFailed {
-			failedMessage = pmessage
+		if failed {
+			failedMessage = message
 		}
 		partiallyInvalidCond := meta.FindStatusCondition(parent.Conditions, string(gatewayv1.RouteConditionPartiallyInvalid))
 		if partiallyInvalidCond != nil && partiallyInvalidCond.Status == metav1.ConditionTrue &&
@@ -201,17 +196,17 @@ func (r *ModelReconciler) syncHTTPRouteCondition(ctx context.Context, model *v1a
 	}
 
 	if failedMessage != "" {
-		setModelStatus(model, v1alpha1.ModelPhaseFailed, v1alpha1.ModelReasonHTTPRouteRejected, failedMessage)
+		setModelReady(model, metav1.ConditionFalse, v1alpha1.ModelReasonHTTPRouteRejected, failedMessage)
 		return false, nil
 	}
 	if partiallyInvalid {
-		setModelStatus(model, v1alpha1.ModelPhaseFailed, v1alpha1.ModelReasonHTTPRoutePartiallyInvalid, fmt.Sprintf("HTTPRoute %s is partially invalid", model.EngineName()))
+		setModelReady(model, metav1.ConditionFalse, v1alpha1.ModelReasonHTTPRoutePartiallyInvalid, fmt.Sprintf("HTTPRoute %s is partially invalid", model.EngineName()))
 		return false, nil
 	}
 	if allReady {
 		return true, nil
 	}
-	setModelStatus(model, v1alpha1.ModelPhaseCreating, v1alpha1.ModelReasonHTTPRouteNotAccepted, fmt.Sprintf("HTTPRoute %s not accepted by gateway", model.EngineName()))
+	setModelReady(model, metav1.ConditionFalse, v1alpha1.ModelReasonHTTPRouteNotAccepted, fmt.Sprintf("HTTPRoute %s not accepted by gateway", model.EngineName()))
 	return false, nil
 }
 
@@ -257,15 +252,15 @@ var (
 	}
 )
 
-// checkParentConditions returns the model phase for one parent. Stale conditions
-// are pending. It is Ready only when the accepted condition is True and the
-// resolved condition is absent or True; a False condition is Failed unless its
-// reason is transient.
+// checkParentConditions reports whether one parent is ready or has failed
+// terminally. Stale conditions are pending. It is ready only when the accepted
+// condition is True and the resolved condition is absent or True; a False
+// condition is a terminal failure unless its reason is transient.
 func checkParentConditions(
 	conditions []metav1.Condition,
 	generation int64,
 	policy parentStatusPolicy,
-) (phase v1alpha1.ModelPhase, message string) {
+) (ready, failed bool, message string) {
 
 	acceptedCond := meta.FindStatusCondition(conditions, policy.acceptedType)
 	resolvedCond := meta.FindStatusCondition(conditions, policy.resolvedType)
@@ -273,26 +268,26 @@ func checkParentConditions(
 	// Stale conditions may still report the previous spec as accepted.
 	for _, cond := range []*metav1.Condition{acceptedCond, resolvedCond} {
 		if cond != nil && cond.ObservedGeneration < generation {
-			return v1alpha1.ModelPhaseCreating, cond.Type + " condition is stale"
+			return false, false, cond.Type + " condition is stale"
 		}
 	}
 
 	if acceptedCond != nil && acceptedCond.Status == metav1.ConditionTrue &&
 		(resolvedCond == nil || resolvedCond.Status == metav1.ConditionTrue) {
-		return v1alpha1.ModelPhaseReady, ""
+		return true, false, ""
 	}
 
 	for _, cond := range []*metav1.Condition{resolvedCond, acceptedCond} {
 		if cond != nil && cond.Status == metav1.ConditionFalse {
 			msg := fmt.Sprintf("%s: %s", cond.Reason, cond.Message)
 			if _, transient := policy.transientReasons[cond.Reason]; transient {
-				return v1alpha1.ModelPhaseCreating, msg
+				return false, false, msg
 			}
-			return v1alpha1.ModelPhaseFailed, msg
+			return false, true, msg
 		}
 	}
 
-	return v1alpha1.ModelPhaseCreating, "parent status is pending"
+	return false, false, "parent status is pending"
 }
 
 // deploymentFailed reports whether a Deployment is in a terminal failure state
