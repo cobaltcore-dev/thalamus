@@ -5,7 +5,6 @@ package operator
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 
@@ -48,39 +47,18 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, nil
 	}
 
-	var err error
-	switch model.Spec.Backend {
-	case v1alpha1.BackendTypeNative:
-		err = r.reconcileNative(ctx, model)
-	case v1alpha1.BackendTypeKServe:
-		err = r.reconcileKServe(ctx, model)
-	case v1alpha1.BackendTypeKAITO:
-		err = r.reconcileKAITO(ctx, model)
-	default:
-		return ctrl.Result{}, fmt.Errorf("unknown backend type %q", model.Spec.Backend)
-	}
-	if err != nil {
+	if err := r.apply(ctx, model); err != nil {
 		return ctrl.Result{}, fmt.Errorf("reconcile model %s: %w", req.NamespacedName, r.setFailedStatus(ctx, model, err))
 	}
-	if err := r.syncStatus(ctx, model); err != nil {
+	if err := r.observe(ctx, model); err != nil {
 		return ctrl.Result{}, err
 	}
-	log.FromContext(ctx).V(levelDebug).Info("reconciled model", "namespace", model.Namespace, "name", model.Name, "backend", model.Spec.Backend, "phase", model.Status.Phase)
+	log.FromContext(ctx).V(levelDebug).Info("reconciled model", "namespace", model.Namespace, "name", model.Name, "phase", model.Status.Phase)
 	return ctrl.Result{}, nil
 }
 
-// reconcileKServe is a stub — not yet implemented.
-func (r *ModelReconciler) reconcileKServe(_ context.Context, _ *v1alpha1.Model) error {
-	return errors.New("kserve backend is not yet implemented")
-}
-
-// reconcileKAITO is a stub — not yet implemented.
-func (r *ModelReconciler) reconcileKAITO(_ context.Context, _ *v1alpha1.Model) error {
-	return errors.New("kaito backend is not yet implemented")
-}
-
-// reconcileNative creates, updates, or deletes all child resources for the native backend.
-func (r *ModelReconciler) reconcileNative(ctx context.Context, model *v1alpha1.Model) error {
+// apply creates, updates, or deletes all child resources for the model.
+func (r *ModelReconciler) apply(ctx context.Context, model *v1alpha1.Model) error {
 	engineDeployment, err := native.BuildEngineDeployment(model)
 	if err != nil {
 		return fmt.Errorf("build engine deployment: %w", err)
@@ -141,27 +119,16 @@ func (r *ModelReconciler) deleteOwned(ctx context.Context, owner *v1alpha1.Model
 	return nil
 }
 
-// syncStatus updates common status fields and dispatches to the backend-specific status sync.
-func (r *ModelReconciler) syncStatus(ctx context.Context, model *v1alpha1.Model) error {
+// observe derives the model's status from its child resources and patches it.
+func (r *ModelReconciler) observe(ctx context.Context, model *v1alpha1.Model) error {
 	patch := client.MergeFrom(model.DeepCopy())
 	before := model.Status.DeepCopy()
 
 	model.Status.EngineType = model.DetectedEngineType()
 	model.Status.EPPType = model.DetectedEPPType()
 
-	var err error
-	switch model.Spec.Backend {
-	case v1alpha1.BackendTypeNative:
-		err = r.syncNativeStatus(ctx, model)
-	case v1alpha1.BackendTypeKServe:
-		err = r.syncKServeStatus(ctx, model)
-	case v1alpha1.BackendTypeKAITO:
-		err = r.syncKAITOStatus(ctx, model)
-	default:
-		return fmt.Errorf("unknown backend type %q", model.Spec.Backend)
-	}
-	if err != nil {
-		return fmt.Errorf("sync %s status: %w", model.Spec.Backend, err)
+	if err := r.syncModelStatus(ctx, model); err != nil {
+		return fmt.Errorf("sync model status: %w", err)
 	}
 
 	if apiequality.Semantic.DeepEqual(before, &model.Status) {
@@ -173,16 +140,6 @@ func (r *ModelReconciler) syncStatus(ctx context.Context, model *v1alpha1.Model)
 	if err := r.Status().Patch(ctx, model, patch); err != nil {
 		return fmt.Errorf("patch model status %s/%s: %w", model.Namespace, model.Name, err)
 	}
-	return nil
-}
-
-// syncKServeStatus is a stub — not yet implemented.
-func (r *ModelReconciler) syncKServeStatus(_ context.Context, _ *v1alpha1.Model) error {
-	return nil
-}
-
-// syncKAITOStatus is a stub — not yet implemented.
-func (r *ModelReconciler) syncKAITOStatus(_ context.Context, _ *v1alpha1.Model) error {
 	return nil
 }
 

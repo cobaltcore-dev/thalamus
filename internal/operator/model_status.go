@@ -20,10 +20,10 @@ import (
 	"github.com/cobaltcore-dev/thalamus/internal/operator/resources/native"
 )
 
-// syncNativeStatus derives and updates the ready state of a model by checking:
+// syncModelStatus derives and updates the ready state of a model by checking:
 // engine Deployment, EPP Deployment, InferencePool acceptance,
 // and HTTPRoute acceptance.
-func (r *ModelReconciler) syncNativeStatus(ctx context.Context, model *v1alpha1.Model) error {
+func (r *ModelReconciler) syncModelStatus(ctx context.Context, model *v1alpha1.Model) error {
 	if model.Spec.Replicas == 0 {
 		setModelStatus(model, v1alpha1.ModelPhaseInactive, v1alpha1.ModelReasonNoReplicasDesired, "model has no desired replicas")
 		return nil
