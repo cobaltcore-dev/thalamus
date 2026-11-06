@@ -9,7 +9,7 @@ releases:
     namespace: gpu-operator
     createNamespace: true
     chart: oci://nvcr.io/nvidia/cloud-native-charts/gpu-operator
-    version: "v26.7.1"
+    version: "v26.7.2"
     installed: {{ dig "gpu-operator" "enabled" true .Values }}
     values:
       - {{ dig "gpu-operator" dict .Values | toYaml | nindent 10 }}
