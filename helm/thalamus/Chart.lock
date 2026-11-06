@@ -1,7 +1,7 @@
 dependencies:
 - name: gateway-api
   repository: file://../gateway-api
-  version: v1.6.3
+  version: v1.7.0
 - name: gateway-api-inference-extension
   repository: file://../gateway-api-inference-extension
   version: v1.6.2
@@ -11,5 +11,5 @@ dependencies:
 - name: agentgateway
   repository: oci://cr.agentgateway.dev/charts
   version: v1.6.0
-digest: sha256:69d9f06874233e401bab8d870390af25a42743538dd9cb8f108afe6bec211a9b
-generated: "2026-10-30T09:35:18.844919+01:00"
+digest: sha256:69e7f3395e365f1ce753d15b15e26d088e78d7aeb61132c02d57786498d84602
+generated: "2026-11-02T03:02:09.204179098Z"
