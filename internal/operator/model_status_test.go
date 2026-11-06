@@ -23,7 +23,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 	cases := []struct {
 		name       string
 		prepare    func(*testing.T, client.Client, *v1alpha1.Model)
-		wantPhase  v1alpha1.ModelPhase
+		wantStatus metav1.ConditionStatus
 		wantReason v1alpha1.ModelReason
 	}{
 		{
@@ -34,7 +34,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				markInferencePoolReady(t, c, m.EngineName())
 				markHTTPRouteReady(t, c, m.EngineName())
 			},
-			wantPhase:  v1alpha1.ModelPhaseReady,
+			wantStatus: metav1.ConditionTrue,
 			wantReason: v1alpha1.ModelReasonReady,
 		},
 		{
@@ -44,7 +44,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				markInferencePoolReady(t, c, m.EngineName())
 				markHTTPRouteReady(t, c, m.EngineName())
 			},
-			wantPhase:  v1alpha1.ModelPhaseCreating,
+			wantStatus: metav1.ConditionFalse,
 			wantReason: v1alpha1.ModelReasonEngineNotReady,
 		},
 		{
@@ -54,7 +54,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				markInferencePoolReady(t, c, m.EngineName())
 				markHTTPRouteReady(t, c, m.EngineName())
 			},
-			wantPhase:  v1alpha1.ModelPhaseCreating,
+			wantStatus: metav1.ConditionFalse,
 			wantReason: v1alpha1.ModelReasonEPPNotReady,
 		},
 		{
@@ -64,7 +64,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				markDeploymentReady(t, c, m.EPPName())
 				markHTTPRouteReady(t, c, m.EngineName())
 			},
-			wantPhase:  v1alpha1.ModelPhaseCreating,
+			wantStatus: metav1.ConditionFalse,
 			wantReason: v1alpha1.ModelReasonInferencePoolNotAccepted,
 		},
 		{
@@ -74,7 +74,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				markDeploymentReady(t, c, m.EPPName())
 				markInferencePoolReady(t, c, m.EngineName())
 			},
-			wantPhase:  v1alpha1.ModelPhaseCreating,
+			wantStatus: metav1.ConditionFalse,
 			wantReason: v1alpha1.ModelReasonHTTPRouteNotAccepted,
 		},
 		{
@@ -91,7 +91,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				markInferencePoolReady(t, c, m.EngineName())
 				markHTTPRouteReady(t, c, m.EngineName())
 			},
-			wantPhase:  v1alpha1.ModelPhaseCreating,
+			wantStatus: metav1.ConditionFalse,
 			wantReason: v1alpha1.ModelReasonEngineNotReady,
 		},
 		{
@@ -107,7 +107,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					Message: "pending",
 				})
 			},
-			wantPhase:  v1alpha1.ModelPhaseCreating,
+			wantStatus: metav1.ConditionFalse,
 			wantReason: v1alpha1.ModelReasonHTTPRouteNotAccepted,
 		},
 		{
@@ -122,7 +122,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					Message: "not requested",
 				})
 			},
-			wantPhase:  v1alpha1.ModelPhaseCreating,
+			wantStatus: metav1.ConditionFalse,
 			wantReason: v1alpha1.ModelReasonInferencePoolNotAccepted,
 		},
 		{
@@ -135,7 +135,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					Message: "replica creation failed",
 				})
 			},
-			wantPhase:  v1alpha1.ModelPhaseFailed,
+			wantStatus: metav1.ConditionFalse,
 			wantReason: v1alpha1.ModelReasonEngineDeploymentFailed,
 		},
 		{
@@ -148,7 +148,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					Message: "progress deadline exceeded",
 				})
 			},
-			wantPhase:  v1alpha1.ModelPhaseFailed,
+			wantStatus: metav1.ConditionFalse,
 			wantReason: v1alpha1.ModelReasonEngineDeploymentFailed,
 		},
 		{
@@ -159,7 +159,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				markInferencePoolReady(t, c, m.EngineName())
 				markHTTPRouteReady(t, c, m.EngineName())
 			},
-			wantPhase:  v1alpha1.ModelPhaseReady,
+			wantStatus: metav1.ConditionTrue,
 			wantReason: v1alpha1.ModelReasonReady,
 		},
 		{
@@ -173,7 +173,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					Message: "replica creation failed",
 				})
 			},
-			wantPhase:  v1alpha1.ModelPhaseFailed,
+			wantStatus: metav1.ConditionFalse,
 			wantReason: v1alpha1.ModelReasonEPPDeploymentFailed,
 		},
 		{
@@ -187,7 +187,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					Message: "progress deadline exceeded",
 				})
 			},
-			wantPhase:  v1alpha1.ModelPhaseFailed,
+			wantStatus: metav1.ConditionFalse,
 			wantReason: v1alpha1.ModelReasonEPPDeploymentFailed,
 		},
 		{
@@ -198,7 +198,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				markInferencePoolReady(t, c, m.EngineName())
 				markHTTPRouteReady(t, c, m.EngineName())
 			},
-			wantPhase:  v1alpha1.ModelPhaseReady,
+			wantStatus: metav1.ConditionTrue,
 			wantReason: v1alpha1.ModelReasonReady,
 		},
 		{
@@ -213,7 +213,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					Message: "not supported",
 				})
 			},
-			wantPhase:  v1alpha1.ModelPhaseFailed,
+			wantStatus: metav1.ConditionFalse,
 			wantReason: v1alpha1.ModelReasonInferencePoolRejected,
 		},
 		{
@@ -228,7 +228,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					Message: "invalid extension ref",
 				})
 			},
-			wantPhase:  v1alpha1.ModelPhaseFailed,
+			wantStatus: metav1.ConditionFalse,
 			wantReason: v1alpha1.ModelReasonInferencePoolRejected,
 		},
 		{
@@ -244,7 +244,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					Message: "not allowed",
 				})
 			},
-			wantPhase:  v1alpha1.ModelPhaseFailed,
+			wantStatus: metav1.ConditionFalse,
 			wantReason: v1alpha1.ModelReasonHTTPRouteRejected,
 		},
 		{
@@ -260,7 +260,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					Message: "incompatible filters",
 				})
 			},
-			wantPhase:  v1alpha1.ModelPhaseFailed,
+			wantStatus: metav1.ConditionFalse,
 			wantReason: v1alpha1.ModelReasonHTTPRouteRejected,
 		},
 		{
@@ -275,7 +275,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					Message: "not supported",
 				})
 			},
-			wantPhase:  v1alpha1.ModelPhaseFailed,
+			wantStatus: metav1.ConditionFalse,
 			wantReason: v1alpha1.ModelReasonInferencePoolRejected,
 		},
 		{
@@ -290,7 +290,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					metav1.Condition{Type: string(gatewayv1.RouteConditionPartiallyInvalid), Status: metav1.ConditionTrue, Reason: "PartiallyInvalid", Message: "partial error"},
 				)
 			},
-			wantPhase:  v1alpha1.ModelPhaseFailed,
+			wantStatus: metav1.ConditionFalse,
 			wantReason: v1alpha1.ModelReasonHTTPRoutePartiallyInvalid,
 		},
 		{
@@ -312,7 +312,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					},
 				)
 			},
-			wantPhase:  v1alpha1.ModelPhaseReady,
+			wantStatus: metav1.ConditionTrue,
 			wantReason: v1alpha1.ModelReasonReady,
 		},
 		{
@@ -328,7 +328,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					Message: "backend not found",
 				})
 			},
-			wantPhase:  v1alpha1.ModelPhaseCreating,
+			wantStatus: metav1.ConditionFalse,
 			wantReason: v1alpha1.ModelReasonHTTPRouteNotAccepted,
 		},
 		{
@@ -352,7 +352,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					},
 				)
 			},
-			wantPhase:  v1alpha1.ModelPhaseFailed,
+			wantStatus: metav1.ConditionFalse,
 			wantReason: v1alpha1.ModelReasonInferencePoolRejected,
 		},
 		{
@@ -376,7 +376,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					},
 				)
 			},
-			wantPhase:  v1alpha1.ModelPhaseCreating,
+			wantStatus: metav1.ConditionFalse,
 			wantReason: v1alpha1.ModelReasonInferencePoolNotAccepted,
 		},
 		{
@@ -403,7 +403,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					},
 				)
 			},
-			wantPhase:  v1alpha1.ModelPhaseFailed,
+			wantStatus: metav1.ConditionFalse,
 			wantReason: v1alpha1.ModelReasonHTTPRouteRejected,
 		},
 		{
@@ -414,7 +414,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				setGeneration(t, c, m.EngineName(), &inferencev1.InferencePool{}, 2)
 				markInferencePoolReady(t, c, m.EngineName())
 			},
-			wantPhase:  v1alpha1.ModelPhaseCreating,
+			wantStatus: metav1.ConditionFalse,
 			wantReason: v1alpha1.ModelReasonInferencePoolNotAccepted,
 		},
 		{
@@ -426,7 +426,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				setGeneration(t, c, m.EngineName(), &gatewayv1.HTTPRoute{}, 2)
 				markHTTPRouteReady(t, c, m.EngineName())
 			},
-			wantPhase:  v1alpha1.ModelPhaseCreating,
+			wantStatus: metav1.ConditionFalse,
 			wantReason: v1alpha1.ModelReasonHTTPRouteNotAccepted,
 		},
 		{
@@ -453,7 +453,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					},
 				)
 			},
-			wantPhase:  v1alpha1.ModelPhaseCreating,
+			wantStatus: metav1.ConditionFalse,
 			wantReason: v1alpha1.ModelReasonHTTPRouteNotAccepted,
 		},
 	}
@@ -470,19 +470,12 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			updated := &v1alpha1.Model{}
 			testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
 
-			if updated.Status.Phase != tc.wantPhase {
-				t.Errorf("Phase:\ngot:  %q\nwant: %q", updated.Status.Phase, tc.wantPhase)
-			}
-			wantStatus := metav1.ConditionFalse
-			if tc.wantPhase == v1alpha1.ModelPhaseReady {
-				wantStatus = metav1.ConditionTrue
-			}
 			cond := meta.FindStatusCondition(updated.Status.Conditions, v1alpha1.ModelConditionReady)
 			if cond == nil {
 				t.Fatalf("Ready condition not found on model")
 			}
-			if cond.Status != wantStatus {
-				t.Errorf("Ready condition status:\ngot:  %q\nwant: %q", cond.Status, wantStatus)
+			if cond.Status != tc.wantStatus {
+				t.Errorf("Ready condition status:\ngot:  %q\nwant: %q", cond.Status, tc.wantStatus)
 			}
 			if cond.Reason != string(tc.wantReason) {
 				t.Errorf("Ready condition reason:\ngot:  %q\nwant: %q", cond.Reason, tc.wantReason)
@@ -661,9 +654,6 @@ func TestReconcile_ModelStatus_AvailableButIncomplete(t *testing.T) {
 	updated := &v1alpha1.Model{}
 	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
 
-	if updated.Status.Phase != v1alpha1.ModelPhaseCreating {
-		t.Errorf("Phase:\ngot:  %q\nwant: %q", updated.Status.Phase, v1alpha1.ModelPhaseCreating)
-	}
 	cond := meta.FindStatusCondition(updated.Status.Conditions, v1alpha1.ModelConditionReady)
 	if cond == nil {
 		t.Fatalf("Ready condition not found on model")

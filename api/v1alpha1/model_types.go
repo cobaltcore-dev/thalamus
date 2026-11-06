@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -15,17 +16,6 @@ import (
 type WeightsType string
 
 const WeightsTypeHF WeightsType = "hf"
-
-type ModelPhase string
-
-const (
-	// TODO: set Pending when admission/resource checks block reconciliation (e.g. insufficient GPU quota). Currently unused.
-	ModelPhasePending  ModelPhase = "Pending"
-	ModelPhaseCreating ModelPhase = "Creating"
-	ModelPhaseReady    ModelPhase = "Ready"
-	ModelPhaseInactive ModelPhase = "Inactive"
-	ModelPhaseFailed   ModelPhase = "Failed"
-)
 
 const (
 	// The model is ready to serve traffic.
@@ -158,10 +148,6 @@ type ModelStatus struct {
 	// +kubebuilder:validation:Optional
 	EPPType EPPType `json:"eppType,omitempty"`
 
-	// Phase summarizes the current lifecycle state of the model.
-	// +kubebuilder:validation:Optional
-	Phase ModelPhase `json:"phase,omitempty"`
-
 	// Conditions represent the latest observations of the model's state.
 	// +kubebuilder:validation:Optional
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
@@ -174,7 +160,7 @@ type ModelStatus struct {
 // +kubebuilder:printcolumn:name="Engine",type="string",JSONPath=".status.engineType"
 // +kubebuilder:printcolumn:name="EPP",type="string",JSONPath=".status.eppType"
 // +kubebuilder:printcolumn:name="Weights",type="string",JSONPath=".spec.weights.type"
-// +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase"
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // Service names must be DNS-1035 labels.
 // +kubebuilder:validation:XValidation:rule="self.metadata.name.matches('^[a-z]([-a-z0-9]*[a-z0-9])?$')",message="metadata.name must be a DNS-1035 label (lowercase alphanumerics and '-', starting with a letter)."
@@ -206,6 +192,11 @@ func (m *Model) BaseModelName() string {
 		return m.Spec.Weights.HF.RepoID
 	}
 	return ""
+}
+
+// IsReady reports whether the Model is ready to serve traffic.
+func (m *Model) IsReady() bool {
+	return meta.IsStatusConditionTrue(m.Status.Conditions, ModelConditionReady)
 }
 
 // ModelNames returns the model identifiers this Model exposes.
