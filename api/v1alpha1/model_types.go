@@ -4,7 +4,6 @@
 package v1alpha1
 
 import (
-	"slices"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -137,6 +136,17 @@ type ModelSpec struct {
 	// (5*8=40), leaving headroom for future routes.
 }
 
+// Identity is a model identifier exposed by a Model.
+type Identity struct {
+	// Name is the model identifier clients use.
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// OwnedBy is the organization that owns the underlying model.
+	// +kubebuilder:validation:Optional
+	OwnedBy string `json:"ownedBy,omitempty"`
+}
+
 // ModelStatus defines the observed state of a Model.
 type ModelStatus struct {
 	// EngineType is the detected inference engine type, derived from the engine image.
@@ -146,6 +156,12 @@ type ModelStatus struct {
 	// EPPType is the detected EPP type, derived from the EPP image.
 	// +kubebuilder:validation:Optional
 	EPPType EPPType `json:"eppType,omitempty"`
+
+	// Identities are the model identifiers this Model exposes.
+	// +kubebuilder:validation:Optional
+	// +listType=map
+	// +listMapKey=name
+	Identities []Identity `json:"identities,omitempty"`
 
 	// Conditions represent the latest observations of the model's state.
 	// +kubebuilder:validation:Optional
@@ -211,13 +227,27 @@ func (m *Model) SetReady(status metav1.ConditionStatus, reason ModelReason, mess
 	})
 }
 
-// ModelNames returns the model identifiers this Model exposes.
-// It falls back to the base model name when no aliases are set.
-func (m *Model) ModelNames() []string {
-	if len(m.Spec.Aliases) > 0 {
-		return slices.Clone(m.Spec.Aliases)
+// Identities returns the model identifiers exposed by aliases, or the base
+// repository ID when no aliases are set.
+func Identities(aliases []string, baseRepoID string) []Identity {
+	names := aliases
+	if len(names) == 0 {
+		if baseRepoID == "" {
+			return nil
+		}
+		names = []string{baseRepoID}
 	}
-	return []string{m.BaseModelName()}
+
+	ownedBy := baseRepoID
+	if before, _, found := strings.Cut(baseRepoID, "/"); found {
+		ownedBy = before
+	}
+
+	identities := make([]Identity, len(names))
+	for i, name := range names {
+		identities[i] = Identity{Name: name, OwnedBy: ownedBy}
+	}
+	return identities
 }
 
 // EngineName returns the Kubernetes resource name for the model's inference engine.

@@ -10,9 +10,9 @@ import (
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 )
 
-// NewModel returns a fully populated Model for use as a text fixture.
+// NewModel returns a fully populated Model for use as a test fixture.
 func NewModel(name, namespace string) *v1alpha1.Model {
-	return &v1alpha1.Model{
+	model := &v1alpha1.Model{
 		Name: name, Namespace: namespace,
 		Spec: v1alpha1.ModelSpec{
 			Backend:  v1alpha1.BackendTypeNative,
@@ -47,4 +47,11 @@ func NewModel(name, namespace string) *v1alpha1.Model {
 			},
 		},
 	}
+	SetIdentities(model)
+	return model
+}
+
+// SetIdentities refreshes a fixture's status identities from its spec.
+func SetIdentities(model *v1alpha1.Model) {
+	model.Status.Identities = v1alpha1.Identities(model.Spec.Aliases, model.BaseModelName())
 }

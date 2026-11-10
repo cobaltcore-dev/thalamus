@@ -7979,6 +7979,21 @@ spec:
                 - llm-d
                 - unknown
                 type: string
+              identities:
+                items:
+                  properties:
+                    name:
+                      minLength: 1
+                      type: string
+                    ownedBy:
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
             type: object
         required:
         - spec

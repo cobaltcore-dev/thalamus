@@ -13,6 +13,7 @@ import (
 
 	agentgatewayv1alpha1 "github.com/agentgateway/agentgateway/controller/api/v1alpha1/agentgateway"
 
+	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
 )
 
@@ -44,7 +45,7 @@ func TestBuildInferencePool(t *testing.T) {
 
 func TestBuildHTTPRoute(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
-	route := BuildHTTPRoute(model, "custom-gateway", testGatewayListener)
+	route := BuildHTTPRoute(model, v1alpha1.Identities(model.Spec.Aliases, model.BaseModelName()), "custom-gateway", testGatewayListener)
 
 	if route.Name != model.EngineName() {
 		t.Errorf("route.Name:\ngot:  %q\nwant: %q", route.Name, model.EngineName())
@@ -98,7 +99,7 @@ func TestBuildHTTPRoute(t *testing.T) {
 func TestBuildHTTPRoute_Aliases(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	model.Spec.Aliases = []string{"tiny", "tiny-latest"}
-	route := BuildHTTPRoute(model, "custom-gateway", testGatewayListener)
+	route := BuildHTTPRoute(model, v1alpha1.Identities(model.Spec.Aliases, model.BaseModelName()), "custom-gateway", testGatewayListener)
 
 	if route.Name != model.EngineName() {
 		t.Errorf("route.Name:\ngot:  %q\nwant: %q", route.Name, model.EngineName())
