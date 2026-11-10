@@ -4,7 +4,6 @@
 package v1alpha1
 
 import (
-	"slices"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -73,7 +72,7 @@ type HFWeightsSpec struct {
 }
 
 // WeightsSpec defines where the model weights are sourced from.
-// +kubebuilder:validation:XValidation:rule="self.type != 'hf' || has(self.hf)",message="spec.weights.hf is required when type is hf"
+// +kubebuilder:validation:XValidation:rule="self.type != 'hf' || (has(self.hf) && size(self.hf.repoId) > 0)",message="spec.weights.hf with a non-empty repoId is required when type is hf"
 type WeightsSpec struct {
 	// Type of the weights source.
 	Type WeightsType `json:"type"`
@@ -120,6 +119,7 @@ type ModelSpec struct {
 	Serving ServingSpec `json:"serving"`
 
 	// Weights defines where the model weights are sourced from.
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.weights is immutable"
 	Weights WeightsSpec `json:"weights"`
 
 	// Aliases are the model names under which this model is exposed.
@@ -137,6 +137,17 @@ type ModelSpec struct {
 	// (5*8=40), leaving headroom for future routes.
 }
 
+// Identifier is a client-facing name under which a Model is exposed.
+type Identifier struct {
+	// Name is the model identifier clients use.
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// OwnedBy is the organization that owns the underlying model.
+	// +kubebuilder:validation:MinLength=1
+	OwnedBy string `json:"ownedBy"`
+}
+
 // ModelStatus defines the observed state of a Model.
 type ModelStatus struct {
 	// EngineType is the detected inference engine type, derived from the engine image.
@@ -146,6 +157,12 @@ type ModelStatus struct {
 	// EPPType is the detected EPP type, derived from the EPP image.
 	// +kubebuilder:validation:Optional
 	EPPType EPPType `json:"eppType,omitempty"`
+
+	// Identifiers are the model identifiers this Model exposes.
+	// +kubebuilder:validation:Optional
+	// +listType=map
+	// +listMapKey=name
+	Identifiers []Identifier `json:"identifiers,omitempty"`
 
 	// Conditions represent the latest observations of the model's state.
 	// +kubebuilder:validation:Optional
@@ -211,13 +228,27 @@ func (m *Model) SetReady(status metav1.ConditionStatus, reason ModelReason, mess
 	})
 }
 
-// ModelNames returns the model identifiers this Model exposes.
-// It falls back to the base model name when no aliases are set.
-func (m *Model) ModelNames() []string {
-	if len(m.Spec.Aliases) > 0 {
-		return slices.Clone(m.Spec.Aliases)
+// Identifiers returns the model identifiers exposed by aliases, or the base
+// repository ID when no aliases are set.
+func Identifiers(aliases []string, baseRepoID string) []Identifier {
+	names := aliases
+	if len(names) == 0 {
+		if baseRepoID == "" {
+			return nil
+		}
+		names = []string{baseRepoID}
 	}
-	return []string{m.BaseModelName()}
+
+	ownedBy := baseRepoID
+	if before, _, found := strings.Cut(baseRepoID, "/"); found {
+		ownedBy = before
+	}
+
+	identifiers := make([]Identifier, len(names))
+	for i, name := range names {
+		identifiers[i] = Identifier{Name: name, OwnedBy: ownedBy}
+	}
+	return identifiers
 }
 
 // EngineName returns the Kubernetes resource name for the model's inference engine.

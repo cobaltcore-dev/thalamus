@@ -7903,8 +7903,12 @@ spec:
                 - type
                 type: object
                 x-kubernetes-validations:
-                - message: spec.weights.hf is required when type is hf
-                  rule: self.type != 'hf' || has(self.hf)
+                - message: spec.weights is immutable
+                  rule: self == oldSelf
+                - message: spec.weights.hf with a non-empty repoId is required when
+                    type is hf
+                  rule: self.type != 'hf' || (has(self.hf) && size(self.hf.repoId)
+                    > 0)
             required:
             - serving
             - weights
@@ -7979,6 +7983,23 @@ spec:
                 - llm-d
                 - unknown
                 type: string
+              identifiers:
+                items:
+                  properties:
+                    name:
+                      minLength: 1
+                      type: string
+                    ownedBy:
+                      minLength: 1
+                      type: string
+                  required:
+                  - name
+                  - ownedBy
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
             type: object
         required:
         - spec

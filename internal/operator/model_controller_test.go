@@ -346,3 +346,40 @@ func TestReconcile_ScaleToZero_KeepsForeignOwnedObject(t *testing.T) {
 	// The foreign-owned deployment must not be deleted.
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, &appsv1.Deployment{})
 }
+
+func TestReconcile_PublishesIdentifiersOnlyWhenReady(t *testing.T) {
+	model := testutil.NewModel("tiny-llm", testNamespace)
+	model.Status.Identifiers = nil
+	r, c := newTestReconciler(t, model)
+
+	reconcileModelOnce(t, r, "tiny-llm")
+
+	updated := &v1alpha1.Model{}
+	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
+	if len(updated.Status.Identifiers) != 0 {
+		t.Errorf("identifiers before Ready:\ngot:  %v\nwant: none", updated.Status.Identifiers)
+	}
+
+	markDeploymentReady(t, c, model.EngineName())
+	markDeploymentReady(t, c, model.EPPName())
+	markInferencePoolReady(t, c, model.EngineName())
+	markHTTPRouteReady(t, c, model.EngineName())
+	reconcileModelOnce(t, r, "tiny-llm")
+
+	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
+	want := v1alpha1.Identifiers(model.Spec.Aliases, model.BaseModelName())
+	if !slices.Equal(updated.Status.Identifiers, want) {
+		t.Errorf("identifiers after Ready:\ngot:  %v\nwant: %v", updated.Status.Identifiers, want)
+	}
+
+	updated.Spec.Replicas = 0
+	if err := c.Update(context.Background(), updated); err != nil {
+		t.Fatalf("scale to zero: %v", err)
+	}
+	reconcileModelOnce(t, r, "tiny-llm")
+
+	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
+	if len(updated.Status.Identifiers) != 0 {
+		t.Errorf("identifiers after scale to zero:\ngot:  %v\nwant: none", updated.Status.Identifiers)
+	}
+}

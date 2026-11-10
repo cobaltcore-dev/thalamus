@@ -6,7 +6,6 @@ package native
 import (
 	"encoding/json"
 	"sort"
-	"strings"
 
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -37,23 +36,18 @@ type modelListResponse struct {
 }
 
 // BuildModelListResponse returns the model-list JSON body for Ready models,
-// sorted by name. Aliases replace the base model name when set.
+// sorted by name. Identifiers are derived by the Model controller.
 func BuildModelListResponse(models []v1alpha1.Model) (string, error) {
 	entries := make([]modelEntry, 0, len(models))
 	for _, m := range models {
 		if !m.IsReady() {
 			continue
 		}
-		base := m.BaseModelName()
-		ownedBy := base
-		if before, _, found := strings.Cut(base, "/"); found {
-			ownedBy = before
-		}
-		for _, name := range m.ModelNames() {
+		for _, identifier := range m.Status.Identifiers {
 			entries = append(entries, modelEntry{
-				ID:      name,
+				ID:      identifier.Name,
 				Object:  "model",
-				OwnedBy: ownedBy,
+				OwnedBy: identifier.OwnedBy,
 			})
 		}
 	}
