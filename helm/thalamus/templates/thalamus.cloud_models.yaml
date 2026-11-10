@@ -7983,7 +7983,7 @@ spec:
                 - llm-d
                 - unknown
                 type: string
-              identities:
+              identifiers:
                 items:
                   properties:
                     name:

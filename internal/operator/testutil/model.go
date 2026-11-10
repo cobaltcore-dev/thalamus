@@ -47,11 +47,11 @@ func NewModel(name, namespace string) *v1alpha1.Model {
 			},
 		},
 	}
-	SetIdentities(model)
+	SetIdentifiers(model)
 	return model
 }
 
-// SetIdentities refreshes a fixture's status identities from its spec.
-func SetIdentities(model *v1alpha1.Model) {
-	model.Status.Identities = v1alpha1.Identities(model.Spec.Aliases, model.BaseModelName())
+// SetIdentifiers refreshes a fixture's status identifiers from its spec.
+func SetIdentifiers(model *v1alpha1.Model) {
+	model.Status.Identifiers = v1alpha1.Identifiers(model.Spec.Aliases, model.BaseModelName())
 }

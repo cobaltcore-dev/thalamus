@@ -137,8 +137,8 @@ type ModelSpec struct {
 	// (5*8=40), leaving headroom for future routes.
 }
 
-// Identity is a model identifier exposed by a Model.
-type Identity struct {
+// Identifier is a client-facing name under which a Model is exposed.
+type Identifier struct {
 	// Name is the model identifier clients use.
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
@@ -158,11 +158,11 @@ type ModelStatus struct {
 	// +kubebuilder:validation:Optional
 	EPPType EPPType `json:"eppType,omitempty"`
 
-	// Identities are the model identifiers this Model exposes.
+	// Identifiers are the model identifiers this Model exposes.
 	// +kubebuilder:validation:Optional
 	// +listType=map
 	// +listMapKey=name
-	Identities []Identity `json:"identities,omitempty"`
+	Identifiers []Identifier `json:"identifiers,omitempty"`
 
 	// Conditions represent the latest observations of the model's state.
 	// +kubebuilder:validation:Optional
@@ -228,9 +228,9 @@ func (m *Model) SetReady(status metav1.ConditionStatus, reason ModelReason, mess
 	})
 }
 
-// Identities returns the model identifiers exposed by aliases, or the base
+// Identifiers returns the model identifiers exposed by aliases, or the base
 // repository ID when no aliases are set.
-func Identities(aliases []string, baseRepoID string) []Identity {
+func Identifiers(aliases []string, baseRepoID string) []Identifier {
 	names := aliases
 	if len(names) == 0 {
 		if baseRepoID == "" {
@@ -244,11 +244,11 @@ func Identities(aliases []string, baseRepoID string) []Identity {
 		ownedBy = before
 	}
 
-	identities := make([]Identity, len(names))
+	identifiers := make([]Identifier, len(names))
 	for i, name := range names {
-		identities[i] = Identity{Name: name, OwnedBy: ownedBy}
+		identifiers[i] = Identifier{Name: name, OwnedBy: ownedBy}
 	}
-	return identities
+	return identifiers
 }
 
 // EngineName returns the Kubernetes resource name for the model's inference engine.

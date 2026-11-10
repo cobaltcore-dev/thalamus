@@ -347,17 +347,17 @@ func TestReconcile_ScaleToZero_KeepsForeignOwnedObject(t *testing.T) {
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, &appsv1.Deployment{})
 }
 
-func TestReconcile_PublishesIdentitiesOnlyWhenReady(t *testing.T) {
+func TestReconcile_PublishesIdentifiersOnlyWhenReady(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", testNamespace)
-	model.Status.Identities = nil
+	model.Status.Identifiers = nil
 	r, c := newTestReconciler(t, model)
 
 	reconcileModelOnce(t, r, "tiny-llm")
 
 	updated := &v1alpha1.Model{}
 	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
-	if len(updated.Status.Identities) != 0 {
-		t.Errorf("identities before Ready:\ngot:  %v\nwant: none", updated.Status.Identities)
+	if len(updated.Status.Identifiers) != 0 {
+		t.Errorf("identifiers before Ready:\ngot:  %v\nwant: none", updated.Status.Identifiers)
 	}
 
 	markDeploymentReady(t, c, model.EngineName())
@@ -367,9 +367,9 @@ func TestReconcile_PublishesIdentitiesOnlyWhenReady(t *testing.T) {
 	reconcileModelOnce(t, r, "tiny-llm")
 
 	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
-	want := v1alpha1.Identities(model.Spec.Aliases, model.BaseModelName())
-	if !slices.Equal(updated.Status.Identities, want) {
-		t.Errorf("identities after Ready:\ngot:  %v\nwant: %v", updated.Status.Identities, want)
+	want := v1alpha1.Identifiers(model.Spec.Aliases, model.BaseModelName())
+	if !slices.Equal(updated.Status.Identifiers, want) {
+		t.Errorf("identifiers after Ready:\ngot:  %v\nwant: %v", updated.Status.Identifiers, want)
 	}
 
 	updated.Spec.Replicas = 0
@@ -379,7 +379,7 @@ func TestReconcile_PublishesIdentitiesOnlyWhenReady(t *testing.T) {
 	reconcileModelOnce(t, r, "tiny-llm")
 
 	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
-	if len(updated.Status.Identities) != 0 {
-		t.Errorf("identities after scale to zero:\ngot:  %v\nwant: none", updated.Status.Identities)
+	if len(updated.Status.Identifiers) != 0 {
+		t.Errorf("identifiers after scale to zero:\ngot:  %v\nwant: none", updated.Status.Identifiers)
 	}
 }

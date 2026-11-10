@@ -94,11 +94,11 @@ _Appears in:_
 | `repoId` _string_ | RepoID is the Hugging Face repository ID, e.g. "openai/gpt-oss-120b". |  |  |
 
 
-#### Identity
+#### Identifier
 
 
 
-Identity is a model identifier exposed by a Model.
+Identifier is a client-facing name under which a Model is exposed.
 
 
 
@@ -186,7 +186,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `engineType` _[EngineType](#enginetype)_ | EngineType is the detected inference engine type, derived from the engine image. |  | Enum: [vllm unknown] <br />Optional: \{\} <br /> |
 | `eppType` _[EPPType](#epptype)_ | EPPType is the detected EPP type, derived from the EPP image. |  | Enum: [llm-d unknown] <br />Optional: \{\} <br /> |
-| `identities` _[Identity](#identity) array_ | Identities are the model identifiers this Model exposes. |  | Optional: \{\} <br /> |
+| `identifiers` _[Identifier](#identifier) array_ | Identifiers are the model identifiers this Model exposes. |  | Optional: \{\} <br /> |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | Conditions represent the latest observations of the model's state. |  | Optional: \{\} <br /> |
 
 

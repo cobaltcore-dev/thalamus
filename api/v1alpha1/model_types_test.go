@@ -8,29 +8,29 @@ import (
 	"testing"
 )
 
-func TestIdentities(t *testing.T) {
+func TestIdentifiers(t *testing.T) {
 	tests := []struct {
 		name    string
 		aliases []string
 		repoID  string
-		want    []Identity
+		want    []Identifier
 	}{
 		{
 			name:   "no aliases uses the HF repository name verbatim",
 			repoID: "arnir0/Tiny-LLM",
-			want:   []Identity{{Name: "arnir0/Tiny-LLM", OwnedBy: "arnir0"}},
+			want:   []Identifier{{Name: "arnir0/Tiny-LLM", OwnedBy: "arnir0"}},
 		},
 		{
 			name:    "empty alias list uses the HF repository name verbatim",
 			aliases: []string{},
 			repoID:  "arnir0/Tiny-LLM",
-			want:    []Identity{{Name: "arnir0/Tiny-LLM", OwnedBy: "arnir0"}},
+			want:    []Identifier{{Name: "arnir0/Tiny-LLM", OwnedBy: "arnir0"}},
 		},
 		{
 			name:    "aliases replace the HF repository name",
 			aliases: []string{"tiny", "tiny-latest"},
 			repoID:  "arnir0/Tiny-LLM",
-			want: []Identity{
+			want: []Identifier{
 				{Name: "tiny", OwnedBy: "arnir0"},
 				{Name: "tiny-latest", OwnedBy: "arnir0"},
 			},
@@ -38,10 +38,10 @@ func TestIdentities(t *testing.T) {
 		{
 			name:   "repo ID without an organization owns itself",
 			repoID: "somemodel",
-			want:   []Identity{{Name: "somemodel", OwnedBy: "somemodel"}},
+			want:   []Identifier{{Name: "somemodel", OwnedBy: "somemodel"}},
 		},
 		{
-			name:   "empty repo ID without aliases yields no identities",
+			name:   "empty repo ID without aliases yields no identifiers",
 			repoID: "",
 			want:   nil,
 		},
@@ -59,8 +59,8 @@ func TestIdentities(t *testing.T) {
 				},
 			}
 
-			if got := Identities(tt.aliases, tt.repoID); !slices.Equal(got, tt.want) {
-				t.Errorf("Identities():\ngot:  %v\nwant: %v", got, tt.want)
+			if got := Identifiers(tt.aliases, tt.repoID); !slices.Equal(got, tt.want) {
+				t.Errorf("Identifiers():\ngot:  %v\nwant: %v", got, tt.want)
 			}
 			if got := model.BaseModelName(); got != tt.repoID {
 				t.Errorf("BaseModelName():\ngot:  %q\nwant: %q", got, tt.repoID)

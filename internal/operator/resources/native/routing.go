@@ -42,9 +42,9 @@ func BuildInferencePool(model *v1alpha1.Model) *inferencev1.InferencePool {
 
 // BuildHTTPRoute returns the HTTPRoute for the model's AgentgatewayBackend,
 // so traffic is token-metered by the LLM pipeline. Unmatched paths 404 at the gateway.
-func BuildHTTPRoute(model *v1alpha1.Model, identities []v1alpha1.Identity, gatewayName, listenerName string) *gatewayv1.HTTPRoute {
-	matches := make([]gatewayv1.HTTPRouteMatch, 0, len(identities)*len(modelRoutes))
-	for _, identity := range identities {
+func BuildHTTPRoute(model *v1alpha1.Model, identifiers []v1alpha1.Identifier, gatewayName, listenerName string) *gatewayv1.HTTPRoute {
+	matches := make([]gatewayv1.HTTPRouteMatch, 0, len(identifiers)*len(modelRoutes))
+	for _, identifier := range identifiers {
 		for _, r := range modelRoutes {
 			matches = append(matches, gatewayv1.HTTPRouteMatch{
 				Path: &gatewayv1.HTTPPathMatch{
@@ -54,7 +54,7 @@ func BuildHTTPRoute(model *v1alpha1.Model, identities []v1alpha1.Identity, gatew
 				Headers: []gatewayv1.HTTPHeaderMatch{{
 					Type:  new(gatewayv1.HeaderMatchExact),
 					Name:  GatewayBaseModelHeaderName,
-					Value: identity.Name,
+					Value: identifier.Name,
 				}},
 			})
 		}

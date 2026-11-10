@@ -23,7 +23,7 @@ import (
 // syncModelStatus derives and updates the ready state of a model by checking:
 // engine Deployment, EPP Deployment, InferencePool acceptance,
 // and HTTPRoute acceptance.
-func (r *ModelReconciler) syncModelStatus(ctx context.Context, model *v1alpha1.Model, identities []v1alpha1.Identity) error {
+func (r *ModelReconciler) syncModelStatus(ctx context.Context, model *v1alpha1.Model, identifiers []v1alpha1.Identifier) error {
 	if model.Spec.Replicas == 0 {
 		model.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonNoReplicasDesired, "model has no desired replicas")
 		return nil
@@ -37,7 +37,7 @@ func (r *ModelReconciler) syncModelStatus(ctx context.Context, model *v1alpha1.M
 		{"epp", r.syncEPPCondition},
 		{"inference pool", r.syncInferencePoolCondition},
 		{"http route", func(ctx context.Context, m *v1alpha1.Model) (bool, error) {
-			return r.syncHTTPRouteCondition(ctx, m, identities)
+			return r.syncHTTPRouteCondition(ctx, m, identifiers)
 		}},
 	}
 
@@ -144,7 +144,7 @@ func (r *ModelReconciler) syncInferencePoolCondition(ctx context.Context, model 
 }
 
 // syncHTTPRouteCondition checks the HTTPRoute status and updates the model status.
-func (r *ModelReconciler) syncHTTPRouteCondition(ctx context.Context, model *v1alpha1.Model, identities []v1alpha1.Identity) (bool, error) {
+func (r *ModelReconciler) syncHTTPRouteCondition(ctx context.Context, model *v1alpha1.Model, identifiers []v1alpha1.Identifier) (bool, error) {
 	route, err := getObject(ctx, r.Client, model.Namespace, model.EngineName(), &gatewayv1.HTTPRoute{})
 	if err != nil {
 		return false, err
@@ -155,7 +155,7 @@ func (r *ModelReconciler) syncHTTPRouteCondition(ctx context.Context, model *v1a
 	}
 
 	// The informer cache may still hold the route from before this apply.
-	desired := native.BuildHTTPRoute(model, identities, r.GatewayName, r.ListenerName)
+	desired := native.BuildHTTPRoute(model, identifiers, r.GatewayName, r.ListenerName)
 	if !httpRouteServesDesiredMatches(route, desired) {
 		model.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonHTTPRouteNotAccepted,
 			fmt.Sprintf("HTTPRoute %s does not serve the current model names", model.EngineName()))

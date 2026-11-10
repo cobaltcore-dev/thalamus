@@ -47,12 +47,12 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, nil
 	}
 
-	identities := v1alpha1.Identities(model.Spec.Aliases, model.BaseModelName())
+	identifiers := v1alpha1.Identifiers(model.Spec.Aliases, model.BaseModelName())
 
-	if err := r.apply(ctx, model, identities); err != nil {
+	if err := r.apply(ctx, model, identifiers); err != nil {
 		return ctrl.Result{}, fmt.Errorf("reconcile model %s: %w", req.NamespacedName, r.setFailedStatus(ctx, model, err))
 	}
-	if err := r.observe(ctx, model, identities); err != nil {
+	if err := r.observe(ctx, model, identifiers); err != nil {
 		return ctrl.Result{}, err
 	}
 	if cond := meta.FindStatusCondition(model.Status.Conditions, v1alpha1.ModelConditionReady); cond != nil {
@@ -62,7 +62,7 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 }
 
 // apply creates, updates, or deletes all child resources for the model.
-func (r *ModelReconciler) apply(ctx context.Context, model *v1alpha1.Model, identities []v1alpha1.Identity) error {
+func (r *ModelReconciler) apply(ctx context.Context, model *v1alpha1.Model, identifiers []v1alpha1.Identifier) error {
 	engineDeployment, err := native.BuildEngineDeployment(model)
 	if err != nil {
 		return fmt.Errorf("build engine deployment: %w", err)
@@ -74,7 +74,7 @@ func (r *ModelReconciler) apply(ctx context.Context, model *v1alpha1.Model, iden
 		native.BuildEngineService(model),
 		native.BuildInferencePool(model),
 		native.BuildAIBackend(model),
-		native.BuildHTTPRoute(model, identities, r.GatewayName, r.ListenerName),
+		native.BuildHTTPRoute(model, identifiers, r.GatewayName, r.ListenerName),
 	}
 
 	eppDeployment, err := native.BuildEPPDeployment(model, r.RouterServiceAccountName)
@@ -124,23 +124,23 @@ func (r *ModelReconciler) deleteOwned(ctx context.Context, owner *v1alpha1.Model
 }
 
 // observe derives the model's status from its child resources and patches it.
-func (r *ModelReconciler) observe(ctx context.Context, model *v1alpha1.Model, identities []v1alpha1.Identity) error {
+func (r *ModelReconciler) observe(ctx context.Context, model *v1alpha1.Model, identifiers []v1alpha1.Identifier) error {
 	patch := client.MergeFrom(model.DeepCopy())
 	before := model.Status.DeepCopy()
 
 	model.Status.EngineType = model.DetectedEngineType()
 	model.Status.EPPType = model.DetectedEPPType()
 
-	if err := r.syncModelStatus(ctx, model, identities); err != nil {
+	if err := r.syncModelStatus(ctx, model, identifiers); err != nil {
 		return fmt.Errorf("sync model status: %w", err)
 	}
 
-	// Publish identities only once routing serves them.
+	// Publish identifiers only once routing serves them.
 	switch {
 	case model.IsReady():
-		model.Status.Identities = identities
+		model.Status.Identifiers = identifiers
 	case model.Spec.Replicas == 0:
-		model.Status.Identities = nil
+		model.Status.Identifiers = nil
 	}
 
 	if apiequality.Semantic.DeepEqual(before, &model.Status) {

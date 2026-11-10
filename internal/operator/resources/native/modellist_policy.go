@@ -37,23 +37,23 @@ type modelListResponse struct {
 }
 
 // BuildModelListResponse returns the model-list JSON body for Ready models,
-// sorted by name. Identities are derived by the Model controller.
+// sorted by name. Identifiers are derived by the Model controller.
 func BuildModelListResponse(models []v1alpha1.Model) (string, error) {
 	entries := make([]modelEntry, 0, len(models))
 	for _, m := range models {
 		if !m.IsReady() {
 			continue
 		}
-		for _, identity := range m.Status.Identities {
-			ownedBy := identity.OwnedBy
+		for _, identifier := range m.Status.Identifiers {
+			ownedBy := identifier.OwnedBy
 			if ownedBy == "" {
-				ownedBy = identity.Name
-				if before, _, found := strings.Cut(identity.Name, "/"); found {
+				ownedBy = identifier.Name
+				if before, _, found := strings.Cut(identifier.Name, "/"); found {
 					ownedBy = before
 				}
 			}
 			entries = append(entries, modelEntry{
-				ID:      identity.Name,
+				ID:      identifier.Name,
 				Object:  "model",
 				OwnedBy: ownedBy,
 			})
