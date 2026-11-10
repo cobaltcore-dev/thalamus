@@ -69,13 +69,6 @@ func defaultEnginePodSpec(model *v1alpha1.Model) *corev1.PodSpec {
 		// instead so alias changes do not require an engine restart.
 		{Name: "VLLM_SKIP_MODEL_NAME_VALIDATION", Value: "1"},
 	}
-	if hf := model.Spec.Weights.HF; model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && hf != nil && hf.TokenSecret != nil {
-		env = append(env, corev1.EnvVar{
-			Name:      "HF_TOKEN",
-			ValueFrom: &corev1.EnvVarSource{SecretKeyRef: hf.TokenSecret},
-		})
-	}
-
 	container := corev1.Container{
 		Name:  "engine",
 		Env:   env,

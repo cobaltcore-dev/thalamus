@@ -24,6 +24,12 @@ spec:
             - --tool-call-parser=apertus
             - --override-generation-config={"temperature":0}
           env:
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hf-token
+                  key: HF_TOKEN
+                  optional: true
             - name: VLLM_CPU_KVCACHE_SPACE
               value: "1"
             - name: VLLM_CPU_OMP_THREADS_BIND

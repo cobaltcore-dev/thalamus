@@ -76,7 +76,11 @@ disable its bundled controller with `--set agentgateway.enabled=false`.
 
 ## Step 2 — Create the Hugging Face secret
 
-Model pods pull their weights from Hugging Face at startup. `tokenSecret` is optional — public models work without it — but providing a token avoids anonymous rate limits. To create a secret named `hf-token` with key `HF_TOKEN` in the `thalamus` namespace:
+Model pods pull their weights from Hugging Face at startup. The engine reads
+the token from the standard `HF_TOKEN` environment variable, which you set on
+the engine container yourself. Public models work without it, but a token
+avoids anonymous rate limits. The examples read `HF_TOKEN` from a secret named
+`hf-token` in the `thalamus` namespace; create it with:
 
 ```bash
 kubectl create secret generic hf-token \

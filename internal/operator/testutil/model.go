@@ -43,10 +43,6 @@ func NewModel(name, namespace string) *v1alpha1.Model {
 				Type: v1alpha1.WeightsTypeHF,
 				HF: &v1alpha1.HFWeightsSpec{
 					RepoID: "arnir0/Tiny-LLM",
-					TokenSecret: &corev1.SecretKeySelector{
-						Name: "hf-token",
-						Key:  "token",
-					},
 				},
 			},
 		},
