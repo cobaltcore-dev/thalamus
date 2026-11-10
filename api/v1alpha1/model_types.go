@@ -144,8 +144,8 @@ type Identifier struct {
 	Name string `json:"name"`
 
 	// OwnedBy is the organization that owns the underlying model.
-	// +kubebuilder:validation:Optional
-	OwnedBy string `json:"ownedBy,omitempty"`
+	// +kubebuilder:validation:MinLength=1
+	OwnedBy string `json:"ownedBy"`
 }
 
 // ModelStatus defines the observed state of a Model.

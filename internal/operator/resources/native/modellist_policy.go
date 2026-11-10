@@ -6,7 +6,6 @@ package native
 import (
 	"encoding/json"
 	"sort"
-	"strings"
 
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -45,17 +44,10 @@ func BuildModelListResponse(models []v1alpha1.Model) (string, error) {
 			continue
 		}
 		for _, identifier := range m.Status.Identifiers {
-			ownedBy := identifier.OwnedBy
-			if ownedBy == "" {
-				ownedBy = identifier.Name
-				if before, _, found := strings.Cut(identifier.Name, "/"); found {
-					ownedBy = before
-				}
-			}
 			entries = append(entries, modelEntry{
 				ID:      identifier.Name,
 				Object:  "model",
-				OwnedBy: ownedBy,
+				OwnedBy: identifier.OwnedBy,
 			})
 		}
 	}

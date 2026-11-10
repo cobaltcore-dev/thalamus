@@ -108,7 +108,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `name` _string_ | Name is the model identifier clients use. |  | MinLength: 1 <br /> |
-| `ownedBy` _string_ | OwnedBy is the organization that owns the underlying model. |  | Optional: \{\} <br /> |
+| `ownedBy` _string_ | OwnedBy is the organization that owns the underlying model. |  | MinLength: 1 <br /> |
 
 
 #### Model

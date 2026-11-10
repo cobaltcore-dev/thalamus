@@ -7990,9 +7990,11 @@ spec:
                       minLength: 1
                       type: string
                     ownedBy:
+                      minLength: 1
                       type: string
                   required:
                   - name
+                  - ownedBy
                   type: object
                 type: array
                 x-kubernetes-list-map-keys:
