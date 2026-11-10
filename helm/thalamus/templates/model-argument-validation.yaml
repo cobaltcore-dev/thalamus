@@ -13,6 +13,10 @@ spec:
         resources: [models]
         operations: [CREATE, UPDATE]
   validations:
+    - expression: "!object.spec.serving.engine.containers.exists(c, c.name == 'engine' && has(c.args) && c.args.size() > 0 && !c.args[0].startsWith('-'))"
+      message: "spec.serving.engine must not set a positional model argument (managed by the operator)"
+    - expression: "!object.spec.serving.engine.containers.exists(c, c.name == 'engine' && has(c.args) && c.args.exists(a, a == '--model' || a.startsWith('--model=')))"
+      message: "spec.serving.engine must not set --model (managed by the operator)"
     - expression: "!object.spec.serving.engine.containers.exists(c, c.name == 'engine' && has(c.args) && c.args.exists(a, a == '--host' || a.startsWith('--host=')))"
       message: "spec.serving.engine must not set --host (managed by the operator)"
     - expression: "!object.spec.serving.engine.containers.exists(c, c.name == 'engine' && has(c.args) && c.args.exists(a, a == '--port' || a.startsWith('--port=')))"
