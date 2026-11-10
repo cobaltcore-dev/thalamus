@@ -249,33 +249,33 @@ func checkParentConditions(
 	generation int64,
 	policy parentStatusPolicy,
 ) (ready, failed bool, message string) {
+	accepted := meta.FindStatusCondition(conditions, policy.acceptedType)
+	resolved := meta.FindStatusCondition(conditions, policy.resolvedType)
 
-	acceptedCond := meta.FindStatusCondition(conditions, policy.acceptedType)
-	resolvedCond := meta.FindStatusCondition(conditions, policy.resolvedType)
+	condFalse := func(cond *metav1.Condition) {
+		message = fmt.Sprintf("%s: %s", cond.Reason, cond.Message)
+		_, isTransient := policy.transientReasons[cond.Reason]
+		failed = !isTransient
+	}
 
+	switch {
 	// Stale conditions may still report the previous spec as accepted.
-	for _, cond := range []*metav1.Condition{acceptedCond, resolvedCond} {
-		if cond != nil && cond.ObservedGeneration < generation {
-			return false, false, cond.Type + " condition is stale"
-		}
+	case accepted != nil && accepted.ObservedGeneration < generation:
+		message = accepted.Type + " condition is stale"
+	case resolved != nil && resolved.ObservedGeneration < generation:
+		message = resolved.Type + " condition is stale"
+	case accepted != nil && accepted.Status == metav1.ConditionTrue &&
+		(resolved == nil || resolved.Status == metav1.ConditionTrue):
+		ready = true
+	case resolved != nil && resolved.Status == metav1.ConditionFalse:
+		condFalse(resolved)
+	case accepted != nil && accepted.Status == metav1.ConditionFalse:
+		condFalse(accepted)
+	default:
+		message = "parent status is pending"
 	}
 
-	if acceptedCond != nil && acceptedCond.Status == metav1.ConditionTrue &&
-		(resolvedCond == nil || resolvedCond.Status == metav1.ConditionTrue) {
-		return true, false, ""
-	}
-
-	for _, cond := range []*metav1.Condition{resolvedCond, acceptedCond} {
-		if cond != nil && cond.Status == metav1.ConditionFalse {
-			msg := fmt.Sprintf("%s: %s", cond.Reason, cond.Message)
-			if _, transient := policy.transientReasons[cond.Reason]; transient {
-				return false, false, msg
-			}
-			return false, true, msg
-		}
-	}
-
-	return false, false, "parent status is pending"
+	return
 }
 
 // deploymentFailed reports whether a Deployment is in a terminal failure state
