@@ -249,6 +249,7 @@ func checkParentConditions(
 	generation int64,
 	policy parentStatusPolicy,
 ) (ready, failed bool, message string) {
+
 	accepted := meta.FindStatusCondition(conditions, policy.acceptedType)
 	resolved := meta.FindStatusCondition(conditions, policy.resolvedType)
 
