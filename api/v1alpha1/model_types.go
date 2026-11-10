@@ -36,6 +36,7 @@ const (
 	ModelReasonHTTPRouteNotAccepted      ModelReason = "HTTPRouteNotAccepted"
 	ModelReasonHTTPRouteRejected         ModelReason = "HTTPRouteRejected"
 	ModelReasonHTTPRoutePartiallyInvalid ModelReason = "HTTPRoutePartiallyInvalid"
+	ModelReasonReconcileError            ModelReason = "ReconcileError"
 )
 
 // +kubebuilder:validation:Enum=native;kserve;kaito

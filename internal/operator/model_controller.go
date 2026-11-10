@@ -146,7 +146,7 @@ func (r *ModelReconciler) observe(ctx context.Context, model *v1alpha1.Model) er
 // setFailedStatus records the reconcile error on the model and returns the original error.
 func (r *ModelReconciler) setFailedStatus(ctx context.Context, model *v1alpha1.Model, cause error) error {
 	patch := client.MergeFrom(model.DeepCopy())
-	model.SetReady(metav1.ConditionFalse, "ReconcileError", cause.Error())
+	model.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonReconcileError, cause.Error())
 	if patchErr := r.Status().Patch(ctx, model, patch); patchErr != nil {
 		log.FromContext(ctx).Error(patchErr, "failed to patch status after reconcile error")
 	}
