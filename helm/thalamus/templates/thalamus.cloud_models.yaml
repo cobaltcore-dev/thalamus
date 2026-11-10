@@ -31,8 +31,8 @@ spec:
     - jsonPath: .spec.weights.type
       name: Weights
       type: string
-    - jsonPath: .status.phase
-      name: Phase
+    - jsonPath: .status.conditions[?(@.type=='Ready')].status
+      name: Ready
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
@@ -7991,8 +7991,6 @@ spec:
                 enum:
                 - llm-d
                 - unknown
-                type: string
-              phase:
                 type: string
             type: object
         required:

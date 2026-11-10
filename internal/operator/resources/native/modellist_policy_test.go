@@ -6,6 +6,7 @@ package native
 import (
 	"testing"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
@@ -95,17 +96,17 @@ func TestBuildModelListResponse_OnlyReady(t *testing.T) {
 	a := *testutil.NewModel("tiny-llm", "default")
 	a.Name = "a"
 	a.Spec.Weights.HF.RepoID = "org/model-a"
-	a.Status.Phase = v1alpha1.ModelPhaseReady
+	a.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
 
 	b := *testutil.NewModel("tiny-llm", "default")
 	b.Name = "b"
 	b.Spec.Weights.HF.RepoID = "org/model-b"
-	b.Status.Phase = v1alpha1.ModelPhaseCreating
+	b.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonEngineNotReady, "")
 
 	c := *testutil.NewModel("tiny-llm", "default")
 	c.Name = "c"
 	c.Spec.Weights.HF.RepoID = "org/model-c"
-	c.Status.Phase = v1alpha1.ModelPhaseFailed
+	c.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonEngineDeploymentFailed, "")
 
 	body, err := BuildModelListResponse([]v1alpha1.Model{a, b, c})
 	if err != nil {
@@ -121,17 +122,17 @@ func TestBuildModelListResponse_MultipleReady_Sorted(t *testing.T) {
 	z := *testutil.NewModel("tiny-llm", "default")
 	z.Name = "z"
 	z.Spec.Weights.HF.RepoID = "org/zzz"
-	z.Status.Phase = v1alpha1.ModelPhaseReady
+	z.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
 
 	a := *testutil.NewModel("tiny-llm", "default")
 	a.Name = "a"
 	a.Spec.Weights.HF.RepoID = "org/aaa"
-	a.Status.Phase = v1alpha1.ModelPhaseReady
+	a.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
 
 	m := *testutil.NewModel("tiny-llm", "default")
 	m.Name = "m"
 	m.Spec.Weights.HF.RepoID = "org/mmm"
-	m.Status.Phase = v1alpha1.ModelPhaseReady
+	m.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
 
 	body, err := BuildModelListResponse([]v1alpha1.Model{z, a, m})
 	if err != nil {
@@ -146,7 +147,7 @@ func TestBuildModelListResponse_MultipleReady_Sorted(t *testing.T) {
 func TestBuildModelListResponse_NoSlashInRepoID(t *testing.T) {
 	model := *testutil.NewModel("tiny-llm", "default")
 	model.Spec.Weights.HF.RepoID = "somemodel"
-	model.Status.Phase = v1alpha1.ModelPhaseReady
+	model.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
 
 	body, err := BuildModelListResponse([]v1alpha1.Model{model})
 	if err != nil {
@@ -162,7 +163,7 @@ func TestBuildModelListResponse_Aliases(t *testing.T) {
 	model := *testutil.NewModel("tiny-llm", "default")
 	model.Spec.Weights.HF.RepoID = "org/model-a"
 	model.Spec.Aliases = []string{"short", "other"}
-	model.Status.Phase = v1alpha1.ModelPhaseReady
+	model.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
 
 	body, err := BuildModelListResponse([]v1alpha1.Model{model})
 	if err != nil {
@@ -178,12 +179,12 @@ func TestBuildModelListResponse_Stable(t *testing.T) {
 	z := *testutil.NewModel("tiny-llm", "default")
 	z.Name = "z"
 	z.Spec.Weights.HF.RepoID = "org/zzz"
-	z.Status.Phase = v1alpha1.ModelPhaseReady
+	z.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
 
 	a := *testutil.NewModel("tiny-llm", "default")
 	a.Name = "a"
 	a.Spec.Weights.HF.RepoID = "org/aaa"
-	a.Status.Phase = v1alpha1.ModelPhaseReady
+	a.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
 
 	models := []v1alpha1.Model{z, a}
 	first, err := BuildModelListResponse(models)

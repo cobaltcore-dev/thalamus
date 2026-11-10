@@ -131,26 +131,6 @@ ModelList contains a list of Model.
 | `items` _[Model](#model) array_ |  |  |  |
 
 
-#### ModelPhase
-
-_Underlying type:_ _string_
-
-
-
-
-
-_Appears in:_
-- [ModelStatus](#modelstatus)
-
-| Field | Description |
-| --- | --- |
-| `Pending` | TODO: set Pending when admission/resource checks block reconciliation (e.g. insufficient GPU quota). Currently unused.<br /> |
-| `Creating` |  |
-| `Ready` |  |
-| `Inactive` |  |
-| `Failed` |  |
-
-
 
 
 #### ModelSpec
@@ -188,7 +168,6 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `engineType` _[EngineType](#enginetype)_ | EngineType is the detected inference engine type, derived from the engine image. |  | Enum: [vllm unknown] <br />Optional: \{\} <br /> |
 | `eppType` _[EPPType](#epptype)_ | EPPType is the detected EPP type, derived from the EPP image. |  | Enum: [llm-d unknown] <br />Optional: \{\} <br /> |
-| `phase` _[ModelPhase](#modelphase)_ | Phase summarizes the current lifecycle state of the model. |  | Optional: \{\} <br /> |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | Conditions represent the latest observations of the model's state. |  | Optional: \{\} <br /> |
 
 
