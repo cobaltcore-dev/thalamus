@@ -32,7 +32,7 @@ func BuildEngineDeployment(model *v1alpha1.Model) (*appsv1.Deployment, error) {
 	podSpec.DeprecatedServiceAccount = ""
 	podSpec.AutomountServiceAccountToken = new(false)
 
-	if hf := model.Spec.Weights.HF; model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && hf != nil && model.DetectedEngineType() == v1alpha1.EngineTypeVLLM {
+	if hf := model.Spec.Weights.HF; model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && hf != nil {
 		c := helpers.GetContainerByName(&podSpec, "engine")
 		c.Args = append([]string{hf.RepoID}, c.Args...)
 	}

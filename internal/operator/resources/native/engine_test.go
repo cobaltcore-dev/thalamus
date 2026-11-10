@@ -198,8 +198,8 @@ func TestBuildEngineDeployment_NonVLLM(t *testing.T) {
 	}
 	c := dep.Spec.Template.Spec.Containers[0]
 
-	if !slices.Equal(c.Args, []string{"--max-model-len=512"}) {
-		t.Errorf("Args:\ngot:  %v\nwant: only the user args", c.Args)
+	if !slices.Equal(c.Args, []string{"arnir0/Tiny-LLM", "--max-model-len=512"}) {
+		t.Errorf("Args:\ngot:  %v\nwant: the model id followed by the user args", c.Args)
 	}
 	if c.StartupProbe != nil || c.LivenessProbe != nil || c.ReadinessProbe != nil {
 		t.Error("vllm probes must not be applied to non-vllm engines")
