@@ -119,6 +119,7 @@ type ModelSpec struct {
 	Serving ServingSpec `json:"serving"`
 
 	// Weights defines where the model weights are sourced from.
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.weights is immutable"
 	Weights WeightsSpec `json:"weights"`
 
 	// Aliases are the model names under which this model is exposed.

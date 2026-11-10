@@ -7903,6 +7903,8 @@ spec:
                 - type
                 type: object
                 x-kubernetes-validations:
+                - message: spec.weights is immutable
+                  rule: self == oldSelf
                 - message: spec.weights.hf with a non-empty repoId is required when
                     type is hf
                   rule: self.type != 'hf' || (has(self.hf) && size(self.hf.repoId)
