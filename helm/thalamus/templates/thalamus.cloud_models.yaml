@@ -7903,8 +7903,10 @@ spec:
                 - type
                 type: object
                 x-kubernetes-validations:
-                - message: spec.weights.hf is required when type is hf
-                  rule: self.type != 'hf' || has(self.hf)
+                - message: spec.weights.hf with a non-empty repoId is required when
+                    type is hf
+                  rule: self.type != 'hf' || (has(self.hf) && size(self.hf.repoId)
+                    > 0)
             required:
             - serving
             - weights
