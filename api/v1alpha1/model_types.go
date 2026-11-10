@@ -199,6 +199,17 @@ func (m *Model) IsReady() bool {
 	return meta.IsStatusConditionTrue(m.Status.Conditions, ModelConditionReady)
 }
 
+// SetReady updates the Model's Ready condition in place without patching the status.
+func (m *Model) SetReady(status metav1.ConditionStatus, reason ModelReason, message string) {
+	meta.SetStatusCondition(&m.Status.Conditions, metav1.Condition{
+		Type:               ModelConditionReady,
+		Status:             status,
+		Reason:             string(reason),
+		Message:            message,
+		ObservedGeneration: m.Generation,
+	})
+}
+
 // ModelNames returns the model identifiers this Model exposes.
 // It falls back to the base model name when no aliases are set.
 func (m *Model) ModelNames() []string {

@@ -128,7 +128,7 @@ func TestModelListReconcile_OneReadyModel(t *testing.T) {
 	s := testutil.NewScheme(t)
 	gateway := newGateway()
 	model := testutil.NewModel("tiny-llm", testNamespace)
-	testutil.SetModelReady(model, metav1.ConditionTrue, v1alpha1.ModelReasonReady)
+	model.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
 	c := fake.NewClientBuilder().WithScheme(s).
 		WithObjects(gateway).
 		WithObjects(model).WithStatusSubresource(model).
@@ -149,7 +149,7 @@ func TestModelListReconcile_Aliases(t *testing.T) {
 	gateway := newGateway()
 	model := testutil.NewModel("tiny-llm", testNamespace)
 	model.Spec.Aliases = []string{"tiny", "tiny-latest"}
-	testutil.SetModelReady(model, metav1.ConditionTrue, v1alpha1.ModelReasonReady)
+	model.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
 	c := fake.NewClientBuilder().WithScheme(s).
 		WithObjects(gateway).
 		WithObjects(model).WithStatusSubresource(model).
@@ -170,10 +170,10 @@ func TestModelListReconcile_OnlyReadyModelsListed(t *testing.T) {
 	gateway := newGateway()
 	ready := testutil.NewModel("ready", testNamespace)
 	ready.Spec.Weights.HF.RepoID = "org/ready-model"
-	testutil.SetModelReady(ready, metav1.ConditionTrue, v1alpha1.ModelReasonReady)
+	ready.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
 	creating := testutil.NewModel("creating", testNamespace)
 	creating.Spec.Weights.HF.RepoID = "org/creating-model"
-	testutil.SetModelReady(creating, metav1.ConditionFalse, v1alpha1.ModelReasonEngineNotReady)
+	creating.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonEngineNotReady, "")
 	c := fake.NewClientBuilder().WithScheme(s).
 		WithObjects(gateway).
 		WithObjects(ready, creating).WithStatusSubresource(ready, creating).

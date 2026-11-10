@@ -96,17 +96,17 @@ func TestBuildModelListResponse_OnlyReady(t *testing.T) {
 	a := *testutil.NewModel("tiny-llm", "default")
 	a.Name = "a"
 	a.Spec.Weights.HF.RepoID = "org/model-a"
-	testutil.SetModelReady(&a, metav1.ConditionTrue, v1alpha1.ModelReasonReady)
+	a.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
 
 	b := *testutil.NewModel("tiny-llm", "default")
 	b.Name = "b"
 	b.Spec.Weights.HF.RepoID = "org/model-b"
-	testutil.SetModelReady(&b, metav1.ConditionFalse, v1alpha1.ModelReasonEngineNotReady)
+	b.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonEngineNotReady, "")
 
 	c := *testutil.NewModel("tiny-llm", "default")
 	c.Name = "c"
 	c.Spec.Weights.HF.RepoID = "org/model-c"
-	testutil.SetModelReady(&c, metav1.ConditionFalse, v1alpha1.ModelReasonEngineDeploymentFailed)
+	c.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonEngineDeploymentFailed, "")
 
 	body, err := BuildModelListResponse([]v1alpha1.Model{a, b, c})
 	if err != nil {
@@ -122,17 +122,17 @@ func TestBuildModelListResponse_MultipleReady_Sorted(t *testing.T) {
 	z := *testutil.NewModel("tiny-llm", "default")
 	z.Name = "z"
 	z.Spec.Weights.HF.RepoID = "org/zzz"
-	testutil.SetModelReady(&z, metav1.ConditionTrue, v1alpha1.ModelReasonReady)
+	z.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
 
 	a := *testutil.NewModel("tiny-llm", "default")
 	a.Name = "a"
 	a.Spec.Weights.HF.RepoID = "org/aaa"
-	testutil.SetModelReady(&a, metav1.ConditionTrue, v1alpha1.ModelReasonReady)
+	a.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
 
 	m := *testutil.NewModel("tiny-llm", "default")
 	m.Name = "m"
 	m.Spec.Weights.HF.RepoID = "org/mmm"
-	testutil.SetModelReady(&m, metav1.ConditionTrue, v1alpha1.ModelReasonReady)
+	m.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
 
 	body, err := BuildModelListResponse([]v1alpha1.Model{z, a, m})
 	if err != nil {
@@ -147,7 +147,7 @@ func TestBuildModelListResponse_MultipleReady_Sorted(t *testing.T) {
 func TestBuildModelListResponse_NoSlashInRepoID(t *testing.T) {
 	model := *testutil.NewModel("tiny-llm", "default")
 	model.Spec.Weights.HF.RepoID = "somemodel"
-	testutil.SetModelReady(&model, metav1.ConditionTrue, v1alpha1.ModelReasonReady)
+	model.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
 
 	body, err := BuildModelListResponse([]v1alpha1.Model{model})
 	if err != nil {
@@ -163,7 +163,7 @@ func TestBuildModelListResponse_Aliases(t *testing.T) {
 	model := *testutil.NewModel("tiny-llm", "default")
 	model.Spec.Weights.HF.RepoID = "org/model-a"
 	model.Spec.Aliases = []string{"short", "other"}
-	testutil.SetModelReady(&model, metav1.ConditionTrue, v1alpha1.ModelReasonReady)
+	model.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
 
 	body, err := BuildModelListResponse([]v1alpha1.Model{model})
 	if err != nil {
@@ -179,12 +179,12 @@ func TestBuildModelListResponse_Stable(t *testing.T) {
 	z := *testutil.NewModel("tiny-llm", "default")
 	z.Name = "z"
 	z.Spec.Weights.HF.RepoID = "org/zzz"
-	testutil.SetModelReady(&z, metav1.ConditionTrue, v1alpha1.ModelReasonReady)
+	z.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
 
 	a := *testutil.NewModel("tiny-llm", "default")
 	a.Name = "a"
 	a.Spec.Weights.HF.RepoID = "org/aaa"
-	testutil.SetModelReady(&a, metav1.ConditionTrue, v1alpha1.ModelReasonReady)
+	a.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
 
 	models := []v1alpha1.Model{z, a}
 	first, err := BuildModelListResponse(models)

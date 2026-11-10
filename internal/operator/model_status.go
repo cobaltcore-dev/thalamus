@@ -25,7 +25,7 @@ import (
 // and HTTPRoute acceptance.
 func (r *ModelReconciler) syncModelStatus(ctx context.Context, model *v1alpha1.Model) error {
 	if model.Spec.Replicas == 0 {
-		setModelReady(model, metav1.ConditionFalse, v1alpha1.ModelReasonNoReplicasDesired, "model has no desired replicas")
+		model.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonNoReplicasDesired, "model has no desired replicas")
 		return nil
 	}
 
@@ -49,20 +49,8 @@ func (r *ModelReconciler) syncModelStatus(ctx context.Context, model *v1alpha1.M
 		}
 	}
 
-	setModelReady(model, metav1.ConditionTrue, v1alpha1.ModelReasonReady, "Model is reachable")
+	model.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "Model is reachable")
 	return nil
-}
-
-// setModelReady updates the Model's Ready condition in-place.
-// The caller is responsible for patching the status.
-func setModelReady(model *v1alpha1.Model, status metav1.ConditionStatus, reason v1alpha1.ModelReason, message string) {
-	meta.SetStatusCondition(&model.Status.Conditions, metav1.Condition{
-		Type:               v1alpha1.ModelConditionReady,
-		Status:             status,
-		Reason:             string(reason),
-		Message:            message,
-		ObservedGeneration: model.Generation,
-	})
 }
 
 // syncEngineCondition checks the engine Deployment and updates the model status.
@@ -82,12 +70,12 @@ func (r *ModelReconciler) syncDeploymentCondition(ctx context.Context, model *v1
 		return false, err
 	}
 	if dep == nil {
-		setModelReady(model, metav1.ConditionFalse, notReadyReason, fmt.Sprintf("Deployment %s not found", name))
+		model.SetReady(metav1.ConditionFalse, notReadyReason, fmt.Sprintf("Deployment %s not found", name))
 		return false, nil
 	}
 
 	if dep.Status.ObservedGeneration < dep.Generation {
-		setModelReady(model, metav1.ConditionFalse, notReadyReason, fmt.Sprintf("Deployment %s status is stale", name))
+		model.SetReady(metav1.ConditionFalse, notReadyReason, fmt.Sprintf("Deployment %s status is stale", name))
 		return false, nil
 	}
 
@@ -96,11 +84,11 @@ func (r *ModelReconciler) syncDeploymentCondition(ctx context.Context, model *v1
 	}
 
 	if failed, msg := deploymentFailed(dep); failed {
-		setModelReady(model, metav1.ConditionFalse, failedReason, fmt.Sprintf("Deployment %s %s", name, msg))
+		model.SetReady(metav1.ConditionFalse, failedReason, fmt.Sprintf("Deployment %s %s", name, msg))
 		return false, nil
 	}
 
-	setModelReady(model, metav1.ConditionFalse, notReadyReason, fmt.Sprintf("Deployment %s has insufficient ready replicas", name))
+	model.SetReady(metav1.ConditionFalse, notReadyReason, fmt.Sprintf("Deployment %s has insufficient ready replicas", name))
 	return false, nil
 }
 
@@ -121,12 +109,12 @@ func (r *ModelReconciler) syncInferencePoolCondition(ctx context.Context, model 
 		return false, err
 	}
 	if pool == nil {
-		setModelReady(model, metav1.ConditionFalse, v1alpha1.ModelReasonInferencePoolNotAccepted, fmt.Sprintf("InferencePool %s not found", model.EngineName()))
+		model.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonInferencePoolNotAccepted, fmt.Sprintf("InferencePool %s not found", model.EngineName()))
 		return false, nil
 	}
 
 	if len(pool.Status.Parents) == 0 {
-		setModelReady(model, metav1.ConditionFalse, v1alpha1.ModelReasonInferencePoolNotAccepted, fmt.Sprintf("InferencePool %s has no parent status yet", model.EngineName()))
+		model.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonInferencePoolNotAccepted, fmt.Sprintf("InferencePool %s has no parent status yet", model.EngineName()))
 		return false, nil
 	}
 
@@ -143,13 +131,13 @@ func (r *ModelReconciler) syncInferencePoolCondition(ctx context.Context, model 
 	}
 
 	if failedMessage != "" {
-		setModelReady(model, metav1.ConditionFalse, v1alpha1.ModelReasonInferencePoolRejected, failedMessage)
+		model.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonInferencePoolRejected, failedMessage)
 		return false, nil
 	}
 	if allReady {
 		return true, nil
 	}
-	setModelReady(model, metav1.ConditionFalse, v1alpha1.ModelReasonInferencePoolNotAccepted, fmt.Sprintf("InferencePool %s not accepted by gateway", model.EngineName()))
+	model.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonInferencePoolNotAccepted, fmt.Sprintf("InferencePool %s not accepted by gateway", model.EngineName()))
 	return false, nil
 }
 
@@ -160,20 +148,20 @@ func (r *ModelReconciler) syncHTTPRouteCondition(ctx context.Context, model *v1a
 		return false, err
 	}
 	if route == nil {
-		setModelReady(model, metav1.ConditionFalse, v1alpha1.ModelReasonHTTPRouteNotAccepted, fmt.Sprintf("HTTPRoute %s not found", model.EngineName()))
+		model.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonHTTPRouteNotAccepted, fmt.Sprintf("HTTPRoute %s not found", model.EngineName()))
 		return false, nil
 	}
 
 	// The informer cache may still hold the route from before this apply.
 	desired := native.BuildHTTPRoute(model, r.GatewayName, r.ListenerName)
 	if !httpRouteServesDesiredMatches(route, desired) {
-		setModelReady(model, metav1.ConditionFalse, v1alpha1.ModelReasonHTTPRouteNotAccepted,
+		model.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonHTTPRouteNotAccepted,
 			fmt.Sprintf("HTTPRoute %s does not serve the current model names", model.EngineName()))
 		return false, nil
 	}
 
 	if len(route.Status.Parents) == 0 {
-		setModelReady(model, metav1.ConditionFalse, v1alpha1.ModelReasonHTTPRouteNotAccepted, fmt.Sprintf("HTTPRoute %s has no parent status yet", model.EngineName()))
+		model.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonHTTPRouteNotAccepted, fmt.Sprintf("HTTPRoute %s has no parent status yet", model.EngineName()))
 		return false, nil
 	}
 
@@ -196,17 +184,17 @@ func (r *ModelReconciler) syncHTTPRouteCondition(ctx context.Context, model *v1a
 	}
 
 	if failedMessage != "" {
-		setModelReady(model, metav1.ConditionFalse, v1alpha1.ModelReasonHTTPRouteRejected, failedMessage)
+		model.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonHTTPRouteRejected, failedMessage)
 		return false, nil
 	}
 	if partiallyInvalid {
-		setModelReady(model, metav1.ConditionFalse, v1alpha1.ModelReasonHTTPRoutePartiallyInvalid, fmt.Sprintf("HTTPRoute %s is partially invalid", model.EngineName()))
+		model.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonHTTPRoutePartiallyInvalid, fmt.Sprintf("HTTPRoute %s is partially invalid", model.EngineName()))
 		return false, nil
 	}
 	if allReady {
 		return true, nil
 	}
-	setModelReady(model, metav1.ConditionFalse, v1alpha1.ModelReasonHTTPRouteNotAccepted, fmt.Sprintf("HTTPRoute %s not accepted by gateway", model.EngineName()))
+	model.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonHTTPRouteNotAccepted, fmt.Sprintf("HTTPRoute %s not accepted by gateway", model.EngineName()))
 	return false, nil
 }
 

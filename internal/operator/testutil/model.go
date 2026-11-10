@@ -5,9 +5,7 @@ package testutil
 
 import (
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 )
@@ -53,13 +51,4 @@ func NewModel(name, namespace string) *v1alpha1.Model {
 			},
 		},
 	}
-}
-
-// SetModelReady sets the Model's Ready condition.
-func SetModelReady(model *v1alpha1.Model, status metav1.ConditionStatus, reason v1alpha1.ModelReason) {
-	meta.SetStatusCondition(&model.Status.Conditions, metav1.Condition{
-		Type:   v1alpha1.ModelConditionReady,
-		Status: status,
-		Reason: string(reason),
-	})
 }
