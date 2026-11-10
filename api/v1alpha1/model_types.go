@@ -65,13 +65,11 @@ const (
 )
 
 // HFWeightsSpec configures model weights sourced from Hugging Face.
+// Authentication is configured through the HF_TOKEN environment variable on
+// the engine container in spec.serving.engine.
 type HFWeightsSpec struct {
 	// RepoID is the Hugging Face repository ID, e.g. "openai/gpt-oss-120b".
 	RepoID string `json:"repoId"`
-
-	// TokenSecret references the key within a Kubernetes secret containing the Hugging Face token.
-	// +kubebuilder:validation:Optional
-	TokenSecret *corev1.SecretKeySelector `json:"tokenSecret,omitempty"`
 }
 
 // WeightsSpec defines where the model weights are sourced from.

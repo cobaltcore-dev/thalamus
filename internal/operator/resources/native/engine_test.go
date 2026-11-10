@@ -62,11 +62,6 @@ func TestBuildEngineDeployment(t *testing.T) {
 	gotEnv := map[string]string{}
 	for _, e := range c.Env {
 		gotEnv[e.Name] = e.Value
-		if e.Name == "HF_TOKEN" {
-			if e.ValueFrom == nil || e.ValueFrom.SecretKeyRef == nil || e.ValueFrom.SecretKeyRef.Name != "hf-token" {
-				t.Errorf("HF_TOKEN:\ngot:  %+v\nwant: secretKeyRef hf-token", e)
-			}
-		}
 	}
 	for name, want := range wantEnv {
 		if gotEnv[name] != want {
@@ -204,15 +199,6 @@ func TestBuildEngineDeployment_NonVLLM(t *testing.T) {
 	if c.StartupProbe != nil || c.LivenessProbe != nil || c.ReadinessProbe != nil {
 		t.Error("vllm probes must not be applied to non-vllm engines")
 	}
-	hasToken := false
-	for _, e := range c.Env {
-		if e.Name == "HF_TOKEN" {
-			hasToken = true
-		}
-	}
-	if !hasToken {
-		t.Error("HF_TOKEN must still be injected for non-vllm engines")
-	}
 }
 
 func TestBuildEngineDeployment_MultipleReplicas(t *testing.T) {
@@ -261,10 +247,8 @@ func TestBuildEngineDeployment_NoNodeSelector(t *testing.T) {
 	}
 }
 
-func TestBuildEngineDeployment_PublicModel(t *testing.T) {
-	model := testutil.NewModel("tiny-llm", "default")
-	model.Spec.Weights.HF.TokenSecret = nil
-	dep, err := BuildEngineDeployment(model)
+func TestBuildEngineDeployment_DoesNotInjectHFToken(t *testing.T) {
+	dep, err := BuildEngineDeployment(testutil.NewModel("tiny-llm", "default"))
 	if err != nil {
 		t.Fatalf("BuildEngineDeployment: %v", err)
 	}
@@ -272,8 +256,41 @@ func TestBuildEngineDeployment_PublicModel(t *testing.T) {
 
 	for _, e := range c.Env {
 		if e.Name == "HF_TOKEN" {
-			t.Error("HF_TOKEN must not be injected when TokenSecret is nil")
+			t.Error("HF_TOKEN must not be injected; users configure it through the engine env")
 		}
+	}
+}
+
+func TestBuildEngineDeployment_UserSuppliedHFToken(t *testing.T) {
+	model := testutil.NewModel("tiny-llm", "default")
+	tokenEnv := corev1.EnvVar{
+		Name: "HF_TOKEN",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				Name: "hf-token",
+				Key:  "HF_TOKEN",
+			},
+		},
+	}
+	model.Spec.Serving.Engine.Containers[0].Env = append(model.Spec.Serving.Engine.Containers[0].Env, tokenEnv)
+
+	dep, err := BuildEngineDeployment(model)
+	if err != nil {
+		t.Fatalf("BuildEngineDeployment: %v", err)
+	}
+	c := dep.Spec.Template.Spec.Containers[0]
+
+	count := 0
+	for _, e := range c.Env {
+		if e.Name == "HF_TOKEN" {
+			count++
+			if e.ValueFrom == nil || e.ValueFrom.SecretKeyRef == nil || e.ValueFrom.SecretKeyRef.Name != "hf-token" {
+				t.Errorf("HF_TOKEN:\ngot:  %+v\nwant: user-supplied secretKeyRef hf-token", e)
+			}
+		}
+	}
+	if count != 1 {
+		t.Errorf("HF_TOKEN appears %d times, want exactly once (user-supplied)", count)
 	}
 }
 
