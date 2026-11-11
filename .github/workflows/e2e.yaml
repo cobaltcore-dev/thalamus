@@ -282,6 +282,27 @@ jobs:
           done
           echo "PASS: base model name is absent from /v1/models and rejected with 404"
 
+      - name: Verify uninstall removes models and CRDs
+        run: |
+          helm uninstall thalamus --namespace thalamus --wait --timeout 5m
+
+          for crd in models.thalamus.cloud modelartifacts.thalamus.cloud; do
+            if kubectl get crd "$crd" >/dev/null 2>&1; then
+              echo "FAIL: $crd still exists after helm uninstall"
+              kubectl get crd "$crd" -o yaml
+              exit 1
+            fi
+          done
+
+          for kind in serviceaccount role rolebinding job; do
+            if kubectl -n thalamus get "$kind" thalamus-cleanup >/dev/null 2>&1; then
+              echo "FAIL: cleanup $kind was left behind after helm uninstall"
+              exit 1
+            fi
+          done
+
+          echo "PASS: uninstall released the artifact finalizers and removed the CRDs"
+
       - name: Debug on failure
         if: failure()
         run: |

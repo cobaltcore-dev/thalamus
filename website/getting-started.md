@@ -47,12 +47,6 @@ helm upgrade --install thalamus oci://ghcr.io/cobaltcore-dev/charts/thalamus \
   --version @@CHART_VERSION@@
 ```
 
-> **Caution:** the CRDs are installed as ordinary release resources, not via
-> Helm's protected `crds/` mechanism. `helm uninstall thalamus` therefore
-> deletes every CRD and cascades into deleting all custom resources they own —
-> including every `Model` and its inference workloads. Only uninstall it when
-> you intend to tear down Thalamus.
-
 ### Already have some of these components?
 
 If your cluster already provides some of the bundled CRDs,
@@ -199,6 +193,22 @@ curl "http://$GATEWAY_HOST/v1/chat/completions" \
     "model": "<model-id>",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
+```
+
+## Uninstalling
+
+```bash
+helm uninstall thalamus --namespace thalamus
+```
+
+CRDs are not handled by Helm's protected `crds/` directory, so uninstalling
+deletes every `Model`, `ModelArtifact`, and inference workload. A `pre-delete`
+hook first deletes all Models and ModelArtifacts in the release namespace and
+waits for the operator to clear their finalizers. With `--no-hooks`, delete them
+first:
+
+```bash
+kubectl -n thalamus delete models,modelartifacts --all --wait
 ```
 
 ## Next Steps
