@@ -14,12 +14,12 @@ import (
 // +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec is immutable"
 type ModelArtifactSpec struct {
 	// Base is the remote location of the base model weights.
-	// +kubebuilder:validation:Pattern=`^hf://.+`
+	// +kubebuilder:validation:Pattern=`^hf://\w([\w.-]*\w)?(/\w([\w.-]*\w)?)?$`
 	Base string `json:"base"`
 
 	// Draft is the optional remote location of the draft model weights.
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:Pattern=`^hf://.+`
+	// +kubebuilder:validation:Pattern=`^hf://\w([\w.-]*\w)?(/\w([\w.-]*\w)?)?$`
 	Draft *string `json:"draft,omitempty"`
 }
 
