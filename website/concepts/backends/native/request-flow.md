@@ -16,3 +16,5 @@ This is how a chat completion request flows through the [native backend](/concep
 6. vLLM generates the response and streams it back through the same path.
 
 Requests to `/v1/models` get answered directly via a model-list `AgentgatewayPolicy` that the operator keeps in sync with the `Ready` models in the namespace. Only model replicas that are ready to respond to requests are exposed to users.
+
+`Ready` requires successful reconciliation and healthy engine, router, and routing resources. `ArtifactReady` reports whether the referenced artifact exists, is not terminating, and has its protection finalizer; it does not check access to or download of the remote weights.

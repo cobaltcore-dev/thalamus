@@ -112,11 +112,21 @@ func main() {
 	if err := (&operator.ModelReconciler{
 		Client:                   mgr.GetClient(),
 		Scheme:                   mgr.GetScheme(),
+		APIReader:                mgr.GetAPIReader(),
 		GatewayName:              gatewayName,
 		ListenerName:             gatewayListener,
 		RouterServiceAccountName: routerServiceAccountName,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "model")
+		os.Exit(1)
+	}
+
+	if err := (&operator.ModelArtifactReconciler{
+		Client:    mgr.GetClient(),
+		Scheme:    mgr.GetScheme(),
+		APIReader: mgr.GetAPIReader(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "model-artifact")
 		os.Exit(1)
 	}
 

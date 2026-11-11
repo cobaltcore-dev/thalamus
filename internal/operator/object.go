@@ -12,7 +12,7 @@ import (
 )
 
 // getObject fetches obj by name/namespace and returns its zero value when absent.
-func getObject[T client.Object](ctx context.Context, c client.Client, namespace, name string, obj T) (T, error) {
+func getObject[T client.Object](ctx context.Context, c client.Reader, namespace, name string, obj T) (T, error) {
 	if err := c.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, obj); err != nil {
 		var zero T
 		if client.IgnoreNotFound(err) == nil {

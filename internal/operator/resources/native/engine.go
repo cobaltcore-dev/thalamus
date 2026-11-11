@@ -20,7 +20,7 @@ const engineHTTPPort = 8000
 const ubuntuNobody int64 = 65534
 
 // BuildEngineDeployment returns the desired Deployment for the inference engine.
-func BuildEngineDeployment(model *v1alpha1.Model) (*appsv1.Deployment, error) {
+func BuildEngineDeployment(model *v1alpha1.Model, baseRepoID, draftRepoID string) (*appsv1.Deployment, error) {
 	// TODO: defaulted fields can't be cleared from the engine configuration in the Model CR
 	podSpec, err := helpers.MergePodSpecs(defaultEnginePodSpec(model), &model.Spec.Serving.Engine)
 	if err != nil {
@@ -32,9 +32,12 @@ func BuildEngineDeployment(model *v1alpha1.Model) (*appsv1.Deployment, error) {
 	podSpec.DeprecatedServiceAccount = ""
 	podSpec.AutomountServiceAccountToken = new(false)
 
-	if hf := model.Spec.Weights.HF; model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && hf != nil {
-		c := helpers.GetContainerByName(&podSpec, "engine")
-		c.Args = append([]string{hf.RepoID}, c.Args...)
+	c := helpers.GetContainerByName(&podSpec, "engine")
+	// Prepend the model path after the merge so user args cannot drop it.
+	c.Args = append([]string{baseRepoID}, c.Args...)
+	if draftRepoID != "" {
+		// Append last so the artifact's draft overrides any user-provided --spec-model.
+		c.Args = append(c.Args, "--spec-model="+draftRepoID)
 	}
 
 	labels := map[string]string{

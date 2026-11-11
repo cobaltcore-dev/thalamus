@@ -7,6 +7,7 @@ import (
 	"context"
 	"testing"
 
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -144,12 +145,60 @@ func TestModelListReconcile_OneReadyModel(t *testing.T) {
 	}
 }
 
+func TestModelListReconcile_ArtifactUnavailable(t *testing.T) {
+	cases := []struct {
+		name        string
+		unavailable func(*testing.T, client.Client, string, string)
+		wantReason  v1alpha1.ModelArtifactReason
+	}{
+		{"missing", removeArtifact, v1alpha1.ModelArtifactReasonNotFound},
+		{"terminating", markArtifactTerminating, v1alpha1.ModelArtifactReasonTerminating},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			model, artifact := testutil.Fixture("tiny-llm", testNamespace).Aliases("tiny").Build()
+			r, c := newTestReconciler(t, model, artifact, newGateway())
+			listReconciler := &ModelListReconciler{Client: c, Scheme: r.Scheme, GatewayName: testGatewayName, ListenerName: testGatewayListener}
+			reconcileModelOnce(t, r, model.Name)
+			markDeploymentReady(t, c, model.EngineName())
+			markDeploymentReady(t, c, model.EPPName())
+			markInferencePoolReady(t, c, model.EngineName())
+			markHTTPRouteReady(t, c, model.EngineName())
+			reconcileModelOnce(t, r, model.Name)
+
+			tc.unavailable(t, c, artifact.Name, testNamespace)
+			reconcileModelOnce(t, r, model.Name)
+			updated := testutil.MustGet(t, c, model.Name, testNamespace, &v1alpha1.Model{})
+			assertModelCondition(t, updated, v1alpha1.ModelConditionReady, metav1.ConditionTrue, v1alpha1.ModelReasonReady)
+			assertModelCondition(t, updated, v1alpha1.ModelConditionArtifactReady, metav1.ConditionFalse, tc.wantReason)
+			reconcileModelListOnce(t, listReconciler)
+			expected := `{"object":"list","data":[{"id":"tiny","object":"model","owned_by":"arnir0"}]}`
+			if body := mustGetPolicyBody(t, listReconciler); body != expected {
+				t.Errorf("model list with unavailable artifact: %s, want %s", body, expected)
+			}
+
+			testutil.UpdateStatus(t, c, model.EPPName(), testNamespace, &appsv1.Deployment{}, func(dep *appsv1.Deployment) {
+				dep.Status.ReadyReplicas = 0
+			})
+			reconcileModelOnce(t, r, model.Name)
+			reconcileModelListOnce(t, listReconciler)
+			if body := mustGetPolicyBody(t, listReconciler); body != `{"object":"list","data":[]}` {
+				t.Errorf("model list with unhealthy router: %s, want no models", body)
+			}
+			markDeploymentReady(t, c, model.EPPName())
+			reconcileModelOnce(t, r, model.Name)
+			reconcileModelListOnce(t, listReconciler)
+			if body := mustGetPolicyBody(t, listReconciler); body != expected {
+				t.Errorf("model list after router recovery: %s, want %s", body, expected)
+			}
+		})
+	}
+}
+
 func TestModelListReconcile_Aliases(t *testing.T) {
 	s := testutil.NewScheme(t)
 	gateway := newGateway()
-	model := testutil.NewModel("tiny-llm", testNamespace)
-	model.Spec.Aliases = []string{"tiny", "tiny-latest"}
-	testutil.SetIdentifiers(model)
+	model := testutil.Fixture("tiny-llm", testNamespace).Aliases("tiny", "tiny-latest").BuildModel()
 	model.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
 	c := fake.NewClientBuilder().WithScheme(s).
 		WithObjects(gateway).
@@ -169,13 +218,9 @@ func TestModelListReconcile_Aliases(t *testing.T) {
 func TestModelListReconcile_OnlyReadyModelsListed(t *testing.T) {
 	s := testutil.NewScheme(t)
 	gateway := newGateway()
-	ready := testutil.NewModel("ready", testNamespace)
-	ready.Spec.Weights.HF.RepoID = "org/ready-model"
-	testutil.SetIdentifiers(ready)
+	ready := testutil.Fixture("ready", testNamespace).Base("hf://org/ready-model").BuildModel()
 	ready.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
-	creating := testutil.NewModel("creating", testNamespace)
-	creating.Spec.Weights.HF.RepoID = "org/creating-model"
-	testutil.SetIdentifiers(creating)
+	creating := testutil.Fixture("creating", testNamespace).Base("hf://org/creating-model").BuildModel()
 	creating.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonEngineNotReady, "")
 	c := fake.NewClientBuilder().WithScheme(s).
 		WithObjects(gateway).

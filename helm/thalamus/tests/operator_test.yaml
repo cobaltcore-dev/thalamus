@@ -158,3 +158,13 @@ tests:
             resources: [services, serviceaccounts, configmaps]
             verbs: [get, list, watch, create, update, patch, delete]
         documentIndex: 1
+
+  - it: should allow the operator to update ModelArtifact finalizers
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [thalamus.cloud]
+            resources: [modelartifacts]
+            verbs: [get, list, watch, update, patch]
+        documentIndex: 1
