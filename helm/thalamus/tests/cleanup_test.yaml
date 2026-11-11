@@ -1,0 +1,93 @@
+suite: cleanup template
+
+templates:
+  - cleanup.yaml
+
+release:
+  name: thalamus
+  namespace: thalamus
+
+tests:
+  - it: should render no documents when cleanup is disabled
+    set:
+      cleanup.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render RBAC and the cleanup job
+    asserts:
+      - hasDocuments:
+          count: 4
+      - isKind:
+          of: ServiceAccount
+        documentIndex: 0
+      - isKind:
+          of: Role
+        documentIndex: 1
+      - isKind:
+          of: RoleBinding
+        documentIndex: 2
+      - isKind:
+          of: Job
+        documentIndex: 3
+
+  - it: should run the job as a pre-delete hook
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: pre-delete
+        documentIndex: 3
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: before-hook-creation,hook-succeeded
+        documentIndex: 3
+
+  - it: should create its RBAC before the job
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "-5"
+        documentIndex: 0
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "-5"
+        documentIndex: 1
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "-5"
+        documentIndex: 2
+      - equal:
+          path: metadata.annotations["helm.sh/hook-weight"]
+          value: "0"
+        documentIndex: 3
+
+  - it: should use the pinned kubectl image and cleanup service account
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: registry.k8s.io/kubectl:v1.37.2
+        documentIndex: 3
+      - equal:
+          path: spec.template.spec.serviceAccountName
+          value: thalamus-cleanup
+        documentIndex: 3
+
+  - it: should grant only the verbs kubectl delete --wait needs
+    asserts:
+      - contains:
+          path: rules
+          content:
+            apiGroups: [thalamus.cloud]
+            resources: [models, modelartifacts]
+            verbs: [get, list, watch, delete, deletecollection]
+        documentIndex: 1
+
+  - it: should honour a custom timeout
+    set:
+      cleanup.timeout: 5m
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].args
+          content: --timeout=5m
+        documentIndex: 3
