@@ -19,8 +19,8 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.weights.type
-      name: Weights
+    - jsonPath: .spec.artifactRef.name
+      name: Artifact
       type: string
     - jsonPath: .status.conditions[?(@.type=='Ready')].status
       name: Ready
@@ -49,6 +49,17 @@ spec:
                 maxItems: 5
                 type: array
                 x-kubernetes-list-type: set
+              artifactRef:
+                properties:
+                  name:
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-validations:
+                - message: spec.artifactRef is immutable
+                  rule: self == oldSelf
               replicas:
                 default: 1
                 format: int32
@@ -7870,32 +7881,9 @@ spec:
                 - engine
                 - router
                 type: object
-              weights:
-                properties:
-                  hf:
-                    properties:
-                      repoId:
-                        type: string
-                    required:
-                    - repoId
-                    type: object
-                  type:
-                    enum:
-                    - hf
-                    type: string
-                required:
-                - type
-                type: object
-                x-kubernetes-validations:
-                - message: spec.weights is immutable
-                  rule: self == oldSelf
-                - message: spec.weights.hf with a non-empty repoId is required when
-                    type is hf
-                  rule: self.type != 'hf' || (has(self.hf) && size(self.hf.repoId)
-                    > 0)
             required:
+            - artifactRef
             - serving
-            - weights
             type: object
             x-kubernetes-validations:
             - message: spec.serving.engine.containers requires a container named 'engine'

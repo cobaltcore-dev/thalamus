@@ -4,11 +4,21 @@
 # Deliberately non-compliant fixture for the Model argument-validation e2e step:
 # spec.serving.engine.args sets --port, which the operator manages itself.
 apiVersion: thalamus.cloud/v1alpha1
+kind: ModelArtifact
+metadata:
+  name: forbidden-flags
+  namespace: thalamus
+spec:
+  base: hf://HuggingFaceTB/SmolLM2-135M-Instruct
+---
+apiVersion: thalamus.cloud/v1alpha1
 kind: Model
 metadata:
   name: forbidden-flags
   namespace: thalamus
 spec:
+  artifactRef:
+    name: forbidden-flags
   serving:
     engine:
       containers:
@@ -20,7 +30,3 @@ spec:
       containers:
         - name: router
           image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v1.0.0
-  weights:
-    type: hf
-    hf:
-      repoId: HuggingFaceTB/SmolLM2-135M-Instruct

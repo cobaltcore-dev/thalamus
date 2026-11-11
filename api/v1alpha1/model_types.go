@@ -11,16 +11,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// +kubebuilder:validation:Enum=hf
-type WeightsType string
-
-const WeightsTypeHF WeightsType = "hf"
-
 const (
 	// The model is ready to serve traffic.
 	ModelConditionReady = "Ready"
+	// The referenced artifact exists, is not terminating, and is protected.
+	ModelConditionArtifactReady = "ArtifactReady"
 )
 
+// ModelReason identifies the reason for a Model's Ready condition.
 type ModelReason string
 
 const (
@@ -38,31 +36,29 @@ const (
 	ModelReasonReconcileError            ModelReason = "ReconcileError"
 )
 
-// HFWeightsSpec configures model weights sourced from Hugging Face.
-// Authentication is configured through the HF_TOKEN environment variable on
-// the engine container in spec.serving.engine.
-type HFWeightsSpec struct {
-	// RepoID is the Hugging Face repository ID, e.g. "openai/gpt-oss-120b".
-	RepoID string `json:"repoId"`
-}
+// ModelArtifactReason identifies the reason for a Model's ArtifactReady condition.
+type ModelArtifactReason string
 
-// WeightsSpec defines where the model weights are sourced from.
-// +kubebuilder:validation:XValidation:rule="self.type != 'hf' || (has(self.hf) && size(self.hf.repoId) > 0)",message="spec.weights.hf with a non-empty repoId is required when type is hf"
-type WeightsSpec struct {
-	// Type of the weights source.
-	Type WeightsType `json:"type"`
+const (
+	ModelArtifactReasonReady          ModelArtifactReason = "ArtifactReady"
+	ModelArtifactReasonNotReady       ModelArtifactReason = "ArtifactNotReady"
+	ModelArtifactReasonNotFound       ModelArtifactReason = "ArtifactNotFound"
+	ModelArtifactReasonTerminating    ModelArtifactReason = "ArtifactTerminating"
+	ModelArtifactReasonReconcileError ModelArtifactReason = "ReconcileError"
+)
 
-	// HF configures weights sourced from Hugging Face.
-	// +kubebuilder:validation:Optional
-	HF *HFWeightsSpec `json:"hf,omitempty"`
+// ModelArtifactReference identifies a ModelArtifact in the same namespace.
+type ModelArtifactReference struct {
+	// Name is the name of the referenced ModelArtifact.
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
 }
 
 // ServingSpec defines the serving configuration for the model instance.
 type ServingSpec struct {
 	// Engine is the pod spec for the inference engine. The container named
-	// 'engine' is the main container and must set an image. It is merged
-	// onto vLLM-tailored defaults. Other engines are unsupported and might
-	// not work. Containers with other names are added as sidecars.
+	// 'engine' is the main container and must set an image. Containers with
+	// other names are added as sidecars.
 	Engine corev1.PodSpec `json:"engine"`
 
 	// Router is the pod spec for the entry point. The container named
@@ -87,12 +83,12 @@ type ModelSpec struct {
 	// Serving defines how the model is served.
 	Serving ServingSpec `json:"serving"`
 
-	// Weights defines where the model weights are sourced from.
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.weights is immutable"
-	Weights WeightsSpec `json:"weights"`
+	// ArtifactRef references the ModelArtifact that provides this model's weights.
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.artifactRef is immutable"
+	ArtifactRef ModelArtifactReference `json:"artifactRef"`
 
 	// Aliases are the model names under which this model is exposed.
-	// When empty, the base model name from the weights is used.
+	// When empty, the base model name from the artifact is used.
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:MaxItems=5
 	// +kubebuilder:validation:items:MinLength=1
@@ -135,7 +131,7 @@ type ModelStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,shortName=mdl,categories=thalamus
-// +kubebuilder:printcolumn:name="Weights",type="string",JSONPath=".spec.weights.type"
+// +kubebuilder:printcolumn:name="Artifact",type="string",JSONPath=".spec.artifactRef.name"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // Service names must be DNS-1035 labels.
@@ -158,16 +154,6 @@ type Model struct {
 	// status defines the observed state of the Model.
 	// +optional
 	Status ModelStatus `json:"status,omitempty,omitzero"`
-}
-
-// +kubebuilder:object:root=true
-
-// BaseModelName returns the model identifier from the weights configuration.
-func (m *Model) BaseModelName() string {
-	if m.Spec.Weights.Type == WeightsTypeHF && m.Spec.Weights.HF != nil {
-		return m.Spec.Weights.HF.RepoID
-	}
-	return ""
 }
 
 // IsReady reports whether the Model is ready to serve traffic.
