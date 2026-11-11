@@ -167,7 +167,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `name` _string_ | Name is the name of the referenced ModelArtifact. |  | MinLength: 1 <br /> |
+| `name` _string_ | Name is the name of the referenced ModelArtifact. |  | MaxLength: 253 <br />MinLength: 1 <br />Pattern: `^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$` <br /> |
 
 
 #### ModelArtifactSpec
@@ -183,8 +183,8 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `base` _string_ | Base is the remote location of the base model weights. |  | Pattern: `^hf://.+` <br /> |
-| `draft` _string_ | Draft is the optional remote location of the draft model weights. |  | Optional: \{\} <br />Pattern: `^hf://.+` <br /> |
+| `base` _string_ | Base is the remote location of the base model weights. |  | Pattern: `^hf://\w([\w.-]*\w)?(/\w([\w.-]*\w)?)?$` <br /> |
+| `draft` _string_ | Draft is the optional remote location of the draft model weights. |  | Optional: \{\} <br />Pattern: `^hf://\w([\w.-]*\w)?(/\w([\w.-]*\w)?)?$` <br /> |
 
 
 #### ModelList

@@ -41,10 +41,10 @@ spec:
           spec:
             properties:
               base:
-                pattern: ^hf://.+
+                pattern: ^hf://\w([\w.-]*\w)?(/\w([\w.-]*\w)?)?$
                 type: string
               draft:
-                pattern: ^hf://.+
+                pattern: ^hf://\w([\w.-]*\w)?(/\w([\w.-]*\w)?)?$
                 type: string
             required:
             - base
