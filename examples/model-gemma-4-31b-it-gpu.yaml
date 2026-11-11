@@ -1,0 +1,51 @@
+# Copyright SAP SE
+# SPDX-License-Identifier: Apache-2.0
+
+# Gemma 4 31B with MTP speculative decoding.
+# Based on https://recipes.vllm.ai/Google/gemma-4-31B-it
+#
+---
+apiVersion: thalamus.cloud/v1alpha1
+kind: ModelArtifact
+metadata:
+  name: gemma-4-31b-it
+  namespace: thalamus
+spec:
+  base: hf://google/gemma-4-31B-it
+  draft: hf://google/gemma-4-31B-it-assistant
+---
+apiVersion: thalamus.cloud/v1alpha1
+kind: Model
+metadata:
+  name: gemma-4-31b-it
+  namespace: thalamus
+spec:
+  backend: native
+  artifactRef:
+    name: gemma-4-31b-it
+  serving:
+    engine:
+      containers:
+        - name: engine
+          image: docker.io/vllm/vllm-openai:v0.27.0
+          args:
+            - --gpu-memory-utilization=0.90
+            - --tensor-parallel-size=2
+            - --speculative-config={"num_speculative_tokens":4}
+            - --enable-auto-tool-choice
+            - --tool-call-parser=gemma4
+            - --chat-template=examples/tool_chat_template_gemma4.jinja
+            - --reasoning-parser=gemma4
+          resources:
+            requests:
+              nvidia.com/gpu: 2
+            limits:
+              nvidia.com/gpu: 2
+    router:
+      containers:
+        - name: router
+          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0
+          resources:
+            limits:
+              cpu: 200m
+              memory: 512Mi
