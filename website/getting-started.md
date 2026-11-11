@@ -129,10 +129,11 @@ The example also shows how to configure the data plane through an
 
 ## Step 4 — Deploy a model
 
-Models are declared as `thalamus.cloud/v1alpha1 Model` resources and applied
-independently of the helm release. See [`examples/model-qwen3-6-27b-gpu.yaml`](https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/model-qwen3-6-27b-gpu.yaml)
-for a GPU example and [`examples/model-smollm2-cpu.yaml`](https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/model-smollm2-cpu.yaml) for a
-CPU example.
+Models are declared as `thalamus.cloud/v1alpha1 Model` resources. See
+[`examples/model-qwen3-6-27b-gpu.yaml`](https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/model-qwen3-6-27b-gpu.yaml)
+for a GPU example, [`examples/model-smollm2-cpu.yaml`](https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/model-smollm2-cpu.yaml) for a
+CPU example, and [`examples/model-gemma-4-31b-it-gpu.yaml`](https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/model-gemma-4-31b-it-gpu.yaml)
+for a GPU example with MTP speculative decoding.
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/model-qwen3-6-27b-gpu.yaml
