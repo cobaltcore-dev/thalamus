@@ -264,6 +264,39 @@ func TestMergePodSpecs_UnnamedPatchPortMerges(t *testing.T) {
 	}
 }
 
+func TestMergePodSpecs_DuplicatePatchPortNamesKeepLast(t *testing.T) {
+	// Two patch ports with the same name but different numbers would leave
+	// duplicate names in the merged list; sanitization keeps the last one.
+	patch := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{
+				Name: "engine",
+				Ports: []corev1.ContainerPort{
+					{Name: "metrics", ContainerPort: 9000, Protocol: corev1.ProtocolTCP},
+					{Name: "metrics", ContainerPort: 9100, Protocol: corev1.ProtocolTCP},
+				},
+			},
+		},
+	}
+	merged, err := MergePodSpecs(basePodSpec(), patch)
+	if err != nil {
+		t.Fatalf("MergePodSpecs: %v", err)
+	}
+
+	var count int
+	for _, p := range engineContainer(t, &merged).Ports {
+		if p.Name == "metrics" {
+			count++
+			if p.ContainerPort != 9100 {
+				t.Errorf("metrics port:\ngot:  %d\nwant: 9100", p.ContainerPort)
+			}
+		}
+	}
+	if count != 1 {
+		t.Errorf("metrics ports:\ngot:  %d\nwant: exactly one", count)
+	}
+}
+
 func TestMergePodSpecs_ReplacesProbeHandler(t *testing.T) {
 	patch := &corev1.PodSpec{
 		Containers: []corev1.Container{

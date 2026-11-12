@@ -153,9 +153,8 @@ func sanitizeProbe(merged, patch *corev1.Probe) {
 }
 
 // sanitizeExclusive zeroes the fields of dst that src does not set; if src
-// sets none, dst is untouched. dst and src must be structs of pointer
-// fields with mutually exclusive members.
-func sanitizeExclusive[T any](dst, src *T) {
+// sets none, dst is untouched
+func sanitizeExclusive[T corev1.VolumeSource | corev1.ProbeHandler](dst, src *T) {
 	d, s := reflect.ValueOf(dst).Elem(), reflect.ValueOf(src).Elem()
 	set := false
 	for i := range d.NumField() {
