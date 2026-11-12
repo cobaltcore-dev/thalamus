@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -143,6 +144,37 @@ func TestMergePodSpecs_ReplacesVolumeSource(t *testing.T) {
 	}
 }
 
+func TestMergePodSpecs_PreservesMergedVolumeSourceFields(t *testing.T) {
+	// Overriding part of a volume source keeps the default fields of the
+	// same source type.
+	patch := &corev1.PodSpec{
+		Containers: []corev1.Container{{Name: "engine", Image: "test/engine:latest"}},
+		Volumes: []corev1.Volume{
+			{Name: "dshm", EmptyDir: &corev1.EmptyDirVolumeSource{SizeLimit: new(resource.MustParse("1Gi"))}},
+		},
+	}
+	merged, err := MergePodSpecs(basePodSpec(), patch)
+	if err != nil {
+		t.Fatalf("MergePodSpecs: %v", err)
+	}
+
+	var dshm *corev1.Volume
+	for i := range merged.Volumes {
+		if merged.Volumes[i].Name == "dshm" {
+			dshm = &merged.Volumes[i]
+		}
+	}
+	if dshm == nil || dshm.EmptyDir == nil {
+		t.Fatalf("dshm emptyDir volume not found: %+v", merged.Volumes)
+	}
+	if dshm.EmptyDir.Medium != corev1.StorageMediumMemory {
+		t.Errorf("dshm medium:\ngot:  %q\nwant: Memory", dshm.EmptyDir.Medium)
+	}
+	if dshm.EmptyDir.SizeLimit == nil || dshm.EmptyDir.SizeLimit.Value() != 1<<30 {
+		t.Errorf("dshm sizeLimit:\ngot:  %v\nwant: 1Gi", dshm.EmptyDir.SizeLimit)
+	}
+}
+
 func TestMergePodSpecs_ReplacesEnvValueWithSource(t *testing.T) {
 	patch := &corev1.PodSpec{
 		Containers: []corev1.Container{
@@ -208,6 +240,30 @@ func TestMergePodSpecs_ReplacesPortByName(t *testing.T) {
 	}
 }
 
+func TestMergePodSpecs_UnnamedPatchPortMerges(t *testing.T) {
+	// An unnamed patch port merges into the default port by number.
+	patch := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{
+				Name:  "engine",
+				Ports: []corev1.ContainerPort{{ContainerPort: 8000, HostPort: 18000, Protocol: corev1.ProtocolTCP}},
+			},
+		},
+	}
+	merged, err := MergePodSpecs(basePodSpec(), patch)
+	if err != nil {
+		t.Fatalf("MergePodSpecs: %v", err)
+	}
+
+	c := engineContainer(t, &merged)
+	if len(c.Ports) != 1 {
+		t.Fatalf("ports:\ngot:  %v\nwant: a single port", c.Ports)
+	}
+	if c.Ports[0].Name != "http" || c.Ports[0].HostPort != 18000 {
+		t.Errorf("port:\ngot:  %+v\nwant: http/8000 with hostPort 18000", c.Ports[0])
+	}
+}
+
 func TestMergePodSpecs_ReplacesProbeHandler(t *testing.T) {
 	patch := &corev1.PodSpec{
 		Containers: []corev1.Container{
@@ -236,6 +292,42 @@ func TestMergePodSpecs_ReplacesProbeHandler(t *testing.T) {
 	}
 	if probe.Exec == nil {
 		t.Errorf("probe must keep the exec handler: %+v", probe.ProbeHandler)
+	}
+	if probe.PeriodSeconds != 10 {
+		t.Errorf("probe timing dropped:\ngot:  %d\nwant: 10", probe.PeriodSeconds)
+	}
+}
+
+func TestMergePodSpecs_PreservesMergedProbeHandlerFields(t *testing.T) {
+	// Overriding part of a probe handler keeps the default fields of the
+	// same handler.
+	patch := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{
+				Name: "engine",
+				LivenessProbe: &corev1.Probe{
+					HTTPGet: &corev1.HTTPGetAction{Port: intstr.FromInt32(9000)},
+				},
+			},
+		},
+	}
+	merged, err := MergePodSpecs(basePodSpec(), patch)
+	if err != nil {
+		t.Fatalf("MergePodSpecs: %v", err)
+	}
+
+	probe := engineContainer(t, &merged).LivenessProbe
+	if probe == nil || probe.HTTPGet == nil {
+		t.Fatalf("liveness httpGet probe not found: %+v", probe)
+	}
+	if probe.HTTPGet.Path != "/health" {
+		t.Errorf("httpGet path:\ngot:  %q\nwant: /health", probe.HTTPGet.Path)
+	}
+	if probe.HTTPGet.Port.IntValue() != 9000 {
+		t.Errorf("httpGet port:\ngot:  %d\nwant: 9000", probe.HTTPGet.Port.IntValue())
+	}
+	if probe.Exec != nil {
+		t.Errorf("probe must have no exec handler: %+v", probe.ProbeHandler)
 	}
 	if probe.PeriodSeconds != 10 {
 		t.Errorf("probe timing dropped:\ngot:  %d\nwant: 10", probe.PeriodSeconds)
