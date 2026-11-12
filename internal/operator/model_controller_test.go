@@ -580,6 +580,65 @@ func TestReconcile_MissingArtifact_KeepsServing(t *testing.T) {
 	assertModelCondition(t, updated, v1alpha1.ModelConditionArtifactReady, metav1.ConditionFalse, v1alpha1.ModelArtifactReasonNotFound)
 }
 
+func TestReconcile_MissingArtifact_DoesNotReportUnappliedChanges(t *testing.T) {
+	model, artifact := testutil.Fixture("tiny-llm", testNamespace).Build()
+	r, c := newTestReconciler(t, model, artifact)
+
+	reconcileModelOnce(t, r, "tiny-llm")
+	markDeploymentReady(t, c, model.EngineName())
+	markDeploymentReady(t, c, model.EPPName())
+	markInferencePoolReady(t, c, model.EngineName())
+	markHTTPRouteReady(t, c, model.EngineName())
+	reconcileModelOnce(t, r, "tiny-llm")
+
+	applied := &v1alpha1.Model{}
+	testutil.MustGet(t, c, model.Name, testNamespace, applied)
+	assertModelCondition(t, applied, v1alpha1.ModelConditionReady, metav1.ConditionTrue, v1alpha1.ModelReasonReady)
+	appliedGeneration := meta.FindStatusCondition(applied.Status.Conditions, v1alpha1.ModelConditionReady).ObservedGeneration
+	appliedIdentifiers := slices.Clone(applied.Status.Identifiers)
+
+	removeArtifact(t, c, artifact.Name, testNamespace)
+
+	updated := &v1alpha1.Model{}
+	testutil.MustGet(t, c, model.Name, testNamespace, updated)
+	updated.Spec.Replicas = 3
+	updated.Spec.Aliases = []string{"new-alias"}
+	// The fake client does not advance generations like the API server.
+	updated.Generation = appliedGeneration + 1
+	if err := c.Update(context.Background(), updated); err != nil {
+		t.Fatalf("update model: %v", err)
+	}
+
+	reconcileModelOnce(t, r, "tiny-llm")
+
+	engine := &appsv1.Deployment{}
+	testutil.MustGet(t, c, model.EngineName(), testNamespace, engine)
+	if engine.Spec.Replicas == nil || *engine.Spec.Replicas != 1 {
+		t.Errorf("engine replicas after unapplied scale-up: %v, want 1", engine.Spec.Replicas)
+	}
+
+	updated = &v1alpha1.Model{}
+	testutil.MustGet(t, c, model.Name, testNamespace, updated)
+	cond := meta.FindStatusCondition(updated.Status.Conditions, v1alpha1.ModelConditionReady)
+	if cond == nil {
+		t.Fatal("Ready condition not found")
+	}
+	if cond.Status != metav1.ConditionTrue || cond.Reason != string(v1alpha1.ModelReasonReady) {
+		t.Errorf("Ready condition: status=%s reason=%s, want status=%s reason=%s",
+			cond.Status, cond.Reason, metav1.ConditionTrue, v1alpha1.ModelReasonReady)
+	}
+	if cond.ObservedGeneration != appliedGeneration {
+		t.Errorf("Ready observedGeneration: %d, want last applied generation %d", cond.ObservedGeneration, appliedGeneration)
+	}
+	if updated.Generation <= cond.ObservedGeneration {
+		t.Errorf("test did not advance the generation: model=%d condition=%d", updated.Generation, cond.ObservedGeneration)
+	}
+	assertModelCondition(t, updated, v1alpha1.ModelConditionArtifactReady, metav1.ConditionFalse, v1alpha1.ModelArtifactReasonNotFound)
+	if !slices.Equal(updated.Status.Identifiers, appliedIdentifiers) {
+		t.Errorf("identifiers after unapplied alias change: %v, want %v", updated.Status.Identifiers, appliedIdentifiers)
+	}
+}
+
 func TestReconcile_MissingArtifact_ScaleToZero(t *testing.T) {
 	model, artifact := testutil.Fixture("tiny-llm", testNamespace).Build()
 	r, c := newTestReconciler(t, model, artifact)
