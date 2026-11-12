@@ -4,6 +4,8 @@
 package native
 
 import (
+	"fmt"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,10 +34,12 @@ func BuildEngineDeployment(model *v1alpha1.Model) (*appsv1.Deployment, error) {
 	podSpec.DeprecatedServiceAccount = ""
 	podSpec.AutomountServiceAccountToken = new(false)
 
+	engine := helpers.GetContainerByName(&podSpec, "engine")
 	if hf := model.Spec.Weights.HF; model.Spec.Weights.Type == v1alpha1.WeightsTypeHF && hf != nil {
-		c := helpers.GetContainerByName(&podSpec, "engine")
-		c.Args = append([]string{hf.RepoID}, c.Args...)
+		engine.Args = append([]string{hf.RepoID}, engine.Args...)
 	}
+	// Bind the engine to the well-known address; appended last so it wins.
+	engine.Args = append(engine.Args, "--host=0.0.0.0", fmt.Sprintf("--port=%d", engineHTTPPort))
 
 	labels := map[string]string{
 		"thalamus.cloud/engine": model.EngineName(),

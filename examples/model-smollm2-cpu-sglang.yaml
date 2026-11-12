@@ -1,0 +1,72 @@
+# Copyright SAP SE
+# SPDX-License-Identifier: Apache-2.0
+---
+apiVersion: thalamus.cloud/v1alpha1
+kind: Model
+metadata:
+  name: smollm2-135m-sglang
+  namespace: thalamus
+spec:
+  backend: native
+  replicas: 1
+  serving:
+    engine:
+      containers:
+        - name: engine
+          image: docker.io/lmsysorg/sglang:v0.5.23-xeon
+          command:
+            - /bin/bash
+            - -c
+            - |
+              exec /opt/.venv/bin/python3 -m sglang.launch_server \
+                --model-path "$1" \
+                "${@:2}"
+            - model
+          args:
+            - --device=cpu
+            - --disable-overlap-schedule
+            - --context-length=2048
+            - --mem-fraction-static=0.5
+            - --enable-metrics
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 90
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /v1/models
+              port: 8000
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 2000m
+              memory: 6Gi
+            limits:
+              memory: 6Gi
+    router:
+      containers:
+        - name: router
+          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 200m
+              memory: 512Mi
+  weights:
+    type: hf
+    hf:
+      repoId: HuggingFaceTB/SmolLM2-135M-Instruct

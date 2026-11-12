@@ -6,7 +6,7 @@
 apiVersion: thalamus.cloud/v1alpha1
 kind: Model
 metadata:
-  name: smollm2-135m
+  name: smollm2-135m-vllm
   namespace: thalamus
 spec:
   backend: native
