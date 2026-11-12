@@ -57,6 +57,20 @@ func newTestReconciler(t *testing.T, objs ...client.Object) (*ModelReconciler, c
 	return &ModelReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener, RouterServiceAccountName: testRouterSAName}, c
 }
 
+func verifyReadyCondition(t *testing.T, model *v1alpha1.Model, wantStatus metav1.ConditionStatus, wantReason v1alpha1.ModelReason) {
+	t.Helper()
+	cond := meta.FindStatusCondition(model.Status.Conditions, v1alpha1.ModelConditionReady)
+	if cond == nil {
+		t.Fatalf("Ready condition not found on model")
+	}
+	if cond.Status != wantStatus {
+		t.Errorf("Ready condition status:\ngot:  %q\nwant: %q", cond.Status, wantStatus)
+	}
+	if cond.Reason != string(wantReason) {
+		t.Errorf("Ready condition reason:\ngot:  %q\nwant: %q", cond.Reason, wantReason)
+	}
+}
+
 func TestReconcile_NotFound(t *testing.T) {
 	s := testutil.NewScheme(t)
 	r := &ModelReconciler{Client: fake.NewClientBuilder().WithScheme(s).Build(), Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener, RouterServiceAccountName: testRouterSAName}
@@ -264,16 +278,7 @@ func TestReconcile_ScaleToZero(t *testing.T) {
 	// Model CR should remain and be reported as not ready.
 	updated := &v1alpha1.Model{}
 	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
-	cond := meta.FindStatusCondition(updated.Status.Conditions, v1alpha1.ModelConditionReady)
-	if cond == nil {
-		t.Fatal("Ready condition not found on model")
-	}
-	if cond.Status != metav1.ConditionFalse {
-		t.Errorf("Ready condition status:\ngot:  %q\nwant: %q", cond.Status, metav1.ConditionFalse)
-	}
-	if cond.Reason != string(v1alpha1.ModelReasonNoReplicasDesired) {
-		t.Errorf("Ready condition reason:\ngot:  %q\nwant: %q", cond.Reason, v1alpha1.ModelReasonNoReplicasDesired)
-	}
+	verifyReadyCondition(t, updated, metav1.ConditionFalse, v1alpha1.ModelReasonNoReplicasDesired)
 }
 
 func TestReconcile_ScaleDownFromOne(t *testing.T) {
@@ -302,16 +307,7 @@ func TestReconcile_ScaleDownFromOne(t *testing.T) {
 
 	updated := &v1alpha1.Model{}
 	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
-	cond := meta.FindStatusCondition(updated.Status.Conditions, v1alpha1.ModelConditionReady)
-	if cond == nil {
-		t.Fatal("Ready condition not found on model")
-	}
-	if cond.Status != metav1.ConditionFalse {
-		t.Errorf("Ready condition status:\ngot:  %q\nwant: %q", cond.Status, metav1.ConditionFalse)
-	}
-	if cond.Reason != string(v1alpha1.ModelReasonNoReplicasDesired) {
-		t.Errorf("Ready condition reason:\ngot:  %q\nwant: %q", cond.Reason, v1alpha1.ModelReasonNoReplicasDesired)
-	}
+	verifyReadyCondition(t, updated, metav1.ConditionFalse, v1alpha1.ModelReasonNoReplicasDesired)
 }
 
 func TestReconcile_ScaleToZero_KeepsForeignOwnedObject(t *testing.T) {

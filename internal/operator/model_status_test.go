@@ -9,7 +9,6 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
@@ -470,16 +469,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			updated := &v1alpha1.Model{}
 			testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
 
-			cond := meta.FindStatusCondition(updated.Status.Conditions, v1alpha1.ModelConditionReady)
-			if cond == nil {
-				t.Fatalf("Ready condition not found on model")
-			}
-			if cond.Status != tc.wantStatus {
-				t.Errorf("Ready condition status:\ngot:  %q\nwant: %q", cond.Status, tc.wantStatus)
-			}
-			if cond.Reason != string(tc.wantReason) {
-				t.Errorf("Ready condition reason:\ngot:  %q\nwant: %q", cond.Reason, tc.wantReason)
-			}
+			verifyReadyCondition(t, updated, tc.wantStatus, tc.wantReason)
 		})
 	}
 }
@@ -508,10 +498,7 @@ func TestSyncHTTPRouteCondition_StaleMatches(t *testing.T) {
 	if ready {
 		t.Fatal("expected a route with stale matches to be not ready")
 	}
-	cond := meta.FindStatusCondition(model.Status.Conditions, v1alpha1.ModelConditionReady)
-	if cond == nil || cond.Reason != string(v1alpha1.ModelReasonHTTPRouteNotAccepted) {
-		t.Errorf("Ready condition: %+v, want reason %q", cond, v1alpha1.ModelReasonHTTPRouteNotAccepted)
-	}
+	verifyReadyCondition(t, model, metav1.ConditionFalse, v1alpha1.ModelReasonHTTPRouteNotAccepted)
 }
 
 func markDeploymentReady(t *testing.T, c client.Client, name string) {
@@ -654,16 +641,7 @@ func TestReconcile_ModelStatus_AvailableButIncomplete(t *testing.T) {
 	updated := &v1alpha1.Model{}
 	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
 
-	cond := meta.FindStatusCondition(updated.Status.Conditions, v1alpha1.ModelConditionReady)
-	if cond == nil {
-		t.Fatalf("Ready condition not found on model")
-	}
-	if cond.Status != metav1.ConditionFalse {
-		t.Errorf("Ready condition status:\ngot:  %q\nwant: %q", cond.Status, metav1.ConditionFalse)
-	}
-	if cond.Reason != string(v1alpha1.ModelReasonEngineNotReady) {
-		t.Errorf("Ready condition reason:\ngot:  %q\nwant: %q", cond.Reason, v1alpha1.ModelReasonEngineNotReady)
-	}
+	verifyReadyCondition(t, updated, metav1.ConditionFalse, v1alpha1.ModelReasonEngineNotReady)
 }
 
 func TestDeploymentFailed(t *testing.T) {
