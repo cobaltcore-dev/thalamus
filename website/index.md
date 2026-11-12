@@ -36,6 +36,15 @@ features:
     link: /ipcei-cis-workshop-2026/
     linkText: Read more
 
+  - icon: 🔌
+    title: Backend Hackathon
+    details: >
+      From our November 2026 hackathon with the IronCore team: a central,
+      backend-independent API with out-of-tree providers, so new inference
+      backends can be added without touching the core repository.
+    link: /backend-hackathon-2026/
+    linkText: Read more
+
   - icon: 🏗️
     title: Architecture
     details: >

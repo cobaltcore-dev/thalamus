@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="940" height="560" viewBox="0 0 940 560" version="1.1"
+     style="background: transparent; color-scheme: light dark;" font-family="Helvetica, Arial, sans-serif">
+  <style>
+    .title { font-size: 17px; font-weight: bold; fill: light-dark(#000000, #ffffff); }
+    .label { font-size: 13px; fill: #000000; }
+    .labelw { font-size: 13px; fill: light-dark(#000000, #ffffff); }
+    .sub   { font-size: 11px; fill: #333333; }
+    .edge  { stroke: light-dark(#000000, #ffffff); stroke-width: 1.5; fill: none; }
+    .boundary { stroke: light-dark(#000000, #ffffff); stroke-width: 2; stroke-dasharray: 8 8; fill: none; }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="light-dark(#000000, #ffffff)"/>
+    </marker>
+  </defs>
+
+  <!-- ============== LEFT: OLD ============== -->
+  <text x="235" y="30" text-anchor="middle" class="title">Before — one repository, in-tree backends</text>
+
+  <!-- API -->
+  <rect x="135" y="55" width="200" height="46" rx="10" fill="#dae8fc" stroke="#6c8ebf"/>
+  <text x="235" y="76" text-anchor="middle" class="label">Model CRD</text>
+  <text x="235" y="92" text-anchor="middle" class="sub">thalamus.cloud/v1alpha1</text>
+
+  <!-- Monolithic operator boundary -->
+  <rect x="55" y="130" width="360" height="300" class="boundary"/>
+  <text x="235" y="152" text-anchor="middle" class="labelw" font-weight="bold">Thalamus operator (single binary)</text>
+
+  <!-- dispatch -->
+  <rect x="135" y="170" width="200" height="40" rx="9" fill="#fff2cc" stroke="#d6b656"/>
+  <text x="235" y="195" text-anchor="middle" class="label">dispatch on spec.backend</text>
+
+  <!-- native adapter -->
+  <rect x="70" y="240" width="150" height="56" rx="9" fill="#d5e8d4" stroke="#82b366"/>
+  <text x="145" y="263" text-anchor="middle" class="label">native adapter</text>
+  <text x="145" y="280" text-anchor="middle" class="sub">implemented</text>
+
+  <!-- stubs -->
+  <rect x="250" y="240" width="150" height="56" rx="9" fill="#f8cecc" stroke="#b85450"/>
+  <text x="325" y="263" text-anchor="middle" class="label">kserve / kaito</text>
+  <text x="325" y="280" text-anchor="middle" class="sub">stubs → "not implemented"</text>
+
+  <!-- runtime -->
+  <rect x="70" y="340" width="150" height="56" rx="9" fill="#ffe6cc" stroke="#d79b00"/>
+  <text x="145" y="363" text-anchor="middle" class="label">vLLM + llm-d EPP</text>
+  <text x="145" y="380" text-anchor="middle" class="sub">per-model runtime</text>
+
+  <!-- edges old -->
+  <path class="edge" d="M 235 101 L 235 170" marker-end="url(#arrow)"/>
+  <path class="edge" d="M 210 210 L 160 240" marker-end="url(#arrow)"/>
+  <path class="edge" d="M 260 210 L 310 240" marker-end="url(#arrow)"/>
+  <path class="edge" d="M 145 296 L 145 340" marker-end="url(#arrow)"/>
+
+  <!-- divider -->
+  <line x1="470" y1="45" x2="470" y2="520" stroke="light-dark(#cccccc,#555555)" stroke-width="1"/>
+
+  <!-- ============== RIGHT: NEW ============== -->
+  <text x="705" y="30" text-anchor="middle" class="title">After — central API, out-of-tree providers</text>
+
+  <!-- central API boundary -->
+  <rect x="520" y="48" width="370" height="150" class="boundary"/>
+  <text x="705" y="68" text-anchor="middle" class="labelw" font-weight="bold">thalamus-ai/thalamus (central, in-tree)</text>
+
+  <rect x="545" y="80" width="150" height="44" rx="10" fill="#dae8fc" stroke="#6c8ebf"/>
+  <text x="620" y="101" text-anchor="middle" class="label">Model CRD</text>
+  <text x="620" y="116" text-anchor="middle" class="sub">backend-independent</text>
+
+  <rect x="715" y="80" width="150" height="44" rx="10" fill="#dae8fc" stroke="#6c8ebf"/>
+  <text x="790" y="101" text-anchor="middle" class="label">Provider CRD</text>
+  <text x="790" y="116" text-anchor="middle" class="sub">selects a backend</text>
+
+  <rect x="585" y="140" width="240" height="44" rx="9" fill="#fff2cc" stroke="#d6b656"/>
+  <text x="705" y="161" text-anchor="middle" class="label">central controller</text>
+  <text x="705" y="176" text-anchor="middle" class="sub">wires agentgateway to ready models</text>
+
+  <!-- provider controllers (out-of-tree) -->
+  <rect x="520" y="300" width="370" height="60" class="boundary"/>
+  <text x="705" y="290" text-anchor="middle" class="labelw" font-weight="bold">Provider controllers (out-of-tree repos)</text>
+
+  <rect x="532" y="312" width="108" height="40" rx="9" fill="#d5e8d4" stroke="#82b366"/>
+  <text x="586" y="337" text-anchor="middle" class="label">native</text>
+
+  <rect x="648" y="312" width="108" height="40" rx="9" fill="#f5f5f5" stroke="#666666"/>
+  <text x="702" y="331" text-anchor="middle" class="label" fill="#000000">dynamo / aim</text>
+  <text x="702" y="346" text-anchor="middle" class="sub">vendor</text>
+
+  <rect x="764" y="312" width="114" height="40" rx="9" fill="#f5f5f5" stroke="#666666"/>
+  <text x="821" y="331" text-anchor="middle" class="label" fill="#000000">kserve / kaito</text>
+  <text x="821" y="346" text-anchor="middle" class="sub">custom</text>
+
+  <!-- backend runtimes -->
+  <rect x="520" y="420" width="370" height="70" rx="9" fill="#ffe6cc" stroke="#d79b00"/>
+  <text x="705" y="445" text-anchor="middle" class="label">backend-internal CRDs + runtimes</text>
+  <text x="705" y="465" text-anchor="middle" class="sub">each provider translates Model → its own resources</text>
+
+  <!-- edges new -->
+  <path class="edge" d="M 705 184 L 705 300" marker-end="url(#arrow)"/>
+  <path class="edge" d="M 586 352 L 640 420" marker-end="url(#arrow)"/>
+  <path class="edge" d="M 702 352 L 702 420" marker-end="url(#arrow)"/>
+  <path class="edge" d="M 821 352 L 770 420" marker-end="url(#arrow)"/>
+
+  <!-- footnote -->
+  <text x="705" y="520" text-anchor="middle" class="sub">Providers live in their own repos; only the shared API and central controller stay in-tree.</text>
+</svg>
