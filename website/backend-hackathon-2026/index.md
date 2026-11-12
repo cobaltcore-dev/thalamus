@@ -5,10 +5,10 @@ title: Backend Hackathon — An Out-of-Tree Provider Architecture
 # Backend Hackathon: An Out-of-Tree Provider Architecture
 
 In November 2026 the Thalamus team ran an internal hackathon together with the
-[IronCore](https://github.com/ironcore-dev) team to tackle one of the oldest promises in the project: supporting
+[IronCore](https://github.com/ironcore-dev) team to address the feature of supporting
 **multiple inference backends**. Thalamus has always claimed to be vendor-neutral, but so far only the native
 backend — vLLM behind the llm-d Endpoint Picker — has actually existed in-tree. Every other backend named by the
-API was a stub that failed reconciliation. This hackathon was about turning that promise into an architecture.
+API was a stub that failed reconciliation.
 
 A big thank-you goes to the **IronCore team** for their guidance. Their experience building Kubernetes-native
 infrastructure APIs was invaluable: they helped us think through the CRD design, pushed back where our abstractions
