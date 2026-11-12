@@ -151,6 +151,10 @@ func TestBuildEngineDeployment_UserOverrides(t *testing.T) {
 			if v.PersistentVolumeClaim == nil || v.PersistentVolumeClaim.ClaimName != "my-model-cache" {
 				t.Errorf("user cache volume must win:\ngot:  %+v", v.VolumeSource)
 			}
+			// A volume with more than one source is rejected by the API server.
+			if v.EmptyDir != nil {
+				t.Errorf("default emptyDir source must be replaced, not merged:\ngot: %+v", v.VolumeSource)
+			}
 			return
 		}
 	}
