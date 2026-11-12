@@ -54,9 +54,10 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	artifact, artifactErr := r.resolveArtifact(ctx, model)
 	identifiers := modelIdentifiers(model, artifact)
 
+	// Apply only when the artifact is usable or we are tearing down.
+	canApply := isArtifactUsable(artifact) || model.Spec.Replicas == 0
 	var applyErr error
-	if isArtifactUsable(artifact) || model.Spec.Replicas == 0 {
-		// Apply only when the artifact is usable or we are tearing down.
+	if canApply {
 		applyErr = r.apply(ctx, model, identifiers, artifact)
 	}
 	observeCondition, observeErr := r.observe(ctx, model, identifiers)
@@ -66,6 +67,15 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		reconcileErr = fmt.Errorf("reconcile model %s: %w", req.NamespacedName, reconcileErr)
 		model.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonReconcileError, reconcileErr.Error())
 	} else {
+		if !canApply {
+			// The artifact is unusable, so the desired state was not applied.
+			// Keep observing serving health, but preserve the generation the
+			// Ready condition last reflected instead of claiming the current one.
+			observeCondition.ObservedGeneration = 0
+			if previous := meta.FindStatusCondition(before.Status.Conditions, v1alpha1.ModelConditionReady); previous != nil {
+				observeCondition.ObservedGeneration = previous.ObservedGeneration
+			}
+		}
 		meta.SetStatusCondition(&model.Status.Conditions, observeCondition)
 	}
 
