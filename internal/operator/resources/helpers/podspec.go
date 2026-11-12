@@ -6,6 +6,7 @@ package helpers
 
 import (
 	"encoding/json"
+	"reflect"
 	"slices"
 
 	corev1 "k8s.io/api/core/v1"
@@ -64,12 +65,13 @@ func sanitizeSpecs(merged, patch *corev1.PodSpec) corev1.PodSpec {
 	return *merged
 }
 
-// sanitizeVolumes takes the patch's source for volumes it overrides by name.
+// sanitizeVolumes keeps only the volume sources the patch sets for the
+// volumes it overrides by name.
 func sanitizeVolumes(merged, patch []corev1.Volume) {
 	for i := range merged {
 		for _, pv := range patch {
 			if merged[i].Name == pv.Name {
-				merged[i].VolumeSource = pv.VolumeSource
+				sanitizeExclusive(&merged[i].VolumeSource, &pv.VolumeSource)
 			}
 		}
 	}
@@ -116,20 +118,22 @@ func sanitizeEnv(merged, patch []corev1.EnvVar) {
 	}
 }
 
-// sanitizePorts replaces merged ports that the patch overrides by name;
-// port names must be unique within a container.
+// sanitizePorts removes merged ports whose name the patch overrides with a
+// different number; port names must be unique within a container.
 func sanitizePorts(c, pc *corev1.Container) {
 	if len(pc.Ports) == 0 {
 		return
 	}
-	names := make(map[string]bool, len(pc.Ports))
-	for _, port := range pc.Ports {
-		names[port.Name] = true
+	numbers := make(map[string]int32, len(pc.Ports))
+	for _, p := range pc.Ports {
+		if p.Name != "" {
+			numbers[p.Name] = p.ContainerPort
+		}
 	}
-	c.Ports = slices.DeleteFunc(c.Ports, func(port corev1.ContainerPort) bool {
-		return names[port.Name]
+	c.Ports = slices.DeleteFunc(c.Ports, func(p corev1.ContainerPort) bool {
+		number, ok := numbers[p.Name]
+		return ok && number != p.ContainerPort
 	})
-	c.Ports = append(c.Ports, pc.Ports...)
 }
 
 // sanitizeProbes takes the patch's probe handlers, keeping the base timing
@@ -140,17 +144,32 @@ func sanitizeProbes(c, pc *corev1.Container) {
 	sanitizeProbe(c.StartupProbe, pc.StartupProbe)
 }
 
-// sanitizeProbe takes the handler of the patch probe if it sets one.
+// sanitizeProbe keeps only the probe handlers the patch sets.
 func sanitizeProbe(merged, patch *corev1.Probe) {
 	if merged == nil || patch == nil {
 		return
 	}
-	if hasHandler(patch) {
-		merged.ProbeHandler = patch.ProbeHandler
-	}
+	sanitizeExclusive(&merged.ProbeHandler, &patch.ProbeHandler)
 }
 
-// hasHandler reports whether the probe sets one of the handler types.
-func hasHandler(probe *corev1.Probe) bool {
-	return probe.Exec != nil || probe.HTTPGet != nil || probe.TCPSocket != nil || probe.GRPC != nil
+// sanitizeExclusive zeroes the fields of dst that src does not set; if src
+// sets none, dst is untouched. dst and src must be structs of pointer
+// fields with mutually exclusive members.
+func sanitizeExclusive[T any](dst, src *T) {
+	d, s := reflect.ValueOf(dst).Elem(), reflect.ValueOf(src).Elem()
+	set := false
+	for i := range d.NumField() {
+		if !s.Field(i).IsNil() {
+			set = true
+			break
+		}
+	}
+	if !set {
+		return
+	}
+	for i := range d.NumField() {
+		if s.Field(i).IsNil() {
+			d.Field(i).SetZero()
+		}
+	}
 }
