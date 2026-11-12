@@ -131,7 +131,7 @@ The example also shows how to configure the data plane through an
 
 Models are declared as `thalamus.cloud/v1alpha1 Model` resources and applied
 independently of the helm release. See [`examples/model-qwen3-6-27b-gpu.yaml`](https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/model-qwen3-6-27b-gpu.yaml)
-for a GPU example and [`examples/model-smollm2-cpu.yaml`](https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/model-smollm2-cpu.yaml) for a
+for a GPU example and [`examples/model-smollm2-cpu-vllm.yaml`](https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/model-smollm2-cpu-vllm.yaml) for a
 CPU example.
 
 ```bash
@@ -151,17 +151,17 @@ kubectl wait model/qwen3-6-27b --namespace thalamus --for=condition=Ready --time
 For a CPU-only or local development setup, use the SmolLM2 example:
 
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/model-smollm2-cpu.yaml
+kubectl apply -f https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/model-smollm2-cpu-vllm.yaml
 ```
 
 Wait for the model to become ready:
 
 ```bash
-kubectl wait model/smollm2-135m --namespace thalamus --for=condition=Ready --timeout=600s
+kubectl wait model/smollm2-135m-vllm --namespace thalamus --for=condition=Ready --timeout=600s
 ```
 
 ::: details CPU example manifest
-<<< ../examples/model-smollm2-cpu.yaml{yml}
+<<< ../examples/model-smollm2-cpu-vllm.yaml{yml}
 :::
 
 ## Step 5 — Access the stack
