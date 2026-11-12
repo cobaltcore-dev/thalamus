@@ -2,6 +2,8 @@
 !.claude/agents/
 !.claude/commands/
 
+.idea/
+
 bin/
 
 *.tgz

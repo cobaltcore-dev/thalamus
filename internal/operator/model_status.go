@@ -25,7 +25,7 @@ import (
 // and HTTPRoute acceptance.
 func (r *ModelReconciler) syncModelStatus(ctx context.Context, model *v1alpha1.Model, identifiers []v1alpha1.Identifier) error {
 	if model.Spec.Replicas == 0 {
-		model.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonNoReplicasDesired, "model has no desired replicas")
+		model.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonNoReplicasDesired, "Model has no desired replicas")
 		return nil
 	}
 
