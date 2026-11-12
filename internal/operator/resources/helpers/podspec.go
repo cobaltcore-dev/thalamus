@@ -119,15 +119,27 @@ func sanitizeEnv(merged, patch []corev1.EnvVar) {
 }
 
 // sanitizePorts removes merged ports whose name the patch overrides with a
-// different number; port names must be unique within a container.
+// different number, clearing inherited names from unnamed patch ports;
+// port names must be unique within a container.
 func sanitizePorts(c, pc *corev1.Container) {
 	if len(pc.Ports) == 0 {
 		return
 	}
 	numbers := make(map[string]int32, len(pc.Ports))
+	unnamed := make(map[int32]bool, len(pc.Ports))
 	for _, p := range pc.Ports {
 		if p.Name != "" {
 			numbers[p.Name] = p.ContainerPort
+		} else {
+			unnamed[p.ContainerPort] = true
+		}
+	}
+	for i := range c.Ports {
+		if !unnamed[c.Ports[i].ContainerPort] {
+			continue
+		}
+		if number, ok := numbers[c.Ports[i].Name]; ok && number != c.Ports[i].ContainerPort {
+			c.Ports[i].Name = ""
 		}
 	}
 	c.Ports = slices.DeleteFunc(c.Ports, func(p corev1.ContainerPort) bool {

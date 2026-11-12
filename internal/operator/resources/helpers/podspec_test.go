@@ -297,6 +297,48 @@ func TestMergePodSpecs_DuplicatePatchPortNamesKeepLast(t *testing.T) {
 	}
 }
 
+func TestMergePodSpecs_KeepsUnnamedPortWhenNameMoves(t *testing.T) {
+	// Moving the default port name to another number must not delete an
+	// explicitly configured unnamed port on the old number.
+	patch := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{
+				Name: "engine",
+				Ports: []corev1.ContainerPort{
+					{Name: "http", ContainerPort: 9000, Protocol: corev1.ProtocolTCP},
+					{ContainerPort: 8000, HostPort: 18000, Protocol: corev1.ProtocolTCP},
+				},
+			},
+		},
+	}
+	merged, err := MergePodSpecs(basePodSpec(), patch)
+	if err != nil {
+		t.Fatalf("MergePodSpecs: %v", err)
+	}
+
+	c := engineContainer(t, &merged)
+	var host *corev1.ContainerPort
+	for i := range c.Ports {
+		if c.Ports[i].ContainerPort == 8000 {
+			host = &c.Ports[i]
+		}
+	}
+	if host == nil {
+		t.Fatalf("unnamed 8000 port dropped: %v", c.Ports)
+	}
+	if host.Name != "" {
+		t.Errorf("port 8000 name:\ngot:  %q\nwant: empty (inherited http cleared)", host.Name)
+	}
+	if host.HostPort != 18000 {
+		t.Errorf("port 8000 hostPort:\ngot:  %d\nwant: 18000", host.HostPort)
+	}
+	if !slices.ContainsFunc(c.Ports, func(p corev1.ContainerPort) bool {
+		return p.Name == "http" && p.ContainerPort == 9000
+	}) {
+		t.Errorf("http port 9000 missing: %v", c.Ports)
+	}
+}
+
 func TestMergePodSpecs_ReplacesProbeHandler(t *testing.T) {
 	patch := &corev1.PodSpec{
 		Containers: []corev1.Container{
