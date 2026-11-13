@@ -15,4 +15,4 @@ This is how a chat completion request flows through the [native backend](/concep
 5. The EPP scores model replicas using real-time signals (e.g. KV-cache utilization, queue depth, ...) and returns the chosen engine deployment.
 6. vLLM generates the response and streams it back through the same path.
 
-Requests to `/v1/models` get answered directly via a model-list `AgentgatewayPolicy` that the operator keeps in sync with the `Ready` models in the namespace. Only model replicas that are ready to respond to requests are exposed to users.
+Requests to `/v1/models` get answered directly via a model-list `AgentgatewayPolicy` that the operator keeps in sync with the `Ready` models in the namespace. Only model replicas that are ready to respond to requests are exposed to users. `Ready` requires successful reconciliation and healthy engine, router, and routing resources.

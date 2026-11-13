@@ -45,7 +45,7 @@ func TestBuildInferencePool(t *testing.T) {
 
 func TestBuildHTTPRoute(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
-	route := BuildHTTPRoute(model, v1alpha1.Identifiers(model.Spec.Aliases, model.BaseModelName()), "custom-gateway", testGatewayListener)
+	route := BuildHTTPRoute(model, v1alpha1.Identifiers(model.Spec.Aliases, testutil.DefaultModelBaseRepoID), "custom-gateway", testGatewayListener)
 
 	if route.Name != model.EngineName() {
 		t.Errorf("route.Name:\ngot:  %q\nwant: %q", route.Name, model.EngineName())
@@ -99,7 +99,7 @@ func TestBuildHTTPRoute(t *testing.T) {
 func TestBuildHTTPRoute_Aliases(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	model.Spec.Aliases = []string{"tiny", "tiny-latest"}
-	route := BuildHTTPRoute(model, v1alpha1.Identifiers(model.Spec.Aliases, model.BaseModelName()), "custom-gateway", testGatewayListener)
+	route := BuildHTTPRoute(model, v1alpha1.Identifiers(model.Spec.Aliases, testutil.DefaultModelBaseRepoID), "custom-gateway", testGatewayListener)
 
 	if route.Name != model.EngineName() {
 		t.Errorf("route.Name:\ngot:  %q\nwant: %q", route.Name, model.EngineName())

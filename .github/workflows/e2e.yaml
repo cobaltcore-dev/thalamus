@@ -164,6 +164,7 @@ jobs:
             assert_skipped /tmp/agw-crds.yaml
           fi
           printf '%s' "$manifest" | grep -q '^  name: models.thalamus.cloud'
+          printf '%s' "$manifest" | grep -q '^  name: modelartifacts.thalamus.cloud'
           echo "PASS: thalamus skipped all disabled CRD dependencies"
 
       - name: Verify disabled agentgateway controller was skipped
@@ -185,7 +186,8 @@ jobs:
             crd/httproutes.gateway.networking.k8s.io \
             crd/inferencepools.inference.networking.k8s.io \
             crd/agentgatewaypolicies.agentgateway.dev \
-            crd/models.thalamus.cloud
+            crd/models.thalamus.cloud \
+            crd/modelartifacts.thalamus.cloud
 
       - name: Verify Model argument validation
         run: |
@@ -216,7 +218,7 @@ jobs:
             --namespace thalamus \
             --from-literal=HF_TOKEN=${{ secrets.HF_TOKEN }}
 
-      - name: Apply Model
+      - name: Apply Artifact and Model
         run: |
           kubectl apply -f ${{ github.workspace }}/examples/model-smollm2-cpu.yaml
 
@@ -279,6 +281,27 @@ jobs:
             fi
           done
           echo "PASS: base model name is absent from /v1/models and rejected with 404"
+
+      - name: Verify uninstall removes models and CRDs
+        run: |
+          helm uninstall thalamus --namespace thalamus --wait --timeout 5m
+
+          for crd in models.thalamus.cloud modelartifacts.thalamus.cloud; do
+            if kubectl get crd "$crd" >/dev/null 2>&1; then
+              echo "FAIL: $crd still exists after helm uninstall"
+              kubectl get crd "$crd" -o yaml
+              exit 1
+            fi
+          done
+
+          for kind in serviceaccount role rolebinding job; do
+            if kubectl -n thalamus get "$kind" thalamus-cleanup >/dev/null 2>&1; then
+              echo "FAIL: cleanup $kind was left behind after helm uninstall"
+              exit 1
+            fi
+          done
+
+          echo "PASS: uninstall released the artifact finalizers and removed the CRDs"
 
       - name: Debug on failure
         if: failure()

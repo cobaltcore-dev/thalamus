@@ -47,12 +47,6 @@ helm upgrade --install thalamus oci://ghcr.io/cobaltcore-dev/charts/thalamus \
   --version @@CHART_VERSION@@
 ```
 
-> **Caution:** the CRDs are installed as ordinary release resources, not via
-> Helm's protected `crds/` mechanism. `helm uninstall thalamus` therefore
-> deletes every CRD and cascades into deleting all custom resources they own —
-> including every `Model` and its inference workloads. Only uninstall it when
-> you intend to tear down Thalamus.
-
 ### Already have some of these components?
 
 If your cluster already provides some of the bundled CRDs,
@@ -129,10 +123,11 @@ The example also shows how to configure the data plane through an
 
 ## Step 4 — Deploy a model
 
-Models are declared as `thalamus.cloud/v1alpha1 Model` resources and applied
-independently of the helm release. See [`examples/model-qwen3-6-27b-gpu.yaml`](https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/model-qwen3-6-27b-gpu.yaml)
-for a GPU example and [`examples/model-smollm2-cpu.yaml`](https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/model-smollm2-cpu.yaml) for a
-CPU example.
+Models are declared as `thalamus.cloud/v1alpha1 Model` resources. See
+[`examples/model-qwen3-6-27b-gpu.yaml`](https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/model-qwen3-6-27b-gpu.yaml)
+for a GPU example, [`examples/model-smollm2-cpu.yaml`](https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/model-smollm2-cpu.yaml) for a
+CPU example, and [`examples/model-gemma-4-31b-it-gpu.yaml`](https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/model-gemma-4-31b-it-gpu.yaml)
+for a GPU example with MTP speculative decoding.
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/cobaltcore-dev/thalamus/@@DOCS_VERSION@@/examples/model-qwen3-6-27b-gpu.yaml
@@ -198,6 +193,22 @@ curl "http://$GATEWAY_HOST/v1/chat/completions" \
     "model": "<model-id>",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
+```
+
+## Uninstalling
+
+```bash
+helm uninstall thalamus --namespace thalamus
+```
+
+CRDs are not handled by Helm's protected `crds/` directory, so uninstalling
+deletes every `Model`, `ModelArtifact`, and inference workload. A `pre-delete`
+hook first deletes all Models and ModelArtifacts in the release namespace and
+waits for the operator to clear their finalizers. With `--no-hooks`, delete them
+first:
+
+```bash
+kubectl -n thalamus delete models,modelartifacts --all --wait
 ```
 
 ## Next Steps
