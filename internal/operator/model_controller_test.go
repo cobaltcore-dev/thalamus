@@ -110,6 +110,8 @@ func TestReconcile_NativeWithAliases(t *testing.T) {
 	wantArgs := []string{
 		"arnir0/Tiny-LLM",
 		"--max-model-len=512",
+		"--host=0.0.0.0",
+		"--port=8000",
 	}
 	if got := dep.Spec.Template.Spec.Containers[0].Args; !slices.Equal(got, wantArgs) {
 		t.Errorf("engine args:\ngot:  %v\nwant: %v", got, wantArgs)
