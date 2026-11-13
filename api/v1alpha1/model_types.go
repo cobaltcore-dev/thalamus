@@ -11,11 +11,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// ModelConditionType identifies a condition on a Model.
+type ModelConditionType string
+
 const (
 	// The model is ready to serve traffic.
-	ModelConditionReady = "Ready"
+	ModelConditionReady ModelConditionType = "Ready"
 	// The referenced artifact exists, is not terminating, and is protected.
-	ModelConditionArtifactReady = "ArtifactReady"
+	ModelConditionArtifactReady ModelConditionType = "ArtifactReady"
 )
 
 // ModelReason identifies the reason for a Model's Ready condition.
@@ -203,13 +206,13 @@ type Model struct {
 
 // IsReady reports whether the Model is ready to serve traffic.
 func (m *Model) IsReady() bool {
-	return meta.IsStatusConditionTrue(m.Status.Conditions, ModelConditionReady)
+	return meta.IsStatusConditionTrue(m.Status.Conditions, string(ModelConditionReady))
 }
 
 // SetReady updates the Model's Ready condition in place without patching the status.
 func (m *Model) SetReady(status metav1.ConditionStatus, reason ModelReason, message string) {
 	meta.SetStatusCondition(&m.Status.Conditions, metav1.Condition{
-		Type:               ModelConditionReady,
+		Type:               string(ModelConditionReady),
 		Status:             status,
 		Reason:             string(reason),
 		Message:            message,

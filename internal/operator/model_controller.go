@@ -72,7 +72,7 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			// Keep observing serving health, but preserve the generation the
 			// Ready condition last reflected instead of claiming the current one.
 			observeCondition.ObservedGeneration = 0
-			if previous := meta.FindStatusCondition(before.Status.Conditions, v1alpha1.ModelConditionReady); previous != nil {
+			if previous := meta.FindStatusCondition(before.Status.Conditions, string(v1alpha1.ModelConditionReady)); previous != nil {
 				observeCondition.ObservedGeneration = previous.ObservedGeneration
 			}
 		}
@@ -81,7 +81,7 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	reconcileErr = errors.Join(reconcileErr, r.patchModelStatus(ctx, before, model))
 
-	if cond := meta.FindStatusCondition(model.Status.Conditions, v1alpha1.ModelConditionReady); cond != nil {
+	if cond := meta.FindStatusCondition(model.Status.Conditions, string(v1alpha1.ModelConditionReady)); cond != nil {
 		log.FromContext(ctx).V(levelDebug).Info("reconciled model", "namespace", model.Namespace, "name", model.Name, "ready", cond.Status, "reason", cond.Reason, "message", cond.Message)
 	}
 	return ctrl.Result{}, reconcileErr
