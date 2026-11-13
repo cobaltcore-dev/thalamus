@@ -37,19 +37,14 @@ func (r *ModelReconciler) patchModelStatus(ctx context.Context, before, model *v
 }
 
 // modelCondition builds a condition for the model's current generation.
-func modelCondition(model *v1alpha1.Model, conditionType string, status metav1.ConditionStatus, reason, message string) metav1.Condition {
+func modelCondition[R v1alpha1.ModelReason | v1alpha1.ModelArtifactReason](model *v1alpha1.Model, conditionType string, status metav1.ConditionStatus, reason R, message string) metav1.Condition {
 	return metav1.Condition{
 		Type:               conditionType,
 		Status:             status,
-		Reason:             reason,
+		Reason:             string(reason),
 		Message:            message,
 		ObservedGeneration: model.Generation,
 	}
-}
-
-// readyCondition builds the Ready condition.
-func readyCondition(model *v1alpha1.Model, status metav1.ConditionStatus, reason v1alpha1.ModelReason, message string) metav1.Condition {
-	return modelCondition(model, v1alpha1.ModelConditionReady, status, string(reason), message)
 }
 
 // artifactReadyCondition reports artifact lifecycle readiness, independently of serving health.
@@ -72,28 +67,34 @@ func artifactReadyCondition(model *v1alpha1.Model, artifact *v1alpha1.ModelArtif
 		reason = v1alpha1.ModelArtifactReasonReady
 		message = fmt.Sprintf("model artifact %s is available and protected", model.Spec.ArtifactRef.Name)
 	}
-	return modelCondition(model, v1alpha1.ModelConditionArtifactReady, status, string(reason), message)
+	return modelCondition(model, v1alpha1.ModelConditionArtifactReady, status, reason, message)
 }
 
-// notReadyCondition builds a Ready=False condition.
-func notReadyCondition(model *v1alpha1.Model, reason v1alpha1.ModelReason, message string) *metav1.Condition {
-	return new(readyCondition(model, metav1.ConditionFalse, reason, message))
+// readyModelCondition builds a Ready=True condition.
+func readyModelCondition(model *v1alpha1.Model, message string) metav1.Condition {
+	return modelCondition(model, v1alpha1.ModelConditionReady, metav1.ConditionTrue, v1alpha1.ModelReasonReady, message)
 }
 
-// syncModelStatus derives the model's ready condition.
+// notReadyModelCondition builds a Ready=False condition.
+func notReadyModelCondition(model *v1alpha1.Model, reason v1alpha1.ModelReason, message string) metav1.Condition {
+	return modelCondition(model, v1alpha1.ModelConditionReady, metav1.ConditionFalse, reason, message)
+}
+
+// syncModelStatus derives the model's ready condition. It returns the first
+// non-True condition from the resource checks, or Ready=True when all pass.
 func (r *ModelReconciler) syncModelStatus(ctx context.Context, model *v1alpha1.Model, identifiers []v1alpha1.Identifier) (metav1.Condition, error) {
 	if model.Spec.Replicas == 0 {
-		return readyCondition(model, metav1.ConditionFalse, v1alpha1.ModelReasonNoReplicasDesired, "model has no desired replicas"), nil
+		return notReadyModelCondition(model, v1alpha1.ModelReasonNoReplicasDesired, "model has no desired replicas"), nil
 	}
 
 	resources := []struct {
 		name          string
-		syncCondition func(context.Context, *v1alpha1.Model) (*metav1.Condition, error)
+		syncCondition func(context.Context, *v1alpha1.Model) (metav1.Condition, error)
 	}{
 		{"engine", r.syncEngineCondition},
 		{"epp", r.syncEPPCondition},
 		{"inference pool", r.syncInferencePoolCondition},
-		{"http route", func(ctx context.Context, m *v1alpha1.Model) (*metav1.Condition, error) {
+		{"http route", func(ctx context.Context, m *v1alpha1.Model) (metav1.Condition, error) {
 			return r.syncHTTPRouteCondition(ctx, m, identifiers)
 		}},
 	}
@@ -103,47 +104,47 @@ func (r *ModelReconciler) syncModelStatus(ctx context.Context, model *v1alpha1.M
 		if err != nil {
 			return metav1.Condition{}, fmt.Errorf("sync %s condition failed: %w", resource.name, err)
 		}
-		if condition != nil {
-			return *condition, nil
+		if condition.Status != metav1.ConditionTrue {
+			return condition, nil
 		}
 	}
 
-	return readyCondition(model, metav1.ConditionTrue, v1alpha1.ModelReasonReady, "Model is reachable"), nil
+	return readyModelCondition(model, "Model is reachable"), nil
 }
 
 // syncEngineCondition checks the engine Deployment.
-func (r *ModelReconciler) syncEngineCondition(ctx context.Context, model *v1alpha1.Model) (*metav1.Condition, error) {
+func (r *ModelReconciler) syncEngineCondition(ctx context.Context, model *v1alpha1.Model) (metav1.Condition, error) {
 	return r.syncDeploymentCondition(ctx, model, model.EngineName(), v1alpha1.ModelReasonEngineNotReady, v1alpha1.ModelReasonEngineDeploymentFailed)
 }
 
 // syncEPPCondition checks the EPP Deployment.
-func (r *ModelReconciler) syncEPPCondition(ctx context.Context, model *v1alpha1.Model) (*metav1.Condition, error) {
+func (r *ModelReconciler) syncEPPCondition(ctx context.Context, model *v1alpha1.Model) (metav1.Condition, error) {
 	return r.syncDeploymentCondition(ctx, model, model.EPPName(), v1alpha1.ModelReasonEPPNotReady, v1alpha1.ModelReasonEPPDeploymentFailed)
 }
 
 // syncDeploymentCondition checks a child Deployment.
-func (r *ModelReconciler) syncDeploymentCondition(ctx context.Context, model *v1alpha1.Model, name string, notReadyReason, failedReason v1alpha1.ModelReason) (*metav1.Condition, error) {
+func (r *ModelReconciler) syncDeploymentCondition(ctx context.Context, model *v1alpha1.Model, name string, notReadyReason, failedReason v1alpha1.ModelReason) (metav1.Condition, error) {
 	dep, err := getObject(ctx, r.Client, model.Namespace, name, &appsv1.Deployment{})
 	switch {
 	case err != nil:
-		return nil, err
+		return metav1.Condition{}, err
 	case dep == nil:
-		return notReadyCondition(model, notReadyReason, fmt.Sprintf("Deployment %s not found", name)), nil
+		return notReadyModelCondition(model, notReadyReason, fmt.Sprintf("Deployment %s not found", name)), nil
 	}
 
 	if dep.Status.ObservedGeneration < dep.Generation {
-		return notReadyCondition(model, notReadyReason, fmt.Sprintf("Deployment %s status is stale", name)), nil
+		return notReadyModelCondition(model, notReadyReason, fmt.Sprintf("Deployment %s status is stale", name)), nil
 	}
 
 	if deploymentReplicasReady(dep) {
-		return nil, nil
+		return readyModelCondition(model, fmt.Sprintf("Deployment %s is ready", name)), nil
 	}
 
 	if failed, msg := deploymentFailed(dep); failed {
-		return notReadyCondition(model, failedReason, fmt.Sprintf("Deployment %s %s", name, msg)), nil
+		return notReadyModelCondition(model, failedReason, fmt.Sprintf("Deployment %s %s", name, msg)), nil
 	}
 
-	return notReadyCondition(model, notReadyReason, fmt.Sprintf("Deployment %s has insufficient ready replicas", name)), nil
+	return notReadyModelCondition(model, notReadyReason, fmt.Sprintf("Deployment %s has insufficient ready replicas", name)), nil
 }
 
 // deploymentReplicasReady reports whether the Deployment's ready replicas
@@ -157,15 +158,15 @@ func deploymentReplicasReady(dep *appsv1.Deployment) bool {
 }
 
 // syncInferencePoolCondition checks the InferencePool.
-func (r *ModelReconciler) syncInferencePoolCondition(ctx context.Context, model *v1alpha1.Model) (*metav1.Condition, error) {
+func (r *ModelReconciler) syncInferencePoolCondition(ctx context.Context, model *v1alpha1.Model) (metav1.Condition, error) {
 	pool, err := getObject(ctx, r.Client, model.Namespace, model.EngineName(), &inferencev1.InferencePool{})
 	switch {
 	case err != nil:
-		return nil, err
+		return metav1.Condition{}, err
 	case pool == nil:
-		return notReadyCondition(model, v1alpha1.ModelReasonInferencePoolNotAccepted, fmt.Sprintf("InferencePool %s not found", model.EngineName())), nil
+		return notReadyModelCondition(model, v1alpha1.ModelReasonInferencePoolNotAccepted, fmt.Sprintf("InferencePool %s not found", model.EngineName())), nil
 	case len(pool.Status.Parents) == 0:
-		return notReadyCondition(model, v1alpha1.ModelReasonInferencePoolNotAccepted, fmt.Sprintf("InferencePool %s has no parent status yet", model.EngineName())), nil
+		return notReadyModelCondition(model, v1alpha1.ModelReasonInferencePoolNotAccepted, fmt.Sprintf("InferencePool %s has no parent status yet", model.EngineName())), nil
 	}
 
 	allReady := true
@@ -181,33 +182,33 @@ func (r *ModelReconciler) syncInferencePoolCondition(ctx context.Context, model 
 	}
 
 	if failedMessage != "" {
-		return notReadyCondition(model, v1alpha1.ModelReasonInferencePoolRejected, failedMessage), nil
+		return notReadyModelCondition(model, v1alpha1.ModelReasonInferencePoolRejected, failedMessage), nil
 	}
 	if allReady {
-		return nil, nil
+		return readyModelCondition(model, fmt.Sprintf("InferencePool %s is accepted", model.EngineName())), nil
 	}
-	return notReadyCondition(model, v1alpha1.ModelReasonInferencePoolNotAccepted, fmt.Sprintf("InferencePool %s not accepted by gateway", model.EngineName())), nil
+	return notReadyModelCondition(model, v1alpha1.ModelReasonInferencePoolNotAccepted, fmt.Sprintf("InferencePool %s not accepted by gateway", model.EngineName())), nil
 }
 
 // syncHTTPRouteCondition checks the HTTPRoute.
-func (r *ModelReconciler) syncHTTPRouteCondition(ctx context.Context, model *v1alpha1.Model, identifiers []v1alpha1.Identifier) (*metav1.Condition, error) {
+func (r *ModelReconciler) syncHTTPRouteCondition(ctx context.Context, model *v1alpha1.Model, identifiers []v1alpha1.Identifier) (metav1.Condition, error) {
 	route, err := getObject(ctx, r.Client, model.Namespace, model.EngineName(), &gatewayv1.HTTPRoute{})
 	switch {
 	case err != nil:
-		return nil, err
+		return metav1.Condition{}, err
 	case route == nil:
-		return notReadyCondition(model, v1alpha1.ModelReasonHTTPRouteNotAccepted, fmt.Sprintf("HTTPRoute %s not found", model.EngineName())), nil
+		return notReadyModelCondition(model, v1alpha1.ModelReasonHTTPRouteNotAccepted, fmt.Sprintf("HTTPRoute %s not found", model.EngineName())), nil
 	}
 
 	// The informer cache may still hold the route from before this apply.
 	desired := native.BuildHTTPRoute(model, identifiers, r.GatewayName, r.ListenerName)
 	if !httpRouteServesDesiredMatches(route, desired) {
-		return notReadyCondition(model, v1alpha1.ModelReasonHTTPRouteNotAccepted,
+		return notReadyModelCondition(model, v1alpha1.ModelReasonHTTPRouteNotAccepted,
 			fmt.Sprintf("HTTPRoute %s does not serve the current model names", model.EngineName())), nil
 	}
 
 	if len(route.Status.Parents) == 0 {
-		return notReadyCondition(model, v1alpha1.ModelReasonHTTPRouteNotAccepted, fmt.Sprintf("HTTPRoute %s has no parent status yet", model.EngineName())), nil
+		return notReadyModelCondition(model, v1alpha1.ModelReasonHTTPRouteNotAccepted, fmt.Sprintf("HTTPRoute %s has no parent status yet", model.EngineName())), nil
 	}
 
 	allReady := true
@@ -229,15 +230,15 @@ func (r *ModelReconciler) syncHTTPRouteCondition(ctx context.Context, model *v1a
 	}
 
 	if failedMessage != "" {
-		return notReadyCondition(model, v1alpha1.ModelReasonHTTPRouteRejected, failedMessage), nil
+		return notReadyModelCondition(model, v1alpha1.ModelReasonHTTPRouteRejected, failedMessage), nil
 	}
 	if partiallyInvalid {
-		return notReadyCondition(model, v1alpha1.ModelReasonHTTPRoutePartiallyInvalid, fmt.Sprintf("HTTPRoute %s is partially invalid", model.EngineName())), nil
+		return notReadyModelCondition(model, v1alpha1.ModelReasonHTTPRoutePartiallyInvalid, fmt.Sprintf("HTTPRoute %s is partially invalid", model.EngineName())), nil
 	}
 	if allReady {
-		return nil, nil
+		return readyModelCondition(model, fmt.Sprintf("HTTPRoute %s is accepted", model.EngineName())), nil
 	}
-	return notReadyCondition(model, v1alpha1.ModelReasonHTTPRouteNotAccepted, fmt.Sprintf("HTTPRoute %s not accepted by gateway", model.EngineName())), nil
+	return notReadyModelCondition(model, v1alpha1.ModelReasonHTTPRouteNotAccepted, fmt.Sprintf("HTTPRoute %s not accepted by gateway", model.EngineName())), nil
 }
 
 // httpRouteServesDesiredMatches reports whether route serves the desired

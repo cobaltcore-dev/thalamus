@@ -94,7 +94,7 @@ func (r *ModelReconciler) resolveArtifact(ctx context.Context, model *v1alpha1.M
 	condition := artifactReadyCondition(model, artifact)
 	if err != nil {
 		condition = modelCondition(model, v1alpha1.ModelConditionArtifactReady, metav1.ConditionUnknown,
-			string(v1alpha1.ModelArtifactReasonReconcileError), err.Error())
+			v1alpha1.ModelArtifactReasonReconcileError, err.Error())
 	}
 	meta.SetStatusCondition(&model.Status.Conditions, condition)
 	return artifact, err
