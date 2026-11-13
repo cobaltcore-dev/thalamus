@@ -506,7 +506,7 @@ func TestSyncHTTPRouteCondition_StaleMatches(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sync http route condition: %v", err)
 	}
-	if condition == nil || condition.Status != metav1.ConditionFalse {
+	if condition.Status != metav1.ConditionFalse {
 		t.Fatalf("expected a route with stale matches to be not ready, got %+v", condition)
 	}
 	if condition.Reason != string(v1alpha1.ModelReasonHTTPRouteNotAccepted) {
