@@ -6,9 +6,8 @@ package operator
 import (
 	"context"
 	"fmt"
-	"slices"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -38,24 +37,10 @@ func (r *ModelArtifactReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	before := artifact.DeepCopy()
-	changed := false
-
-	if isDeletionCandidate(artifact, ModelArtifactFinalizer) {
-		refs, err := countModelsReferencingArtifact(ctx, r.APIReader, artifact)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		if refs > 0 {
-			log.FromContext(ctx).V(levelInfo).Info("holding terminating model artifact",
-				"namespace", artifact.Namespace, "name", artifact.Name, "models", refs)
-			return ctrl.Result{}, nil
-		}
-		changed = controllerutil.RemoveFinalizer(artifact, ModelArtifactFinalizer)
-	} else if needsFinalizer(artifact, ModelArtifactFinalizer) {
-		changed = controllerutil.AddFinalizer(artifact, ModelArtifactFinalizer)
+	if err := r.syncFinalizer(ctx, artifact); err != nil {
+		return ctrl.Result{}, err
 	}
-
-	if !changed {
+	if apiequality.Semantic.DeepEqual(before.Finalizers, artifact.Finalizers) {
 		return ctrl.Result{}, nil
 	}
 	if err := r.Patch(ctx, artifact, client.MergeFromWithOptions(before, client.MergeFromWithOptimisticLock{})); err != nil {
@@ -68,14 +53,26 @@ func (r *ModelArtifactReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	return ctrl.Result{}, nil
 }
 
-// isDeletionCandidate reports whether a terminating object still holds the finalizer.
-func isDeletionCandidate(obj metav1.Object, finalizer string) bool {
-	return obj.GetDeletionTimestamp() != nil && slices.Contains(obj.GetFinalizers(), finalizer)
-}
-
-// needsFinalizer reports whether a live object is missing the finalizer.
-func needsFinalizer(obj metav1.Object, finalizer string) bool {
-	return obj.GetDeletionTimestamp() == nil && !slices.Contains(obj.GetFinalizers(), finalizer)
+// syncFinalizer adds or removes the protection finalizer based on the artifact lifecycle.
+func (r *ModelArtifactReconciler) syncFinalizer(ctx context.Context, artifact *v1alpha1.ModelArtifact) error {
+	if artifact.GetDeletionTimestamp() == nil {
+		controllerutil.AddFinalizer(artifact, ModelArtifactFinalizer)
+		return nil
+	}
+	if !controllerutil.ContainsFinalizer(artifact, ModelArtifactFinalizer) {
+		return nil
+	}
+	refs, err := countModelsReferencingArtifact(ctx, r.APIReader, artifact)
+	if err != nil {
+		return err
+	}
+	if refs > 0 {
+		log.FromContext(ctx).V(levelInfo).Info("holding terminating model artifact",
+			"namespace", artifact.Namespace, "name", artifact.Name, "models", refs)
+		return nil
+	}
+	controllerutil.RemoveFinalizer(artifact, ModelArtifactFinalizer)
+	return nil
 }
 
 // countModelsReferencingArtifact counts Models referencing the artifact; use an uncached reader.
