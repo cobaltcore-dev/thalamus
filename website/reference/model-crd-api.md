@@ -132,6 +132,8 @@ _Appears in:_
 | `draft` _string_ | Draft is the optional remote location of the draft model weights. |  | Optional: \{\} <br />Pattern: `^hf://\w([\w.-]*\w)?(/\w([\w.-]*\w)?)?$` <br /> |
 
 
+
+
 #### ModelList
 
 

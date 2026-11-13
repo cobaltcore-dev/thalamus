@@ -470,7 +470,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			updated := &v1alpha1.Model{}
 			testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
 
-			cond := meta.FindStatusCondition(updated.Status.Conditions, v1alpha1.ModelConditionReady)
+			cond := meta.FindStatusCondition(updated.Status.Conditions, string(v1alpha1.ModelConditionReady))
 			if cond == nil {
 				t.Fatalf("Ready condition not found on model")
 			}
@@ -654,7 +654,7 @@ func TestReconcile_ModelStatus_AvailableButIncomplete(t *testing.T) {
 	updated := &v1alpha1.Model{}
 	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
 
-	cond := meta.FindStatusCondition(updated.Status.Conditions, v1alpha1.ModelConditionReady)
+	cond := meta.FindStatusCondition(updated.Status.Conditions, string(v1alpha1.ModelConditionReady))
 	if cond == nil {
 		t.Fatalf("Ready condition not found on model")
 	}

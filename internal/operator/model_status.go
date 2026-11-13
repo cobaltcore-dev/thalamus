@@ -27,7 +27,7 @@ func (r *ModelReconciler) patchModelStatus(ctx context.Context, before, model *v
 	if apiequality.Semantic.DeepEqual(before.Status, model.Status) {
 		return nil
 	}
-	if cond := meta.FindStatusCondition(model.Status.Conditions, v1alpha1.ModelConditionReady); cond != nil {
+	if cond := meta.FindStatusCondition(model.Status.Conditions, string(v1alpha1.ModelConditionReady)); cond != nil {
 		log.FromContext(ctx).V(levelInfo).Info("model status changed", "namespace", model.Namespace, "name", model.Name, "ready", cond.Status, "reason", cond.Reason, "message", cond.Message)
 	}
 	if err := r.Status().Patch(ctx, model, client.MergeFrom(before)); err != nil {
@@ -37,9 +37,9 @@ func (r *ModelReconciler) patchModelStatus(ctx context.Context, before, model *v
 }
 
 // modelCondition builds a condition for the model's current generation.
-func modelCondition[R v1alpha1.ModelReason | v1alpha1.ModelArtifactReason](model *v1alpha1.Model, conditionType string, status metav1.ConditionStatus, reason R, message string) metav1.Condition {
+func modelCondition[R v1alpha1.ModelReason | v1alpha1.ModelArtifactReason](model *v1alpha1.Model, conditionType v1alpha1.ModelConditionType, status metav1.ConditionStatus, reason R, message string) metav1.Condition {
 	return metav1.Condition{
-		Type:               conditionType,
+		Type:               string(conditionType),
 		Status:             status,
 		Reason:             string(reason),
 		Message:            message,

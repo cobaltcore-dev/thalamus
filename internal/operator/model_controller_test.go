@@ -293,7 +293,7 @@ func TestReconcile_ScaleToZero(t *testing.T) {
 	// Model CR should remain and be reported as not ready.
 	updated := &v1alpha1.Model{}
 	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
-	cond := meta.FindStatusCondition(updated.Status.Conditions, v1alpha1.ModelConditionReady)
+	cond := meta.FindStatusCondition(updated.Status.Conditions, string(v1alpha1.ModelConditionReady))
 	if cond == nil {
 		t.Fatal("Ready condition not found on model")
 	}
@@ -329,7 +329,7 @@ func TestReconcile_ScaleDownFromOne(t *testing.T) {
 
 	updated := &v1alpha1.Model{}
 	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
-	cond := meta.FindStatusCondition(updated.Status.Conditions, v1alpha1.ModelConditionReady)
+	cond := meta.FindStatusCondition(updated.Status.Conditions, string(v1alpha1.ModelConditionReady))
 	if cond == nil {
 		t.Fatal("Ready condition not found on model")
 	}
@@ -409,8 +409,8 @@ func TestReconcile_PublishesIdentifiersOnlyWhenReady(t *testing.T) {
 	}
 }
 
-func conditionReason(model *v1alpha1.Model, conditionType string) string {
-	cond := meta.FindStatusCondition(model.Status.Conditions, conditionType)
+func conditionReason(model *v1alpha1.Model, conditionType v1alpha1.ModelConditionType) string {
+	cond := meta.FindStatusCondition(model.Status.Conditions, string(conditionType))
 	if cond == nil {
 		return ""
 	}
@@ -421,17 +421,17 @@ func readyConditionReason(model *v1alpha1.Model) string {
 	return conditionReason(model, v1alpha1.ModelConditionReady)
 }
 
-func conditionMessage(model *v1alpha1.Model, conditionType string) string {
-	cond := meta.FindStatusCondition(model.Status.Conditions, conditionType)
+func conditionMessage(model *v1alpha1.Model, conditionType v1alpha1.ModelConditionType) string {
+	cond := meta.FindStatusCondition(model.Status.Conditions, string(conditionType))
 	if cond == nil {
 		return ""
 	}
 	return cond.Message
 }
 
-func assertModelCondition[R ~string](t *testing.T, model *v1alpha1.Model, conditionType string, status metav1.ConditionStatus, reason R) {
+func assertModelCondition[R ~string](t *testing.T, model *v1alpha1.Model, conditionType v1alpha1.ModelConditionType, status metav1.ConditionStatus, reason R) {
 	t.Helper()
-	cond := meta.FindStatusCondition(model.Status.Conditions, conditionType)
+	cond := meta.FindStatusCondition(model.Status.Conditions, string(conditionType))
 	if cond == nil {
 		t.Fatalf("%s condition not found on model", conditionType)
 	}
@@ -593,7 +593,7 @@ func TestReconcile_MissingArtifact_DoesNotReportUnappliedChanges(t *testing.T) {
 	applied := &v1alpha1.Model{}
 	testutil.MustGet(t, c, model.Name, testNamespace, applied)
 	assertModelCondition(t, applied, v1alpha1.ModelConditionReady, metav1.ConditionTrue, v1alpha1.ModelReasonReady)
-	appliedGeneration := meta.FindStatusCondition(applied.Status.Conditions, v1alpha1.ModelConditionReady).ObservedGeneration
+	appliedGeneration := meta.FindStatusCondition(applied.Status.Conditions, string(v1alpha1.ModelConditionReady)).ObservedGeneration
 	appliedIdentifiers := slices.Clone(applied.Status.Identifiers)
 
 	removeArtifact(t, c, artifact.Name, testNamespace)
@@ -618,7 +618,7 @@ func TestReconcile_MissingArtifact_DoesNotReportUnappliedChanges(t *testing.T) {
 
 	updated = &v1alpha1.Model{}
 	testutil.MustGet(t, c, model.Name, testNamespace, updated)
-	cond := meta.FindStatusCondition(updated.Status.Conditions, v1alpha1.ModelConditionReady)
+	cond := meta.FindStatusCondition(updated.Status.Conditions, string(v1alpha1.ModelConditionReady))
 	if cond == nil {
 		t.Fatal("Ready condition not found")
 	}
