@@ -522,7 +522,7 @@ func TestReconcile_WaitsForArtifactProtection(t *testing.T) {
 
 func TestReconcile_MissingArtifact(t *testing.T) {
 	s := testutil.NewScheme(t)
-	model := testutil.NewModel("tiny-llm", testNamespace)
+	model, artifact := testutil.Fixture("tiny-llm", testNamespace).Build()
 	c := fake.NewClientBuilder().WithScheme(s).WithObjects(model).WithStatusSubresource(model).Build()
 	r := &ModelReconciler{Client: c, Scheme: s, APIReader: c, GatewayName: testGatewayName, ListenerName: testGatewayListener}
 
@@ -536,7 +536,6 @@ func TestReconcile_MissingArtifact(t *testing.T) {
 		t.Errorf("ArtifactReady message should name the recovery options, got: %q", msg)
 	}
 
-	artifact := testutil.NewModelArtifact(model.Spec.ArtifactRef.Name, testNamespace)
 	controllerutil.AddFinalizer(artifact, ModelArtifactFinalizer)
 	if err := c.Create(context.Background(), artifact); err != nil {
 		t.Fatalf("create artifact: %v", err)

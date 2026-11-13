@@ -17,7 +17,7 @@ import (
 const wantEngineUID = 65534
 
 func TestModelNames(t *testing.T) {
-	model, _ := testutil.Fixture("tiny-llm", "default").Build()
+	model := testutil.Fixture("tiny-llm", "default").BuildModel()
 	if model.EngineName() != "tiny-llm-engine" {
 		t.Errorf("EngineName:\ngot:  %q\nwant: tiny-llm-engine", model.EngineName())
 	}
@@ -226,7 +226,7 @@ func TestBuildEngineDeployment_ZeroReplicas(t *testing.T) {
 }
 
 func TestBuildEngineDeployment_NilArtifact(t *testing.T) {
-	model, _ := testutil.Fixture("tiny-llm", "default").Build()
+	model := testutil.Fixture("tiny-llm", "default").BuildModel()
 	// Teardown path: the artifact may already be gone, so only identity matters.
 	model.Spec.Replicas = 0
 	dep, err := BuildEngineDeployment(model, nil)
@@ -391,7 +391,7 @@ func TestBuildEngineDeployment_Draft(t *testing.T) {
 }
 
 func TestBuildEngineService(t *testing.T) {
-	model, _ := testutil.Fixture("tiny-llm", "default").Build()
+	model := testutil.Fixture("tiny-llm", "default").BuildModel()
 	svc := BuildEngineService(model)
 	if svc.Name != model.EngineName() {
 		t.Errorf("Name:\ngot:  %q\nwant: %q", svc.Name, model.EngineName())
