@@ -66,8 +66,7 @@ func TestModelArtifactReconcile_ProtectsUnreferencedArtifact(t *testing.T) {
 }
 
 func TestModelArtifactReconcile_ProtectsReferencedArtifact(t *testing.T) {
-	model := testutil.NewModel("tiny-llm", testNamespace)
-	artifact := testutil.NewModelArtifact(model.Spec.ArtifactRef.Name, testNamespace)
+	model, artifact := testutil.Fixture("tiny-llm", testNamespace).Build()
 	r, c := newTestModelArtifactReconciler(t, model, artifact)
 
 	reconcileModelArtifactOnce(t, r, artifact.Name)
@@ -78,8 +77,7 @@ func TestModelArtifactReconcile_ProtectsReferencedArtifact(t *testing.T) {
 }
 
 func TestModelArtifactReconcile_HoldsTerminatingArtifact(t *testing.T) {
-	model := testutil.NewModel("tiny-llm", testNamespace)
-	artifact := testutil.NewModelArtifact(model.Spec.ArtifactRef.Name, testNamespace)
+	model, artifact := testutil.Fixture("tiny-llm", testNamespace).Build()
 	r, c := newTestModelArtifactReconciler(t, model, artifact)
 
 	reconcileModelArtifactOnce(t, r, artifact.Name)
@@ -93,8 +91,7 @@ func TestModelArtifactReconcile_HoldsTerminatingArtifact(t *testing.T) {
 }
 
 func TestModelArtifactReconcile_ReleasesWhenModelDeleted(t *testing.T) {
-	model := testutil.NewModel("tiny-llm", testNamespace)
-	artifact := testutil.NewModelArtifact(model.Spec.ArtifactRef.Name, testNamespace)
+	model, artifact := testutil.Fixture("tiny-llm", testNamespace).Build()
 	r, c := newTestModelArtifactReconciler(t, model, artifact)
 
 	reconcileModelArtifactOnce(t, r, artifact.Name)
@@ -109,8 +106,7 @@ func TestModelArtifactReconcile_ReleasesWhenModelDeleted(t *testing.T) {
 }
 
 func TestModelArtifactReconcile_RetainsProtectionWhenReferenceChanges(t *testing.T) {
-	model := testutil.NewModel("tiny-llm", testNamespace)
-	artifact := testutil.NewModelArtifact(model.Spec.ArtifactRef.Name, testNamespace)
+	model, artifact := testutil.Fixture("tiny-llm", testNamespace).Build()
 	r, c := newTestModelArtifactReconciler(t, model, artifact)
 
 	reconcileModelArtifactOnce(t, r, artifact.Name)
@@ -169,8 +165,8 @@ func TestModelArtifactReconcile_ConfirmsZeroReferencesWithAPIReader(t *testing.T
 func TestModelArtifactEventHandler_UpdateEnqueuesOldAndNewReferences(t *testing.T) {
 	r, _ := newTestModelArtifactReconciler(t)
 
-	oldModel, _ := testutil.Fixture("tiny-llm", testNamespace).Build()
-	newModel, _ := testutil.Fixture("tiny-llm", testNamespace).Build()
+	oldModel := testutil.Fixture("tiny-llm", testNamespace).BuildModel()
+	newModel := testutil.Fixture("tiny-llm", testNamespace).BuildModel()
 	newModel.Spec.ArtifactRef.Name = "new-artifact"
 
 	q := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
