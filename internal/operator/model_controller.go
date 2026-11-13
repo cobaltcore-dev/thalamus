@@ -120,12 +120,7 @@ func isArtifactUsable(artifact *v1alpha1.ModelArtifact) bool {
 
 // apply creates, updates, or deletes all child resources for the model.
 func (r *ModelReconciler) apply(ctx context.Context, model *v1alpha1.Model, identifiers []v1alpha1.Identifier, artifact *v1alpha1.ModelArtifact) error {
-	var baseRepoID, draftRepoID string
-	if artifact != nil {
-		baseRepoID = artifact.BaseRepoID()
-		draftRepoID = artifact.DraftRepoID()
-	}
-	engineDeployment, err := native.BuildEngineDeployment(model, baseRepoID, draftRepoID)
+	engineDeployment, err := native.BuildEngineDeployment(model, artifact)
 	if err != nil {
 		return fmt.Errorf("build engine deployment: %w", err)
 	}

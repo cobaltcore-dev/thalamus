@@ -28,7 +28,7 @@ func TestModelNames(t *testing.T) {
 
 func TestBuildEngineDeployment(t *testing.T) {
 	model, artifact := testutil.Fixture("tiny-llm", "default").Build()
-	dep, err := BuildEngineDeployment(model, artifact.BaseRepoID(), artifact.DraftRepoID())
+	dep, err := BuildEngineDeployment(model, artifact)
 	if err != nil {
 		t.Fatalf("BuildEngineDeployment: %v", err)
 	}
@@ -111,7 +111,7 @@ func TestBuildEngineDeployment_IdentityIsNotUserControllable(t *testing.T) {
 	model.Spec.Serving.Engine.DeprecatedServiceAccount = "privileged"
 	model.Spec.Serving.Engine.AutomountServiceAccountToken = new(true)
 
-	dep, err := BuildEngineDeployment(model, artifact.BaseRepoID(), artifact.DraftRepoID())
+	dep, err := BuildEngineDeployment(model, artifact)
 	if err != nil {
 		t.Fatalf("BuildEngineDeployment: %v", err)
 	}
@@ -137,7 +137,7 @@ func TestBuildEngineDeployment_UserOverrides(t *testing.T) {
 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: "my-model-cache"},
 		},
 	}
-	dep, err := BuildEngineDeployment(model, artifact.BaseRepoID(), artifact.DraftRepoID())
+	dep, err := BuildEngineDeployment(model, artifact)
 	if err != nil {
 		t.Fatalf("BuildEngineDeployment: %v", err)
 	}
@@ -162,7 +162,7 @@ func TestBuildEngineDeployment_UserEnvWins(t *testing.T) {
 	model.Spec.Serving.Engine.Containers[0].Env = append(model.Spec.Serving.Engine.Containers[0].Env,
 		corev1.EnvVar{Name: "HOME", Value: "/root"},
 	)
-	dep, err := BuildEngineDeployment(model, artifact.BaseRepoID(), artifact.DraftRepoID())
+	dep, err := BuildEngineDeployment(model, artifact)
 	if err != nil {
 		t.Fatalf("BuildEngineDeployment: %v", err)
 	}
@@ -187,7 +187,7 @@ func TestBuildEngineDeployment_UserEnvWins(t *testing.T) {
 func TestBuildEngineDeployment_NonVLLM(t *testing.T) {
 	model, artifact := testutil.Fixture("tiny-llm", "default").Build()
 	model.Spec.Serving.Engine.Containers[0].Image = "test/other-engine:latest"
-	dep, err := BuildEngineDeployment(model, artifact.BaseRepoID(), artifact.DraftRepoID())
+	dep, err := BuildEngineDeployment(model, artifact)
 	if err != nil {
 		t.Fatalf("BuildEngineDeployment: %v", err)
 	}
@@ -204,7 +204,7 @@ func TestBuildEngineDeployment_NonVLLM(t *testing.T) {
 func TestBuildEngineDeployment_MultipleReplicas(t *testing.T) {
 	model, artifact := testutil.Fixture("tiny-llm", "default").Build()
 	model.Spec.Replicas = 3
-	dep, err := BuildEngineDeployment(model, artifact.BaseRepoID(), artifact.DraftRepoID())
+	dep, err := BuildEngineDeployment(model, artifact)
 	if err != nil {
 		t.Fatalf("BuildEngineDeployment: %v", err)
 	}
@@ -216,9 +216,26 @@ func TestBuildEngineDeployment_MultipleReplicas(t *testing.T) {
 func TestBuildEngineDeployment_ZeroReplicas(t *testing.T) {
 	model, artifact := testutil.Fixture("tiny-llm", "default").Build()
 	model.Spec.Replicas = 0
-	dep, err := BuildEngineDeployment(model, artifact.BaseRepoID(), artifact.DraftRepoID())
+	dep, err := BuildEngineDeployment(model, artifact)
 	if err != nil {
 		t.Fatalf("BuildEngineDeployment: %v", err)
+	}
+	if dep.Spec.Replicas == nil || *dep.Spec.Replicas != 0 {
+		t.Errorf("Replicas:\ngot:  %v\nwant: 0", dep.Spec.Replicas)
+	}
+}
+
+func TestBuildEngineDeployment_NilArtifact(t *testing.T) {
+	model, _ := testutil.Fixture("tiny-llm", "default").Build()
+	// Teardown path: the artifact may already be gone, so only identity matters.
+	model.Spec.Replicas = 0
+	dep, err := BuildEngineDeployment(model, nil)
+	if err != nil {
+		t.Fatalf("BuildEngineDeployment: %v", err)
+	}
+	if dep.Name != model.EngineName() || dep.Namespace != model.Namespace {
+		t.Errorf("deployment identity:\ngot:  %s/%s\nwant: %s/%s",
+			dep.Namespace, dep.Name, model.Namespace, model.EngineName())
 	}
 	if dep.Spec.Replicas == nil || *dep.Spec.Replicas != 0 {
 		t.Errorf("Replicas:\ngot:  %v\nwant: 0", dep.Spec.Replicas)
@@ -228,7 +245,7 @@ func TestBuildEngineDeployment_ZeroReplicas(t *testing.T) {
 func TestBuildEngineDeployment_NodeSelector(t *testing.T) {
 	model, artifact := testutil.Fixture("tiny-llm", "default").Build()
 	model.Spec.Serving.Engine.NodeSelector = map[string]string{"kubernetes.io/arch": "amd64"}
-	dep, err := BuildEngineDeployment(model, artifact.BaseRepoID(), artifact.DraftRepoID())
+	dep, err := BuildEngineDeployment(model, artifact)
 	if err != nil {
 		t.Fatalf("BuildEngineDeployment: %v", err)
 	}
@@ -239,7 +256,7 @@ func TestBuildEngineDeployment_NodeSelector(t *testing.T) {
 
 func TestBuildEngineDeployment_NoNodeSelector(t *testing.T) {
 	model, artifact := testutil.Fixture("tiny-llm", "default").Build()
-	dep, err := BuildEngineDeployment(model, artifact.BaseRepoID(), artifact.DraftRepoID())
+	dep, err := BuildEngineDeployment(model, artifact)
 	if err != nil {
 		t.Fatalf("BuildEngineDeployment: %v", err)
 	}
@@ -250,7 +267,7 @@ func TestBuildEngineDeployment_NoNodeSelector(t *testing.T) {
 
 func TestBuildEngineDeployment_DoesNotInjectHFToken(t *testing.T) {
 	model, artifact := testutil.Fixture("tiny-llm", "default").Build()
-	dep, err := BuildEngineDeployment(model, artifact.BaseRepoID(), artifact.DraftRepoID())
+	dep, err := BuildEngineDeployment(model, artifact)
 	if err != nil {
 		t.Fatalf("BuildEngineDeployment: %v", err)
 	}
@@ -276,7 +293,7 @@ func TestBuildEngineDeployment_UserSuppliedHFToken(t *testing.T) {
 	}
 	model.Spec.Serving.Engine.Containers[0].Env = append(model.Spec.Serving.Engine.Containers[0].Env, tokenEnv)
 
-	dep, err := BuildEngineDeployment(model, artifact.BaseRepoID(), artifact.DraftRepoID())
+	dep, err := BuildEngineDeployment(model, artifact)
 	if err != nil {
 		t.Fatalf("BuildEngineDeployment: %v", err)
 	}
@@ -299,7 +316,7 @@ func TestBuildEngineDeployment_UserSuppliedHFToken(t *testing.T) {
 func TestBuildEngineDeployment_Aliases(t *testing.T) {
 	model, artifact := testutil.Fixture("tiny-llm", "default").Build()
 	model.Spec.Aliases = []string{"tiny", "tiny-llm"}
-	dep, err := BuildEngineDeployment(model, artifact.BaseRepoID(), artifact.DraftRepoID())
+	dep, err := BuildEngineDeployment(model, artifact)
 	if err != nil {
 		t.Fatalf("BuildEngineDeployment: %v", err)
 	}
@@ -320,7 +337,7 @@ func TestBuildEngineDeployment_SidecarContainer(t *testing.T) {
 	model, artifact := testutil.Fixture("tiny-llm", "default").Build()
 	model.Spec.Serving.Engine.Containers = append(model.Spec.Serving.Engine.Containers,
 		corev1.Container{Name: "metrics-agent", Image: "test/agent:latest"})
-	dep, err := BuildEngineDeployment(model, artifact.BaseRepoID(), artifact.DraftRepoID())
+	dep, err := BuildEngineDeployment(model, artifact)
 	if err != nil {
 		t.Fatalf("BuildEngineDeployment: %v", err)
 	}
@@ -338,7 +355,7 @@ func TestBuildEngineDeployment_SidecarBeforeMain(t *testing.T) {
 	model.Spec.Serving.Engine.Containers = append([]corev1.Container{
 		{Name: "metrics-agent", Image: "test/agent:latest"},
 	}, model.Spec.Serving.Engine.Containers...)
-	dep, err := BuildEngineDeployment(model, artifact.BaseRepoID(), artifact.DraftRepoID())
+	dep, err := BuildEngineDeployment(model, artifact)
 	if err != nil {
 		t.Fatalf("BuildEngineDeployment: %v", err)
 	}
@@ -357,7 +374,7 @@ func TestBuildEngineDeployment_SidecarBeforeMain(t *testing.T) {
 
 func TestBuildEngineDeployment_Draft(t *testing.T) {
 	model, artifact := testutil.Fixture("tiny-llm", "default").Draft("hf://arnir0/Tiny-Draft").Build()
-	dep, err := BuildEngineDeployment(model, artifact.BaseRepoID(), artifact.DraftRepoID())
+	dep, err := BuildEngineDeployment(model, artifact)
 	if err != nil {
 		t.Fatalf("BuildEngineDeployment: %v", err)
 	}
