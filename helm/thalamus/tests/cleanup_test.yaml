@@ -83,7 +83,7 @@ tests:
             verbs: [get, list, watch, delete, deletecollection]
         documentIndex: 1
 
-  - it: should honour a custom timeout
+  - it: should honor a custom timeout
     set:
       cleanup.timeout: 5m
     asserts:
