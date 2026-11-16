@@ -19,8 +19,70 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  build:
+    name: Build (operator image, helm chart)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+      chart_version: ${{ steps.meta.outputs.chart_version }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7.0.1
+
+      - name: Compute artifact tags
+        id: meta
+        run: |
+          short_sha="${GITHUB_SHA::7}"
+          echo "image_tag=sha-${short_sha}" >> "$GITHUB_OUTPUT"
+          echo "chart_version=0.0.0-sha-${short_sha}" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare artifacts directory
+        run: mkdir -p "${RUNNER_TEMP}/build-artifacts"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build operator image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          target: release
+          platforms: linux/amd64
+          tags: ghcr.io/cobaltcore-dev/thalamus:${{ steps.meta.outputs.image_tag }}
+          outputs: type=docker,dest=${{ runner.temp }}/build-artifacts/operator-image.tar
+          cache-from: type=gha,scope=e2e-operator
+          cache-to: type=gha,mode=max,scope=e2e-operator
+          provenance: false
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v5
+        with:
+          version: v3.22.1
+
+      - name: Package Helm chart
+        env:
+          APP_VERSION: ${{ steps.meta.outputs.image_tag }}
+          CHART_VERSION: ${{ steps.meta.outputs.chart_version }}
+        run: |
+          helm dependency build helm/thalamus
+          helm package helm/thalamus -d "${RUNNER_TEMP}/build-artifacts" \
+            --version "${CHART_VERSION}" \
+            --app-version "${APP_VERSION}"
+          mv "${RUNNER_TEMP}/build-artifacts/thalamus-${CHART_VERSION}.tgz" \
+            "${RUNNER_TEMP}/build-artifacts/thalamus-chart.tgz"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-artifacts
+          path: ${{ runner.temp }}/build-artifacts/
+          retention-days: 1
+
   install:
     name: Install (${{ matrix.gateway_api }} gateway-api, ${{ matrix.inference_extension }} inference-extension, ${{ matrix.agentgateway }} agentgateway)
+    needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -45,10 +107,15 @@ jobs:
         with:
           version: v3.22.1
 
-      - name: Build and load operator image
+      - name: Download build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: build-artifacts
+          path: ${{ runner.temp }}/build-artifacts
+
+      - name: Load operator image into Kind
         run: |
-          docker build -t ghcr.io/cobaltcore-dev/thalamus:pr -f Dockerfile .
-          kind load docker-image ghcr.io/cobaltcore-dev/thalamus:pr \
+          kind load image-archive "${RUNNER_TEMP}/build-artifacts/operator-image.tar" \
             --name thalamus
 
       - name: Pre-install gateway-api CRDs from upstream
@@ -114,7 +181,6 @@ jobs:
             --timeout=600s
 
       - name: Deploy Thalamus
-        working-directory: helm
         run: |
           flags=()
           if [ "${{ matrix.gateway_api }}" = "preinstalled" ]; then
@@ -127,13 +193,13 @@ jobs:
             flags+=(--set agentgateway-crds.enabled=false)
             flags+=(--set agentgateway.enabled=false)
           fi
-          helm dependency build thalamus
-          helm upgrade --install thalamus ./thalamus \
+          helm upgrade --install thalamus \
+            "${RUNNER_TEMP}/build-artifacts/thalamus-chart.tgz" \
             --namespace thalamus \
             --create-namespace \
             --wait \
             --timeout=600s \
-            --set operator.image.tag=pr \
+            --set operator.image.tag=${{ needs.build.outputs.image_tag }} \
             "${flags[@]}"
 
       - name: Verify disabled CRD dependencies were skipped
@@ -212,6 +278,7 @@ jobs:
 
   inference:
     name: Inference (v1 endpoints)
+    needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -236,22 +303,26 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
 
-      - name: Build and load operator image
+      - name: Download build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: build-artifacts
+          path: ${{ runner.temp }}/build-artifacts
+
+      - name: Load operator image into Kind
         run: |
-          docker build -t ghcr.io/cobaltcore-dev/thalamus:pr -f Dockerfile .
-          kind load docker-image ghcr.io/cobaltcore-dev/thalamus:pr \
+          kind load image-archive "${RUNNER_TEMP}/build-artifacts/operator-image.tar" \
             --name thalamus
 
       - name: Deploy Thalamus
-        working-directory: helm
         run: |
-          helm dependency build thalamus
-          helm upgrade --install thalamus ./thalamus \
+          helm upgrade --install thalamus \
+            "${RUNNER_TEMP}/build-artifacts/thalamus-chart.tgz" \
             --namespace thalamus \
             --create-namespace \
             --wait \
             --timeout=600s \
-            --set operator.image.tag=pr
+            --set operator.image.tag=${{ needs.build.outputs.image_tag }}
 
       - name: Create inference gateway
         run: |

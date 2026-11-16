@@ -26,14 +26,14 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
       ./cmd/operator
 
 
-FROM gcr.io/distroless/static-debian12:nonroot AS release
+FROM gcr.io/distroless/static-debian12:debug-nonroot AS debug
 
 COPY --from=build /out/operator /operator
 
 ENTRYPOINT ["/operator"]
 
 
-FROM gcr.io/distroless/static-debian12:debug-nonroot AS debug
+FROM gcr.io/distroless/static-debian12:nonroot AS release
 
 COPY --from=build /out/operator /operator
 
