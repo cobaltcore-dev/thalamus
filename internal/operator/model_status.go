@@ -21,7 +21,14 @@ import (
 )
 
 // modelCondition builds a condition for the model's current generation.
-func modelCondition[R v1alpha1.ModelReason | v1alpha1.ModelArtifactReason](model *v1alpha1.Model, conditionType v1alpha1.ModelConditionType, status metav1.ConditionStatus, reason R, message string) metav1.Condition {
+func modelCondition[R v1alpha1.ModelReason | v1alpha1.ModelArtifactReason](
+	model *v1alpha1.Model,
+	conditionType v1alpha1.ModelConditionType,
+	status metav1.ConditionStatus,
+	reason R,
+	message string,
+) metav1.Condition {
+
 	return metav1.Condition{
 		Type:               string(conditionType),
 		Status:             status,
