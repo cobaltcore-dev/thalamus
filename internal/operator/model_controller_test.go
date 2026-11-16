@@ -731,12 +731,15 @@ func TestReconcile_TerminatingArtifact_ScaleToZero(t *testing.T) {
 func TestReconcile_ConditionErrors(t *testing.T) {
 	cases := []struct {
 		name               string
+		wantReadyStatus    metav1.ConditionStatus
+		wantReadyReason    v1alpha1.ModelReason
 		wantArtifactStatus metav1.ConditionStatus
 		wantArtifactReason v1alpha1.ModelArtifactReason
 	}{
-		{"artifact lookup", metav1.ConditionUnknown, v1alpha1.ModelArtifactReasonReconcileError},
-		{"apply", metav1.ConditionTrue, v1alpha1.ModelArtifactReasonReady},
-		{"serving observation", metav1.ConditionTrue, v1alpha1.ModelArtifactReasonReady},
+		// A failed artifact read leaves the previous status untouched.
+		{"artifact lookup", metav1.ConditionTrue, v1alpha1.ModelReasonReady, metav1.ConditionTrue, v1alpha1.ModelArtifactReasonReady},
+		{"apply", metav1.ConditionFalse, v1alpha1.ModelReasonReconcileError, metav1.ConditionTrue, v1alpha1.ModelArtifactReasonReady},
+		{"serving observation", metav1.ConditionFalse, v1alpha1.ModelReasonReconcileError, metav1.ConditionTrue, v1alpha1.ModelArtifactReasonReady},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -774,7 +777,7 @@ func TestReconcile_ConditionErrors(t *testing.T) {
 				t.Fatalf("Reconcile error: %v, want %v", err, injectedErr)
 			}
 			updated := testutil.MustGet(t, c, model.Name, testNamespace, &v1alpha1.Model{})
-			assertModelCondition(t, updated, v1alpha1.ModelConditionReady, metav1.ConditionFalse, v1alpha1.ModelReasonReconcileError)
+			assertModelCondition(t, updated, v1alpha1.ModelConditionReady, tc.wantReadyStatus, tc.wantReadyReason)
 			assertModelCondition(t, updated, v1alpha1.ModelConditionArtifactReady, tc.wantArtifactStatus, tc.wantArtifactReason)
 
 			r.Client = c

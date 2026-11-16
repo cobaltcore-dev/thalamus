@@ -12,8 +12,6 @@ import (
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -21,20 +19,6 @@ import (
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 	"github.com/cobaltcore-dev/thalamus/internal/operator/resources"
 )
-
-// patchModelStatus persists status changes against the snapshot taken before reconciliation.
-func (r *ModelReconciler) patchModelStatus(ctx context.Context, before, model *v1alpha1.Model) error {
-	if apiequality.Semantic.DeepEqual(before.Status, model.Status) {
-		return nil
-	}
-	if cond := meta.FindStatusCondition(model.Status.Conditions, string(v1alpha1.ModelConditionReady)); cond != nil {
-		log.FromContext(ctx).V(levelInfo).Info("model status changed", "namespace", model.Namespace, "name", model.Name, "ready", cond.Status, "reason", cond.Reason, "message", cond.Message)
-	}
-	if err := r.Status().Patch(ctx, model, client.MergeFrom(before)); err != nil {
-		return fmt.Errorf("patch model status %s/%s: %w", model.Namespace, model.Name, err)
-	}
-	return nil
-}
 
 // modelCondition builds a condition for the model's current generation.
 func modelCondition[R v1alpha1.ModelReason | v1alpha1.ModelArtifactReason](model *v1alpha1.Model, conditionType v1alpha1.ModelConditionType, status metav1.ConditionStatus, reason R, message string) metav1.Condition {
@@ -47,7 +31,7 @@ func modelCondition[R v1alpha1.ModelReason | v1alpha1.ModelArtifactReason](model
 	}
 }
 
-// artifactReadyCondition reports artifact lifecycle readiness, independently of serving health.
+// artifactReadyCondition reports artifact readiness, independent of serving health.
 func artifactReadyCondition(model *v1alpha1.Model, artifact *v1alpha1.ModelArtifact) metav1.Condition {
 	status := metav1.ConditionFalse
 	var reason v1alpha1.ModelArtifactReason
@@ -78,6 +62,14 @@ func readyModelCondition(model *v1alpha1.Model, message string) metav1.Condition
 // notReadyModelCondition builds a Ready=False condition.
 func notReadyModelCondition(model *v1alpha1.Model, reason v1alpha1.ModelReason, message string) metav1.Condition {
 	return modelCondition(model, v1alpha1.ModelConditionReady, metav1.ConditionFalse, reason, message)
+}
+
+// lastAppliedGeneration returns the generation Ready last reflected, or 0.
+func lastAppliedGeneration(conditions []metav1.Condition) int64 {
+	if ready := meta.FindStatusCondition(conditions, string(v1alpha1.ModelConditionReady)); ready != nil {
+		return ready.ObservedGeneration
+	}
+	return 0
 }
 
 // syncModelStatus derives the model's ready condition. It returns the first

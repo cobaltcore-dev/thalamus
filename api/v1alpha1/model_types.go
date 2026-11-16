@@ -43,11 +43,10 @@ const (
 type ModelArtifactReason string
 
 const (
-	ModelArtifactReasonReady          ModelArtifactReason = "ArtifactReady"
-	ModelArtifactReasonNotReady       ModelArtifactReason = "ArtifactNotReady"
-	ModelArtifactReasonNotFound       ModelArtifactReason = "ArtifactNotFound"
-	ModelArtifactReasonTerminating    ModelArtifactReason = "ArtifactTerminating"
-	ModelArtifactReasonReconcileError ModelArtifactReason = "ReconcileError"
+	ModelArtifactReasonReady       ModelArtifactReason = "ArtifactReady"
+	ModelArtifactReasonNotReady    ModelArtifactReason = "ArtifactNotReady"
+	ModelArtifactReasonNotFound    ModelArtifactReason = "ArtifactNotFound"
+	ModelArtifactReasonTerminating ModelArtifactReason = "ArtifactTerminating"
 )
 
 // ModelArtifactReference identifies a ModelArtifact in the same namespace.

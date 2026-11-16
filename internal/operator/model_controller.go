@@ -11,6 +11,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,7 +34,7 @@ import (
 type ModelReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
-	// APIReader reads directly from the API server instead of the cache.
+	// APIReader reads directly from the API server.
 	APIReader client.Reader
 	// GatewayName is the name of the gateway the model routes attach to.
 	GatewayName string
@@ -49,58 +50,65 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
-	// Capture status before artifact resolution, apply, or observe can change it.
-	before := model.DeepCopy()
-	artifact, artifactErr := r.resolveArtifact(ctx, model)
-	identifiers := modelIdentifiers(model, artifact)
-
-	// Apply only when the artifact is usable or we are tearing down.
-	canApply := isArtifactUsable(artifact) || model.Spec.Replicas == 0
-	var applyErr error
-	if canApply {
-		applyErr = r.apply(ctx, model, identifiers, artifact)
-	}
-	observeCondition, observeErr := r.observe(ctx, model, identifiers)
-
-	reconcileErr := errors.Join(artifactErr, applyErr, observeErr)
-	if reconcileErr != nil {
-		reconcileErr = fmt.Errorf("reconcile model %s: %w", req.NamespacedName, reconcileErr)
-		model.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonReconcileError, reconcileErr.Error())
-	} else {
-		if !canApply {
-			// The artifact is unusable, so the desired state was not applied.
-			// Keep observing serving health, but preserve the generation the
-			// Ready condition last reflected instead of claiming the current one.
-			observeCondition.ObservedGeneration = 0
-			if previous := meta.FindStatusCondition(before.Status.Conditions, string(v1alpha1.ModelConditionReady)); previous != nil {
-				observeCondition.ObservedGeneration = previous.ObservedGeneration
-			}
-		}
-		meta.SetStatusCondition(&model.Status.Conditions, observeCondition)
-	}
-
-	reconcileErr = errors.Join(reconcileErr, r.patchModelStatus(ctx, before, model))
-
-	if cond := meta.FindStatusCondition(model.Status.Conditions, string(v1alpha1.ModelConditionReady)); cond != nil {
-		log.FromContext(ctx).V(levelDebug).Info("reconciled model", "namespace", model.Namespace, "name", model.Name, "ready", cond.Status, "reason", cond.Reason, "message", cond.Message)
-	}
-	return ctrl.Result{}, reconcileErr
-}
-
-// resolveArtifact reads the artifact and updates the Model's ArtifactReady condition.
-func (r *ModelReconciler) resolveArtifact(ctx context.Context, model *v1alpha1.Model) (*v1alpha1.ModelArtifact, error) {
-	// Read directly so a stale cache cannot hide a deletion.
 	artifact, err := getObject(ctx, r.APIReader, model.Namespace, model.Spec.ArtifactRef.Name, &v1alpha1.ModelArtifact{})
-	condition := artifactReadyCondition(model, artifact)
 	if err != nil {
-		condition = modelCondition(model, v1alpha1.ModelConditionArtifactReady, metav1.ConditionUnknown,
-			v1alpha1.ModelArtifactReasonReconcileError, err.Error())
+		return ctrl.Result{}, err
 	}
-	meta.SetStatusCondition(&model.Status.Conditions, condition)
-	return artifact, err
+
+	return r.reconcile(ctx, model, artifact)
 }
 
-// modelIdentifiers resolves serving names, retaining the last published names if the artifact is missing.
+// reconcile applies the desired state and records the observed status.
+func (r *ModelReconciler) reconcile(ctx context.Context, model *v1alpha1.Model, artifact *v1alpha1.ModelArtifact) (ctrl.Result, error) {
+	before := model.DeepCopy()
+	identifiers := modelIdentifiers(model, artifact)
+	usable := isArtifactUsable(artifact) || model.Spec.Replicas == 0
+	var applyErr error
+	if usable {
+		applyErr = r.apply(ctx, model, artifact, identifiers)
+	}
+
+	serving, observeErr := r.syncModelStatus(ctx, model, identifiers)
+
+	reconcileErr := errors.Join(applyErr, observeErr)
+	if reconcileErr != nil {
+		reconcileErr = fmt.Errorf("reconcile model %s: %w", client.ObjectKeyFromObject(model), reconcileErr)
+	}
+
+	status := *before.Status.DeepCopy()
+	// Publish identifiers only once routing serves them.
+	switch {
+	case serving.Status == metav1.ConditionTrue:
+		status.Identifiers = identifiers
+	case model.Spec.Replicas == 0:
+		status.Identifiers = nil
+	}
+	meta.SetStatusCondition(&status.Conditions, artifactReadyCondition(model, artifact))
+
+	ready := serving
+	if !usable {
+		ready.ObservedGeneration = lastAppliedGeneration(before.Status.Conditions)
+	}
+	if reconcileErr != nil {
+		ready = modelCondition(model, v1alpha1.ModelConditionReady, metav1.ConditionFalse,
+			v1alpha1.ModelReasonReconcileError, reconcileErr.Error())
+	}
+	meta.SetStatusCondition(&status.Conditions, ready)
+	model.Status = status
+
+	var patchErr error
+	if !apiequality.Semantic.DeepEqual(before.Status, model.Status) {
+		log.FromContext(ctx).V(levelInfo).Info("model status changed",
+			"namespace", model.Namespace, "name", model.Name, "conditions", model.Status.Conditions)
+		if err := r.Status().Patch(ctx, model, client.MergeFrom(before)); err != nil {
+			patchErr = fmt.Errorf("patch model status %s: %w", client.ObjectKeyFromObject(model), err)
+		}
+	}
+	log.FromContext(ctx).V(levelDebug).Info("reconciled model",
+		"namespace", model.Namespace, "name", model.Name, "conditions", model.Status.Conditions)
+	return ctrl.Result{}, errors.Join(reconcileErr, patchErr)
+}
+
 func modelIdentifiers(model *v1alpha1.Model, artifact *v1alpha1.ModelArtifact) []v1alpha1.Identifier {
 	if artifact != nil {
 		return v1alpha1.Identifiers(model.Spec.Aliases, artifact.BaseRepoID())
@@ -111,7 +119,6 @@ func modelIdentifiers(model *v1alpha1.Model, artifact *v1alpha1.ModelArtifact) [
 	return nil
 }
 
-// isArtifactUsable reports whether the artifact can back new resources.
 func isArtifactUsable(artifact *v1alpha1.ModelArtifact) bool {
 	return artifact != nil &&
 		artifact.GetDeletionTimestamp() == nil &&
@@ -119,7 +126,7 @@ func isArtifactUsable(artifact *v1alpha1.ModelArtifact) bool {
 }
 
 // apply creates, updates, or deletes all child resources for the model.
-func (r *ModelReconciler) apply(ctx context.Context, model *v1alpha1.Model, identifiers []v1alpha1.Identifier, artifact *v1alpha1.ModelArtifact) error {
+func (r *ModelReconciler) apply(ctx context.Context, model *v1alpha1.Model, artifact *v1alpha1.ModelArtifact, identifiers []v1alpha1.Identifier) error {
 	engineDeployment, err := resources.BuildEngineDeployment(model, artifact)
 	if err != nil {
 		return fmt.Errorf("build engine deployment: %w", err)
@@ -180,28 +187,11 @@ func (r *ModelReconciler) deleteOwned(ctx context.Context, owner *v1alpha1.Model
 	return nil
 }
 
-// observe derives the model's ready condition.
-func (r *ModelReconciler) observe(ctx context.Context, model *v1alpha1.Model, identifiers []v1alpha1.Identifier) (metav1.Condition, error) {
-	condition, err := r.syncModelStatus(ctx, model, identifiers)
-	if err != nil {
-		return metav1.Condition{}, fmt.Errorf("sync model status: %w", err)
-	}
-
-	// Publish identifiers only once routing serves them.
-	switch {
-	case condition.Status == metav1.ConditionTrue:
-		model.Status.Identifiers = identifiers
-	case model.Spec.Replicas == 0:
-		model.Status.Identifiers = nil
-	}
-	return condition, nil
-}
-
-// mapArtifactToModels enqueues every Model in the artifact's namespace that references it.
+// mapArtifactToModels enqueues the models referencing an artifact.
 func (r *ModelReconciler) mapArtifactToModels(ctx context.Context, obj client.Object) []reconcile.Request {
 	var models v1alpha1.ModelList
 	if err := r.List(ctx, &models, client.InNamespace(obj.GetNamespace())); err != nil {
-		log.FromContext(ctx).Error(err, "list models for artifact", "namespace", obj.GetNamespace(), "name", obj.GetName())
+		log.FromContext(ctx).Error(err, "failed to list models for artifact", "namespace", obj.GetNamespace(), "name", obj.GetName())
 		return nil
 	}
 
