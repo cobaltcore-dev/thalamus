@@ -47,7 +47,7 @@ func TestBuildEngineDeployment(t *testing.T) {
 	if c.Image != model.Spec.Serving.Engine.Containers[0].Image {
 		t.Errorf("Image:\ngot:  %q\nwant: %q", c.Image, model.Spec.Serving.Engine.Containers[0].Image)
 	}
-	wantArgs := []string{"arnir0/Tiny-LLM", "--max-model-len=512"}
+	wantArgs := []string{"arnir0/Tiny-LLM", "--max-model-len=512", "--host=0.0.0.0", "--port=8000"}
 	if !slices.Equal(c.Args, wantArgs) {
 		t.Errorf("Args:\ngot:  %v\nwant: %v", c.Args, wantArgs)
 	}
@@ -193,7 +193,7 @@ func TestBuildEngineDeployment_NonVLLM(t *testing.T) {
 	}
 	c := dep.Spec.Template.Spec.Containers[0]
 
-	if !slices.Equal(c.Args, []string{"arnir0/Tiny-LLM", "--max-model-len=512"}) {
+	if !slices.Equal(c.Args, []string{"arnir0/Tiny-LLM", "--max-model-len=512", "--host=0.0.0.0", "--port=8000"}) {
 		t.Errorf("Args:\ngot:  %v\nwant: the model id followed by the user args", c.Args)
 	}
 	if c.StartupProbe != nil || c.LivenessProbe != nil || c.ReadinessProbe != nil {
@@ -303,7 +303,7 @@ func TestBuildEngineDeployment_Aliases(t *testing.T) {
 	}
 	c := dep.Spec.Template.Spec.Containers[0]
 
-	want := []string{"arnir0/Tiny-LLM", "--max-model-len=512"}
+	want := []string{"arnir0/Tiny-LLM", "--max-model-len=512", "--host=0.0.0.0", "--port=8000"}
 	if !slices.Equal(c.Args, want) {
 		t.Errorf("Args:\ngot:  %v\nwant: %v", c.Args, want)
 	}

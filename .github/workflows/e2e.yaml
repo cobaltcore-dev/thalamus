@@ -249,8 +249,9 @@ jobs:
 
       - name: Verify Model argument validation
         run: |
-          kubectl apply --dry-run=server -f ${{ github.workspace }}/examples/model-smollm2-cpu.yaml >/dev/null
-          echo "PASS: compliant Model admitted"
+          kubectl apply --dry-run=server -f ${{ github.workspace }}/examples/model-smollm2-cpu-vllm.yaml >/dev/null
+          kubectl apply --dry-run=server -f ${{ github.workspace }}/examples/model-smollm2-cpu-sglang.yaml >/dev/null
+          echo "PASS: compliant Models admitted"
           if kubectl apply --dry-run=server -f ${{ github.workspace }}/test/e2e/fixtures/model-forbidden-flags.yaml 2>&1 \
             | grep -q "must not set --port (managed by the operator)"; then
             echo "PASS: Model setting --port denied at admission"
@@ -277,10 +278,23 @@ jobs:
             --sort-by=.lastTimestamp || true
 
   inference:
-    name: Inference (v1 endpoints)
+    name: Inference (v1 endpoints, ${{ matrix.scenario }})
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - scenario: vllm
+            example: examples/model-smollm2-cpu-vllm.yaml
+            model_name: smollm2-135m-vllm
+            model_id: HuggingFaceTB/SmolLM2-135M-Instruct
+          - scenario: sglang
+            example: examples/model-smollm2-cpu-sglang.yaml
+            model_name: smollm2-135m-sglang
+            model_id: HuggingFaceTB/SmolLM2-135M-Instruct
+            validate_args: --skip responses
     env:
       GATEWAY_HOST: localhost
       GATEWAY_PORT: "8080"
@@ -343,11 +357,11 @@ jobs:
 
       - name: Apply Model
         run: |
-          kubectl apply -f ${{ github.workspace }}/examples/model-smollm2-cpu.yaml
+          kubectl apply -f ${{ github.workspace }}/${{ matrix.example }}
 
       - name: Wait for Model readiness
         run: |
-          kubectl wait model/smollm2-135m \
+          kubectl wait model/${{ matrix.model_name }} \
             --namespace thalamus \
             --for=condition=Ready \
             --timeout=600s
@@ -360,20 +374,20 @@ jobs:
 
       - name: Run e2e validation
         env:
-          MODEL: HuggingFaceTB/SmolLM2-135M-Instruct
-        run: uv run test/e2e/validate.py
+          MODEL: ${{ matrix.model_id }}
+        run: uv run test/e2e/validate.py ${{ matrix.validate_args }}
 
       - name: Add alias to the Model
         run: |
-          kubectl patch model smollm2-135m \
+          kubectl patch model ${{ matrix.model_name }} \
             --namespace thalamus \
             --type merge \
             -p '{"spec":{"aliases":["HuggingFaceTB/SmolLM2-135M-Instruct-e2e"]}}'
 
-          generation="$(kubectl get model smollm2-135m \
+          generation="$(kubectl get model ${{ matrix.model_name }} \
             --namespace thalamus \
             -o jsonpath='{.metadata.generation}')"
-          kubectl wait model/smollm2-135m \
+          kubectl wait model/${{ matrix.model_name }} \
             --namespace thalamus \
             --for=jsonpath='{.status.conditions[?(@.type=="Ready")].observedGeneration}'="$generation" \
             --for=condition=Ready \
@@ -382,7 +396,7 @@ jobs:
       - name: Run e2e validation with alias
         env:
           MODEL: HuggingFaceTB/SmolLM2-135M-Instruct-e2e
-        run: uv run test/e2e/validate.py
+        run: uv run test/e2e/validate.py ${{ matrix.validate_args }}
 
       - name: Assert old model name is no longer served
         env:
@@ -442,6 +456,6 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: e2e-inference-debug-logs
+          name: e2e-inference-debug-logs-${{ matrix.scenario }}
           path: debug-logs/
           retention-days: 1
