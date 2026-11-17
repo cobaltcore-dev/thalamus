@@ -29,8 +29,7 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 		want    wantCondition
 	}{
 		{
-			// FIXME: test case names weren't properly renamed after phase removal
-			name: "ready when all ready",
+			name: "ready when all components are ready",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
@@ -40,7 +39,7 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 			want: wantCondition{status: true, reason: v1alpha1.ModelReasonReady},
 		},
 		{
-			name: "creating when engine deployment not ready",
+			name: "not ready when engine deployment is not ready",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EPPName())
 				markInferencePoolReady(t, c, m.EngineName())
@@ -49,7 +48,7 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 			want: wantCondition{status: false, reason: v1alpha1.ModelReasonEngineNotReady},
 		},
 		{
-			name: "creating when epp deployment not ready",
+			name: "not ready when epp deployment is not ready",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markInferencePoolReady(t, c, m.EngineName())
@@ -58,7 +57,7 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 			want: wantCondition{status: false, reason: v1alpha1.ModelReasonEPPNotReady},
 		},
 		{
-			name: "creating when inference pool not ready",
+			name: "not ready when inference pool is not accepted",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
@@ -67,7 +66,7 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 			want: wantCondition{status: false, reason: v1alpha1.ModelReasonInferencePoolNotAccepted},
 		},
 		{
-			name: "creating when http route not ready",
+			name: "not ready when http route is not accepted",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
@@ -76,7 +75,7 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 			want: wantCondition{status: false, reason: v1alpha1.ModelReasonHTTPRouteNotAccepted},
 		},
 		{
-			name: "creating when engine deployment observed generation is stale",
+			name: "not ready when engine deployment observed generation is stale",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				dep := &appsv1.Deployment{}
@@ -92,7 +91,7 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 			want: wantCondition{status: false, reason: v1alpha1.ModelReasonEngineNotReady},
 		},
 		{
-			name: "creating when http route accepted is pending",
+			name: "not ready when http route acceptance is pending",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
@@ -107,7 +106,7 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 			want: wantCondition{status: false, reason: v1alpha1.ModelReasonHTTPRouteNotAccepted},
 		},
 		{
-			name: "creating when inference pool is not requested",
+			name: "not ready when inference pool is not requested",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
@@ -121,7 +120,7 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 			want: wantCondition{status: false, reason: v1alpha1.ModelReasonInferencePoolNotAccepted},
 		},
 		{
-			name: "failed when engine deployment replica failure",
+			name: "not ready when engine deployment has a replica failure",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentFailed(t, c, m.EngineName(), appsv1.DeploymentCondition{
 					Type:    appsv1.DeploymentReplicaFailure,
@@ -133,7 +132,7 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 			want: wantCondition{status: false, reason: v1alpha1.ModelReasonEngineDeploymentFailed},
 		},
 		{
-			name: "failed when engine deployment progress deadline exceeded",
+			name: "not ready when engine deployment progress deadline is exceeded",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentFailed(t, c, m.EngineName(), appsv1.DeploymentCondition{
 					Type:    appsv1.DeploymentProgressing,
@@ -155,7 +154,7 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 			want: wantCondition{status: true, reason: v1alpha1.ModelReasonReady},
 		},
 		{
-			name: "failed when epp deployment replica failure",
+			name: "not ready when epp deployment has a replica failure",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentFailed(t, c, m.EPPName(), appsv1.DeploymentCondition{
@@ -168,7 +167,7 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 			want: wantCondition{status: false, reason: v1alpha1.ModelReasonEPPDeploymentFailed},
 		},
 		{
-			name: "failed when epp deployment progress deadline exceeded",
+			name: "not ready when epp deployment progress deadline is exceeded",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentFailed(t, c, m.EPPName(), appsv1.DeploymentCondition{
@@ -191,7 +190,7 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 			want: wantCondition{status: true, reason: v1alpha1.ModelReasonReady},
 		},
 		{
-			name: "failed when inference pool rejected",
+			name: "not ready when inference pool is rejected",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
@@ -205,7 +204,7 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 			want: wantCondition{status: false, reason: v1alpha1.ModelReasonInferencePoolRejected},
 		},
 		{
-			name: "failed when inference pool resolved refs rejected",
+			name: "not ready when inference pool resolved refs are rejected",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
@@ -219,7 +218,7 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 			want: wantCondition{status: false, reason: v1alpha1.ModelReasonInferencePoolRejected},
 		},
 		{
-			name: "failed when http route rejected",
+			name: "not ready when http route is rejected",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
@@ -234,7 +233,7 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 			want: wantCondition{status: false, reason: v1alpha1.ModelReasonHTTPRouteRejected},
 		},
 		{
-			name: "failed when http route has incompatible filters",
+			name: "not ready when http route has incompatible filters",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
@@ -249,7 +248,7 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 			want: wantCondition{status: false, reason: v1alpha1.ModelReasonHTTPRouteRejected},
 		},
 		{
-			name: "failed when inference pool is not supported",
+			name: "not ready when inference pool is not supported",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
@@ -263,7 +262,7 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 			want: wantCondition{status: false, reason: v1alpha1.ModelReasonInferencePoolRejected},
 		},
 		{
-			name: "failed when http route partially invalid",
+			name: "not ready when http route is partially invalid",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
@@ -298,7 +297,7 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 			want: wantCondition{status: true, reason: v1alpha1.ModelReasonReady},
 		},
 		{
-			name: "creating when http route backend not found",
+			name: "not ready when http route backend is not found",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
@@ -313,7 +312,7 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 			want: wantCondition{status: false, reason: v1alpha1.ModelReasonHTTPRouteNotAccepted},
 		},
 		{
-			name: "failed when inference pool has one ready and one failed parent",
+			name: "not ready when inference pool has one ready and one failed parent",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
@@ -336,7 +335,7 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 			want: wantCondition{status: false, reason: v1alpha1.ModelReasonInferencePoolRejected},
 		},
 		{
-			name: "creating when inference pool has one ready and one pending parent",
+			name: "not ready when inference pool has one ready and one pending parent",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
@@ -359,7 +358,7 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 			want: wantCondition{status: false, reason: v1alpha1.ModelReasonInferencePoolNotAccepted},
 		},
 		{
-			name: "failed when http route has one ready and one failed parent",
+			name: "not ready when http route has one ready and one failed parent",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
@@ -385,7 +384,7 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 			want: wantCondition{status: false, reason: v1alpha1.ModelReasonHTTPRouteRejected},
 		},
 		{
-			name: "creating when inference pool acceptance is stale",
+			name: "not ready when inference pool acceptance is stale",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
@@ -395,7 +394,7 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 			want: wantCondition{status: false, reason: v1alpha1.ModelReasonInferencePoolNotAccepted},
 		},
 		{
-			name: "creating when http route acceptance is stale",
+			name: "not ready when http route acceptance is stale",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
@@ -406,7 +405,7 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 			want: wantCondition{status: false, reason: v1alpha1.ModelReasonHTTPRouteNotAccepted},
 		},
 		{
-			name: "creating when http route has one ready and one pending parent",
+			name: "not ready when http route has one ready and one pending parent",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
 				markDeploymentReady(t, c, m.EPPName())
