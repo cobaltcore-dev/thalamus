@@ -110,7 +110,7 @@ func (r *ModelReconciler) reconcile(ctx context.Context, model *v1alpha1.Model, 
 }
 
 func modelIdentifiers(model *v1alpha1.Model, artifact *v1alpha1.ModelArtifact) []v1alpha1.Identifier {
-	if artifact != nil {
+	if isArtifactUsable(artifact) {
 		return v1alpha1.Identifiers(model.Spec.Aliases, artifact.BaseRepoID())
 	}
 	if model.Spec.Replicas > 0 {
