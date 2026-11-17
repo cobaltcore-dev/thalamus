@@ -17,8 +17,10 @@ type WeightsType string
 const WeightsTypeHF WeightsType = "hf"
 
 const (
-	// The model is ready to serve traffic.
+	// ModelConditionReady is true when the model can serve traffic end-to-end
 	ModelConditionReady = "Ready"
+	// ModelConditionSynced is true when the last reconciliation was successful
+	ModelConditionSynced = "Synced"
 )
 
 type ModelReason string

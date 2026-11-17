@@ -56,6 +56,7 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 	if cond := meta.FindStatusCondition(model.Status.Conditions, v1alpha1.ModelConditionReady); cond != nil {
+		// fixme is this log duplicative?
 		log.FromContext(ctx).V(levelDebug).Info("reconciled model", "namespace", model.Namespace, "name", model.Name, "ready", cond.Status, "reason", cond.Reason, "message", cond.Message)
 	}
 	return ctrl.Result{}, nil
@@ -140,11 +141,15 @@ func (r *ModelReconciler) observe(ctx context.Context, model *v1alpha1.Model, id
 		model.Status.Identifiers = nil
 	}
 
+	// TODO why only log on ready condition being present?
+	// Is it correct to compare with the entire Status?
+	// the log is incomplete in case the model changes engine/epp type; will they ever change?
 	if apiequality.Semantic.DeepEqual(before, &model.Status) {
 		return nil
 	}
 	if cond := meta.FindStatusCondition(model.Status.Conditions, v1alpha1.ModelConditionReady); cond != nil {
-		log.FromContext(ctx).V(levelInfo).Info("Model status changed", "namespace", model.Namespace, "name", model.Name, "ready", cond.Status, "reason", cond.Reason, "message", cond.Message)
+		log.FromContext(ctx).V(levelInfo).Info("Model status changed", "namespace", model.Namespace,
+			"name", model.Name, "ready", cond.Status, "reason", cond.Reason, "message", cond.Message)
 	}
 	if err := r.Status().Patch(ctx, model, patch); err != nil {
 		return fmt.Errorf("patch model status %s/%s: %w", model.Namespace, model.Name, err)

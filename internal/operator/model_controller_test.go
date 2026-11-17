@@ -11,7 +11,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -27,54 +26,20 @@ import (
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
 )
 
-const testNamespace = "default"
-const testGatewayName = "test-gateway"
-const testGatewayListener = "test-listener"
-const testRouterSAName = "thalamus-router"
+func TestReconcile_NotFound(t *testing.T) {
+	s := testutil.NewScheme(t)
+	r := &ModelReconciler{
+		Client:                   fake.NewClientBuilder().WithScheme(s).Build(),
+		Scheme:                   s,
+		GatewayName:              testGatewayName,
+		ListenerName:             testGatewayListener,
+		RouterServiceAccountName: testRouterSAName,
+	}
 
-// reconcileModelOnce runs a single reconciliation for the named Model and fails
-// the test if Reconcile returns an error.
-func reconcileModelOnce(t *testing.T, r *ModelReconciler, name string) ctrl.Result {
-	t.Helper()
-	res, err := r.Reconcile(context.Background(), ctrl.Request{
-		Name: name, Namespace: testNamespace,
-	})
+	_, err := r.Reconcile(context.Background(), ctrl.Request{Name: "missing", Namespace: testNamespace})
 	if err != nil {
 		t.Fatalf("Reconcile returned error: %v", err)
 	}
-	return res
-}
-
-// newTestReconciler returns a ModelReconciler backed by a fake client seeded
-// with the given objects.
-func newTestReconciler(t *testing.T, objs ...client.Object) (*ModelReconciler, client.Client) {
-	t.Helper()
-	s := testutil.NewScheme(t)
-	c := fake.NewClientBuilder().WithScheme(s).
-		WithObjects(objs...).
-		WithStatusSubresource(&v1alpha1.Model{}, &appsv1.Deployment{}, &inferencev1.InferencePool{}, &gatewayv1.HTTPRoute{}).
-		Build()
-	return &ModelReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener, RouterServiceAccountName: testRouterSAName}, c
-}
-
-func verifyReadyCondition(t *testing.T, model *v1alpha1.Model, wantStatus metav1.ConditionStatus, wantReason v1alpha1.ModelReason) {
-	t.Helper()
-	cond := meta.FindStatusCondition(model.Status.Conditions, v1alpha1.ModelConditionReady)
-	if cond == nil {
-		t.Fatalf("Ready condition not found on model")
-	}
-	if cond.Status != wantStatus {
-		t.Errorf("Ready condition status:\ngot:  %q\nwant: %q", cond.Status, wantStatus)
-	}
-	if cond.Reason != string(wantReason) {
-		t.Errorf("Ready condition reason:\ngot:  %q\nwant: %q", cond.Reason, wantReason)
-	}
-}
-
-func TestReconcile_NotFound(t *testing.T) {
-	s := testutil.NewScheme(t)
-	r := &ModelReconciler{Client: fake.NewClientBuilder().WithScheme(s).Build(), Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener, RouterServiceAccountName: testRouterSAName}
-	reconcileModelOnce(t, r, "missing")
 }
 
 func TestReconcile(t *testing.T) {
@@ -278,7 +243,7 @@ func TestReconcile_ScaleToZero(t *testing.T) {
 	// Model CR should remain and be reported as not ready.
 	updated := &v1alpha1.Model{}
 	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
-	verifyReadyCondition(t, updated, metav1.ConditionFalse, v1alpha1.ModelReasonNoReplicasDesired)
+	wantCondition{v1alpha1.ModelConditionReady, false, v1alpha1.ModelReasonNoReplicasDesired}.assert(t, updated)
 }
 
 func TestReconcile_ScaleDownFromOne(t *testing.T) {
@@ -307,7 +272,7 @@ func TestReconcile_ScaleDownFromOne(t *testing.T) {
 
 	updated := &v1alpha1.Model{}
 	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
-	verifyReadyCondition(t, updated, metav1.ConditionFalse, v1alpha1.ModelReasonNoReplicasDesired)
+	wantCondition{v1alpha1.ModelConditionReady, false, v1alpha1.ModelReasonNoReplicasDesired}.assert(t, updated)
 }
 
 func TestReconcile_ScaleToZero_KeepsForeignOwnedObject(t *testing.T) {
@@ -338,6 +303,8 @@ func TestReconcile_ScaleToZero_KeepsForeignOwnedObject(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for foreign-owned colliding resource, got nil")
 	}
+
+	//wantCondition{v1alpha1.ModelConditionSynced, false, v1alpha1.ModelReasonReconcileError}.assert(t, model)
 
 	// The foreign-owned deployment must not be deleted.
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, &appsv1.Deployment{})

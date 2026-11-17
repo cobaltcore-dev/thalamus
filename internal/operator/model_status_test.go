@@ -18,14 +18,18 @@ import (
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
 )
 
-func TestReconcile_ModelStatus(t *testing.T) {
+// Ready: the model is able to serve traffic at the moment -> all traffic serving components are ready
+// -> deployments, route, pool are ready
+//
+// Synced: the model and all of its child resources have been successfully reconciled, no errors on ModelController.Reconcile()
+func TestReconcile_ModelConditionReady(t *testing.T) {
 	cases := []struct {
-		name       string
-		prepare    func(*testing.T, client.Client, *v1alpha1.Model)
-		wantStatus metav1.ConditionStatus
-		wantReason v1alpha1.ModelReason
+		name    string
+		prepare func(*testing.T, client.Client, *v1alpha1.Model)
+		want    wantCondition
 	}{
 		{
+			// FIXME: test case names weren't properly renamed after phase removal
 			name: "ready when all ready",
 			prepare: func(t *testing.T, c client.Client, m *v1alpha1.Model) {
 				markDeploymentReady(t, c, m.EngineName())
@@ -33,8 +37,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				markInferencePoolReady(t, c, m.EngineName())
 				markHTTPRouteReady(t, c, m.EngineName())
 			},
-			wantStatus: metav1.ConditionTrue,
-			wantReason: v1alpha1.ModelReasonReady,
+			want: wantCondition{status: true, reason: v1alpha1.ModelReasonReady},
 		},
 		{
 			name: "creating when engine deployment not ready",
@@ -43,8 +46,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				markInferencePoolReady(t, c, m.EngineName())
 				markHTTPRouteReady(t, c, m.EngineName())
 			},
-			wantStatus: metav1.ConditionFalse,
-			wantReason: v1alpha1.ModelReasonEngineNotReady,
+			want: wantCondition{status: false, reason: v1alpha1.ModelReasonEngineNotReady},
 		},
 		{
 			name: "creating when epp deployment not ready",
@@ -53,8 +55,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				markInferencePoolReady(t, c, m.EngineName())
 				markHTTPRouteReady(t, c, m.EngineName())
 			},
-			wantStatus: metav1.ConditionFalse,
-			wantReason: v1alpha1.ModelReasonEPPNotReady,
+			want: wantCondition{status: false, reason: v1alpha1.ModelReasonEPPNotReady},
 		},
 		{
 			name: "creating when inference pool not ready",
@@ -63,8 +64,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				markDeploymentReady(t, c, m.EPPName())
 				markHTTPRouteReady(t, c, m.EngineName())
 			},
-			wantStatus: metav1.ConditionFalse,
-			wantReason: v1alpha1.ModelReasonInferencePoolNotAccepted,
+			want: wantCondition{status: false, reason: v1alpha1.ModelReasonInferencePoolNotAccepted},
 		},
 		{
 			name: "creating when http route not ready",
@@ -73,8 +73,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				markDeploymentReady(t, c, m.EPPName())
 				markInferencePoolReady(t, c, m.EngineName())
 			},
-			wantStatus: metav1.ConditionFalse,
-			wantReason: v1alpha1.ModelReasonHTTPRouteNotAccepted,
+			want: wantCondition{status: false, reason: v1alpha1.ModelReasonHTTPRouteNotAccepted},
 		},
 		{
 			name: "creating when engine deployment observed generation is stale",
@@ -90,8 +89,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				markInferencePoolReady(t, c, m.EngineName())
 				markHTTPRouteReady(t, c, m.EngineName())
 			},
-			wantStatus: metav1.ConditionFalse,
-			wantReason: v1alpha1.ModelReasonEngineNotReady,
+			want: wantCondition{status: false, reason: v1alpha1.ModelReasonEngineNotReady},
 		},
 		{
 			name: "creating when http route accepted is pending",
@@ -106,8 +104,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					Message: "pending",
 				})
 			},
-			wantStatus: metav1.ConditionFalse,
-			wantReason: v1alpha1.ModelReasonHTTPRouteNotAccepted,
+			want: wantCondition{status: false, reason: v1alpha1.ModelReasonHTTPRouteNotAccepted},
 		},
 		{
 			name: "creating when inference pool is not requested",
@@ -121,8 +118,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					Message: "not requested",
 				})
 			},
-			wantStatus: metav1.ConditionFalse,
-			wantReason: v1alpha1.ModelReasonInferencePoolNotAccepted,
+			want: wantCondition{status: false, reason: v1alpha1.ModelReasonInferencePoolNotAccepted},
 		},
 		{
 			name: "failed when engine deployment replica failure",
@@ -134,8 +130,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					Message: "replica creation failed",
 				})
 			},
-			wantStatus: metav1.ConditionFalse,
-			wantReason: v1alpha1.ModelReasonEngineDeploymentFailed,
+			want: wantCondition{status: false, reason: v1alpha1.ModelReasonEngineDeploymentFailed},
 		},
 		{
 			name: "failed when engine deployment progress deadline exceeded",
@@ -147,8 +142,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					Message: "progress deadline exceeded",
 				})
 			},
-			wantStatus: metav1.ConditionFalse,
-			wantReason: v1alpha1.ModelReasonEngineDeploymentFailed,
+			want: wantCondition{status: false, reason: v1alpha1.ModelReasonEngineDeploymentFailed},
 		},
 		{
 			name: "ready when engine deployment progress deadline exceeded but still available",
@@ -158,8 +152,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				markInferencePoolReady(t, c, m.EngineName())
 				markHTTPRouteReady(t, c, m.EngineName())
 			},
-			wantStatus: metav1.ConditionTrue,
-			wantReason: v1alpha1.ModelReasonReady,
+			want: wantCondition{status: true, reason: v1alpha1.ModelReasonReady},
 		},
 		{
 			name: "failed when epp deployment replica failure",
@@ -172,8 +165,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					Message: "replica creation failed",
 				})
 			},
-			wantStatus: metav1.ConditionFalse,
-			wantReason: v1alpha1.ModelReasonEPPDeploymentFailed,
+			want: wantCondition{status: false, reason: v1alpha1.ModelReasonEPPDeploymentFailed},
 		},
 		{
 			name: "failed when epp deployment progress deadline exceeded",
@@ -186,8 +178,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					Message: "progress deadline exceeded",
 				})
 			},
-			wantStatus: metav1.ConditionFalse,
-			wantReason: v1alpha1.ModelReasonEPPDeploymentFailed,
+			want: wantCondition{status: false, reason: v1alpha1.ModelReasonEPPDeploymentFailed},
 		},
 		{
 			name: "ready when epp deployment progress deadline exceeded but still available",
@@ -197,8 +188,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				markInferencePoolReady(t, c, m.EngineName())
 				markHTTPRouteReady(t, c, m.EngineName())
 			},
-			wantStatus: metav1.ConditionTrue,
-			wantReason: v1alpha1.ModelReasonReady,
+			want: wantCondition{status: true, reason: v1alpha1.ModelReasonReady},
 		},
 		{
 			name: "failed when inference pool rejected",
@@ -212,8 +202,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					Message: "not supported",
 				})
 			},
-			wantStatus: metav1.ConditionFalse,
-			wantReason: v1alpha1.ModelReasonInferencePoolRejected,
+			want: wantCondition{status: false, reason: v1alpha1.ModelReasonInferencePoolRejected},
 		},
 		{
 			name: "failed when inference pool resolved refs rejected",
@@ -227,8 +216,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					Message: "invalid extension ref",
 				})
 			},
-			wantStatus: metav1.ConditionFalse,
-			wantReason: v1alpha1.ModelReasonInferencePoolRejected,
+			want: wantCondition{status: false, reason: v1alpha1.ModelReasonInferencePoolRejected},
 		},
 		{
 			name: "failed when http route rejected",
@@ -243,8 +231,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					Message: "not allowed",
 				})
 			},
-			wantStatus: metav1.ConditionFalse,
-			wantReason: v1alpha1.ModelReasonHTTPRouteRejected,
+			want: wantCondition{status: false, reason: v1alpha1.ModelReasonHTTPRouteRejected},
 		},
 		{
 			name: "failed when http route has incompatible filters",
@@ -259,8 +246,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					Message: "incompatible filters",
 				})
 			},
-			wantStatus: metav1.ConditionFalse,
-			wantReason: v1alpha1.ModelReasonHTTPRouteRejected,
+			want: wantCondition{status: false, reason: v1alpha1.ModelReasonHTTPRouteRejected},
 		},
 		{
 			name: "failed when inference pool is not supported",
@@ -274,8 +260,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					Message: "not supported",
 				})
 			},
-			wantStatus: metav1.ConditionFalse,
-			wantReason: v1alpha1.ModelReasonInferencePoolRejected,
+			want: wantCondition{status: false, reason: v1alpha1.ModelReasonInferencePoolRejected},
 		},
 		{
 			name: "failed when http route partially invalid",
@@ -289,8 +274,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					metav1.Condition{Type: string(gatewayv1.RouteConditionPartiallyInvalid), Status: metav1.ConditionTrue, Reason: "PartiallyInvalid", Message: "partial error"},
 				)
 			},
-			wantStatus: metav1.ConditionFalse,
-			wantReason: v1alpha1.ModelReasonHTTPRoutePartiallyInvalid,
+			want: wantCondition{status: false, reason: v1alpha1.ModelReasonHTTPRoutePartiallyInvalid},
 		},
 		{
 			name: "ready when http route partially invalid condition is stale",
@@ -311,8 +295,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					},
 				)
 			},
-			wantStatus: metav1.ConditionTrue,
-			wantReason: v1alpha1.ModelReasonReady,
+			want: wantCondition{status: true, reason: v1alpha1.ModelReasonReady},
 		},
 		{
 			name: "creating when http route backend not found",
@@ -327,8 +310,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					Message: "backend not found",
 				})
 			},
-			wantStatus: metav1.ConditionFalse,
-			wantReason: v1alpha1.ModelReasonHTTPRouteNotAccepted,
+			want: wantCondition{status: false, reason: v1alpha1.ModelReasonHTTPRouteNotAccepted},
 		},
 		{
 			name: "failed when inference pool has one ready and one failed parent",
@@ -351,8 +333,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					},
 				)
 			},
-			wantStatus: metav1.ConditionFalse,
-			wantReason: v1alpha1.ModelReasonInferencePoolRejected,
+			want: wantCondition{status: false, reason: v1alpha1.ModelReasonInferencePoolRejected},
 		},
 		{
 			name: "creating when inference pool has one ready and one pending parent",
@@ -375,8 +356,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					},
 				)
 			},
-			wantStatus: metav1.ConditionFalse,
-			wantReason: v1alpha1.ModelReasonInferencePoolNotAccepted,
+			want: wantCondition{status: false, reason: v1alpha1.ModelReasonInferencePoolNotAccepted},
 		},
 		{
 			name: "failed when http route has one ready and one failed parent",
@@ -402,8 +382,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					},
 				)
 			},
-			wantStatus: metav1.ConditionFalse,
-			wantReason: v1alpha1.ModelReasonHTTPRouteRejected,
+			want: wantCondition{status: false, reason: v1alpha1.ModelReasonHTTPRouteRejected},
 		},
 		{
 			name: "creating when inference pool acceptance is stale",
@@ -413,8 +392,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				setGeneration(t, c, m.EngineName(), &inferencev1.InferencePool{}, 2)
 				markInferencePoolReady(t, c, m.EngineName())
 			},
-			wantStatus: metav1.ConditionFalse,
-			wantReason: v1alpha1.ModelReasonInferencePoolNotAccepted,
+			want: wantCondition{status: false, reason: v1alpha1.ModelReasonInferencePoolNotAccepted},
 		},
 		{
 			name: "creating when http route acceptance is stale",
@@ -425,8 +403,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 				setGeneration(t, c, m.EngineName(), &gatewayv1.HTTPRoute{}, 2)
 				markHTTPRouteReady(t, c, m.EngineName())
 			},
-			wantStatus: metav1.ConditionFalse,
-			wantReason: v1alpha1.ModelReasonHTTPRouteNotAccepted,
+			want: wantCondition{status: false, reason: v1alpha1.ModelReasonHTTPRouteNotAccepted},
 		},
 		{
 			name: "creating when http route has one ready and one pending parent",
@@ -452,8 +429,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 					},
 				)
 			},
-			wantStatus: metav1.ConditionFalse,
-			wantReason: v1alpha1.ModelReasonHTTPRouteNotAccepted,
+			want: wantCondition{status: false, reason: v1alpha1.ModelReasonHTTPRouteNotAccepted},
 		},
 	}
 
@@ -469,7 +445,8 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			updated := &v1alpha1.Model{}
 			testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
 
-			verifyReadyCondition(t, updated, tc.wantStatus, tc.wantReason)
+			tc.want.typ = v1alpha1.ModelConditionReady
+			tc.want.assert(t, updated)
 		})
 	}
 }
@@ -498,7 +475,7 @@ func TestSyncHTTPRouteCondition_StaleMatches(t *testing.T) {
 	if ready {
 		t.Fatal("expected a route with stale matches to be not ready")
 	}
-	verifyReadyCondition(t, model, metav1.ConditionFalse, v1alpha1.ModelReasonHTTPRouteNotAccepted)
+	wantCondition{v1alpha1.ModelConditionReady, false, v1alpha1.ModelReasonHTTPRouteNotAccepted}.assert(t, model)
 }
 
 func markDeploymentReady(t *testing.T, c client.Client, name string) {
@@ -641,7 +618,7 @@ func TestReconcile_ModelStatus_AvailableButIncomplete(t *testing.T) {
 	updated := &v1alpha1.Model{}
 	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
 
-	verifyReadyCondition(t, updated, metav1.ConditionFalse, v1alpha1.ModelReasonEngineNotReady)
+	wantCondition{v1alpha1.ModelConditionReady, false, v1alpha1.ModelReasonEngineNotReady}.assert(t, updated)
 }
 
 func TestDeploymentFailed(t *testing.T) {
