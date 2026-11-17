@@ -44,6 +44,7 @@ type ModelReconciler struct {
 	RouterServiceAccountName string
 }
 
+// Reconcile applies the desired state and records the observed status.
 func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	model, err := getObject(ctx, r.Client, req.Namespace, req.Name, &v1alpha1.Model{})
 	if err != nil || model == nil {
@@ -55,11 +56,6 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
-	return r.reconcile(ctx, model, artifact)
-}
-
-// reconcile applies the desired state and records the observed status.
-func (r *ModelReconciler) reconcile(ctx context.Context, model *v1alpha1.Model, artifact *v1alpha1.ModelArtifact) (ctrl.Result, error) {
 	before := model.DeepCopy()
 	identifiers := modelIdentifiers(model, artifact)
 	usable := isArtifactUsable(artifact) || model.Spec.Replicas == 0
