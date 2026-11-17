@@ -11,7 +11,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -55,10 +54,8 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	if err := r.observe(ctx, model, identifiers); err != nil {
 		return ctrl.Result{}, err
 	}
-	if cond := meta.FindStatusCondition(model.Status.Conditions, v1alpha1.ModelConditionReady); cond != nil {
-		// fixme is this log duplicative?
-		log.FromContext(ctx).V(levelDebug).Info("reconciled model", "namespace", model.Namespace, "name", model.Name, "ready", cond.Status, "reason", cond.Reason, "message", cond.Message)
-	}
+	log.FromContext(ctx).V(levelDebug).
+		Info("Reconciled model", "namespace", model.Namespace, "name", model.Name, "conditions", model.Status.Conditions)
 	return ctrl.Result{}, nil
 }
 
@@ -92,7 +89,8 @@ func (r *ModelReconciler) apply(ctx context.Context, model *v1alpha1.Model, iden
 
 	if model.Spec.Replicas == 0 {
 		// Delete in reverse order so consumers are removed before their dependencies.
-		log.FromContext(ctx).V(levelDebug).Info("deleting owned resources", "namespace", model.Namespace, "name", model.Name, "resources", len(objs))
+		log.FromContext(ctx).V(levelDebug).
+			Info("deleting owned resources", "namespace", model.Namespace, "name", model.Name, "resources", len(objs))
 		for _, obj := range slices.Backward(objs) {
 			if err := r.deleteOwned(ctx, model, obj); err != nil {
 				return err
@@ -141,19 +139,15 @@ func (r *ModelReconciler) observe(ctx context.Context, model *v1alpha1.Model, id
 		model.Status.Identifiers = nil
 	}
 
-	// TODO why only log on ready condition being present?
-	// Is it correct to compare with the entire Status?
-	// the log is incomplete in case the model changes engine/epp type; will they ever change?
 	if apiequality.Semantic.DeepEqual(before, &model.Status) {
 		return nil
 	}
-	if cond := meta.FindStatusCondition(model.Status.Conditions, v1alpha1.ModelConditionReady); cond != nil {
-		log.FromContext(ctx).V(levelInfo).Info("Model status changed", "namespace", model.Namespace,
-			"name", model.Name, "ready", cond.Status, "reason", cond.Reason, "message", cond.Message)
-	}
+
 	if err := r.Status().Patch(ctx, model, patch); err != nil {
 		return fmt.Errorf("patch model status %s/%s: %w", model.Namespace, model.Name, err)
 	}
+	log.FromContext(ctx).V(levelInfo).
+		Info("Model status changed", "namespace", model.Namespace, "name", model.Name, "status", model.Status)
 	return nil
 }
 
