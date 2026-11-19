@@ -22,9 +22,6 @@ spec:
     - jsonPath: .status.engineType
       name: Engine
       type: string
-    - jsonPath: .status.eppType
-      name: EPP
-      type: string
     - jsonPath: .spec.weights.type
       name: Weights
       type: string
@@ -7964,11 +7961,6 @@ spec:
               engineType:
                 enum:
                 - vllm
-                - unknown
-                type: string
-              eppType:
-                enum:
-                - llm-d
                 - unknown
                 type: string
               identifiers:

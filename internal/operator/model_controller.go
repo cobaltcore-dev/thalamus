@@ -129,7 +129,6 @@ func (r *ModelReconciler) observe(ctx context.Context, model *v1alpha1.Model, id
 	before := model.Status.DeepCopy()
 
 	model.Status.EngineType = model.DetectedEngineType()
-	model.Status.EPPType = model.DetectedEPPType()
 
 	if err := r.syncModelStatus(ctx, model, identifiers); err != nil {
 		return fmt.Errorf("sync model status: %w", err)
