@@ -25,7 +25,7 @@ const (
 func TestBuildInferencePool(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	model.Spec.Serving.Router = corev1.PodSpec{
-		Containers: []corev1.Container{{Name: "router", Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0"}},
+		Containers: []corev1.Container{{Name: "router", Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v1.0.0"}},
 	}
 	pool := BuildInferencePool(model)
 

@@ -29,6 +29,8 @@ func TestBuildEPPConfigMap(t *testing.T) {
 	}
 
 	var parsed struct {
+		APIVersion     string `json:"apiVersion"`
+		Kind           string `json:"kind"`
 		RequestHandler struct {
 			Parsers []struct {
 				PluginRef string `json:"pluginRef"`
@@ -39,9 +41,18 @@ func TestBuildEPPConfigMap(t *testing.T) {
 		t.Fatalf("unmarshal EPP config: %v", err)
 	}
 
+	// The EPP serves the config API at llm-d.ai/v1; older apiVersions are
+	// deprecated or rejected outright by newer EPP images.
+	if parsed.APIVersion != "llm-d.ai/v1" {
+		t.Errorf("apiVersion:\ngot:  %q\nwant: %q", parsed.APIVersion, "llm-d.ai/v1")
+	}
+	if parsed.Kind != "EndpointPickerConfig" {
+		t.Errorf("kind:\ngot:  %q\nwant: %q", parsed.Kind, "EndpointPickerConfig")
+	}
+
 	// Order matters: first match wins, and a parser with no paths (passthrough)
 	// must be last so it acts as the fallback for unclaimed paths.
-	want := []string{"openai-parser", "anthropic-parser", "vllmhttp-parser", "passthrough-parser"}
+	want := []string{"openai-parser", "anthropic-parser", "passthrough-parser"}
 	if len(parsed.RequestHandler.Parsers) != len(want) {
 		t.Fatalf("requestHandler.parsers:\ngot:  %+v\nwant: %d entries", parsed.RequestHandler.Parsers, len(want))
 	}

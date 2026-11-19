@@ -1,4 +1,4 @@
-apiVersion: inference.networking.x-k8s.io/v1alpha1
+apiVersion: llm-d.ai/v1
 kind: EndpointPickerConfig
 plugins:
 - type: queue-scorer
@@ -11,7 +11,6 @@ plugins:
     insecureSkipVerify: true
 - type: openai-parser
 - type: anthropic-parser
-- type: vllmhttp-parser
 - type: passthrough-parser
 schedulingProfiles:
 - name: default
@@ -26,5 +25,4 @@ requestHandler:
   parsers:
   - pluginRef: openai-parser
   - pluginRef: anthropic-parser
-  - pluginRef: vllmhttp-parser
   - pluginRef: passthrough-parser
