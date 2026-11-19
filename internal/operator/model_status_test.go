@@ -5,12 +5,19 @@ package operator
 
 import (
 	"context"
+	"errors"
+	"slices"
+	"strings"
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -18,10 +25,6 @@ import (
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
 )
 
-// Ready: the model is able to serve traffic at the moment -> all traffic serving components are ready
-// -> deployments, route, pool are ready
-//
-// Synced: the model and all of its child resources have been successfully reconciled, no errors on ModelController.Reconcile()
 func TestReconcile_ModelConditionReady(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -446,6 +449,70 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 
 			tc.want.typ = v1alpha1.ModelConditionReady
 			tc.want.assert(t, updated)
+		})
+	}
+}
+
+func TestReconcile_ModelConditionNotSynced(t *testing.T) {
+	applyErr := errors.New("injected apply error")
+
+	cases := []struct {
+		name      string
+		prepare   func(*testing.T, *ModelReconciler, client.Client, *v1alpha1.Model)
+		wantReady wantCondition
+	}{
+		{
+			name:      "not synced when apply fails on not ready",
+			prepare:   func(*testing.T, *ModelReconciler, client.Client, *v1alpha1.Model) {},
+			wantReady: wantCondition{status: false, reason: v1alpha1.ModelReasonEngineNotReady},
+		},
+		{
+			name: "not synced but still ready when apply fails on ready",
+			prepare: func(t *testing.T, r *ModelReconciler, c client.Client, m *v1alpha1.Model) {
+				markDeploymentReady(t, c, m.EngineName())
+				markDeploymentReady(t, c, m.EPPName())
+				markInferencePoolReady(t, c, m.EngineName())
+				markHTTPRouteReady(t, c, m.EngineName())
+				reconcileModelOnce(t, r, m.Name)
+			},
+			wantReady: wantCondition{status: true, reason: v1alpha1.ModelReasonReady},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			model := testutil.NewModel("tiny-llm", testNamespace)
+			r, c := newTestReconciler(t, model)
+			reconcileModelOnce(t, r, "tiny-llm")
+			tc.prepare(t, r, c, model)
+
+			testutil.MustGet(t, c, model.Name, model.Namespace, model)
+			tc.wantReady.typ = v1alpha1.ModelConditionReady
+			tc.wantReady.assert(t, model)
+
+			r.Client = interceptor.NewClient(c.(client.WithWatch), interceptor.Funcs{
+				Apply: func(context.Context, client.WithWatch, runtime.ApplyConfiguration, ...client.ApplyOption) error {
+					return applyErr
+				},
+			})
+
+			_, err := r.Reconcile(context.Background(), ctrl.Request{Name: model.Name, Namespace: model.Namespace})
+			if !errors.Is(err, applyErr) {
+				t.Fatalf("expected apply error, got: %v", err)
+			}
+
+			updated := &v1alpha1.Model{}
+			testutil.MustGet(t, c, model.Name, model.Namespace, updated)
+			tc.wantReady.assert(t, updated)
+			if !slices.Equal(updated.Status.Identifiers, model.Status.Identifiers) {
+				t.Errorf("identifiers changed after apply failure:\ngot:  %v\nwant: %v", updated.Status.Identifiers, model.Status.Identifiers)
+			}
+
+			wantCondition{v1alpha1.ModelConditionSynced, false, v1alpha1.ModelReasonReconcileError}.assert(t, updated)
+			synced := meta.FindStatusCondition(updated.Status.Conditions, v1alpha1.ModelConditionSynced)
+			if !strings.Contains(synced.Message, applyErr.Error()) {
+				t.Errorf("Synced message %q does not contain the cause %q", synced.Message, applyErr.Error())
+			}
 		})
 	}
 }
