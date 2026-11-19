@@ -15,7 +15,7 @@ It requires an AI-enabled Kubernetes cluster, for example one provided by [Garde
 A single OpenAI-compatible HTTP endpoint serves all clients. Other standards, such as Anthropic Messages, are also supported. Thalamus does not route traffic itself, but integrates with a gateway data plane. The operator reconciles each `Model` into CRDs from both the [Gateway API](https://gateway-api.sigs.k8s.io/) and [agentgateway](https://agentgateway.dev). 
 Thalamus natively supports agentgateway as the data plane, with other integrations following in the future.
 
-See [Request flow](/concepts/backends/native/request-flow) for how a request is routed to a model and replica, and [Gateway Integrations](/gateway-integrations) for what can be configured on the gateway.
+See [Request flow](/concepts/runtime/request-flow) for how a request is routed to a model and replica, and [Gateway Integrations](/gateway-integrations) for what can be configured on the gateway.
 
 ## Kubernetes AI runtime
 
@@ -86,7 +86,7 @@ The same stack runs in two topologies:
 
 ## Related
 
-- [Native Backend](/concepts/backends/native/)
-- [Native Backend Request flow](/concepts/backends/native/request-flow)
+- [Runtime](/concepts/runtime)
+- [Runtime Request Flow](/concepts/runtime/request-flow)
 - [Model CRD API Reference](/reference/model-crd-api)
 - [Getting Started](/getting-started)

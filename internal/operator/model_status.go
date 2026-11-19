@@ -17,7 +17,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
-	"github.com/cobaltcore-dev/thalamus/internal/operator/resources/native"
+	"github.com/cobaltcore-dev/thalamus/internal/operator/resources"
 )
 
 // syncModelStatus derives and updates the ready state of a model by checking:
@@ -29,7 +29,7 @@ func (r *ModelReconciler) syncModelStatus(ctx context.Context, model *v1alpha1.M
 		return nil
 	}
 
-	resources := []struct {
+	checks := []struct {
 		name          string
 		syncCondition func(context.Context, *v1alpha1.Model) (bool, error)
 	}{
@@ -41,10 +41,10 @@ func (r *ModelReconciler) syncModelStatus(ctx context.Context, model *v1alpha1.M
 		}},
 	}
 
-	for _, resource := range resources {
-		ready, err := resource.syncCondition(ctx, model)
+	for _, check := range checks {
+		ready, err := check.syncCondition(ctx, model)
 		if err != nil {
-			return fmt.Errorf("sync %s condition failed: %w", resource.name, err)
+			return fmt.Errorf("sync %s condition failed: %w", check.name, err)
 		}
 		if !ready {
 			return nil
@@ -155,7 +155,7 @@ func (r *ModelReconciler) syncHTTPRouteCondition(ctx context.Context, model *v1a
 	}
 
 	// The informer cache may still hold the route from before this apply.
-	desired := native.BuildHTTPRoute(model, identifiers, r.GatewayName, r.ListenerName)
+	desired := resources.BuildHTTPRoute(model, identifiers, r.GatewayName, r.ListenerName)
 	if !httpRouteServesDesiredMatches(route, desired) {
 		model.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonHTTPRouteNotAccepted,
 			fmt.Sprintf("HTTPRoute %s does not serve the current model names", model.EngineName()))

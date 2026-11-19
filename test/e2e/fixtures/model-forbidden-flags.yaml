@@ -9,7 +9,6 @@ metadata:
   name: forbidden-flags
   namespace: thalamus
 spec:
-  backend: native
   serving:
     engine:
       containers:

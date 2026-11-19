@@ -16,7 +16,7 @@ import (
 	agentgatewayv1alpha1 "github.com/agentgateway/agentgateway/controller/api/v1alpha1/agentgateway"
 
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
-	"github.com/cobaltcore-dev/thalamus/internal/operator/resources/native"
+	"github.com/cobaltcore-dev/thalamus/internal/operator/resources"
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
 )
 
@@ -29,7 +29,7 @@ func newGateway() *gatewayv1.Gateway {
 }
 
 func newModelListPolicy() *agentgatewayv1alpha1.AgentgatewayPolicy {
-	return native.BuildModelListPolicy(testNamespace, `{"object":"list","data":[]}`)
+	return resources.BuildModelListPolicy(testNamespace, `{"object":"list","data":[]}`)
 }
 
 func reconcileModelListOnce(t *testing.T, r *ModelListReconciler) ctrl.Result {
@@ -45,12 +45,12 @@ func reconcileModelListOnce(t *testing.T, r *ModelListReconciler) ctrl.Result {
 
 func mustGetPolicy(t *testing.T, r *ModelListReconciler) *agentgatewayv1alpha1.AgentgatewayPolicy {
 	t.Helper()
-	return testutil.MustGet(t, r.Client, native.ModelListPolicyName, testNamespace, &agentgatewayv1alpha1.AgentgatewayPolicy{})
+	return testutil.MustGet(t, r.Client, resources.ModelListPolicyName, testNamespace, &agentgatewayv1alpha1.AgentgatewayPolicy{})
 }
 
 func mustGetRoute(t *testing.T, r *ModelListReconciler) *gatewayv1.HTTPRoute {
 	t.Helper()
-	return testutil.MustGet(t, r.Client, native.ModelListRouteName, testNamespace, &gatewayv1.HTTPRoute{})
+	return testutil.MustGet(t, r.Client, resources.ModelListRouteName, testNamespace, &gatewayv1.HTTPRoute{})
 }
 
 func mustGetPolicyBody(t *testing.T, r *ModelListReconciler) string {
@@ -89,8 +89,8 @@ func TestModelListReconcile_NoGateway(t *testing.T) {
 
 	reconcileModelListOnce(t, r)
 
-	testutil.MustNotGet(t, c, native.ModelListPolicyName, testNamespace, &agentgatewayv1alpha1.AgentgatewayPolicy{})
-	testutil.MustNotGet(t, c, native.ModelListRouteName, testNamespace, &gatewayv1.HTTPRoute{})
+	testutil.MustNotGet(t, c, resources.ModelListPolicyName, testNamespace, &agentgatewayv1alpha1.AgentgatewayPolicy{})
+	testutil.MustNotGet(t, c, resources.ModelListRouteName, testNamespace, &gatewayv1.HTTPRoute{})
 }
 
 func TestModelListReconcile_DeletingGateway(t *testing.T) {
@@ -104,8 +104,8 @@ func TestModelListReconcile_DeletingGateway(t *testing.T) {
 
 	reconcileModelListOnce(t, r)
 
-	testutil.MustNotGet(t, c, native.ModelListPolicyName, testNamespace, &agentgatewayv1alpha1.AgentgatewayPolicy{})
-	testutil.MustNotGet(t, c, native.ModelListRouteName, testNamespace, &gatewayv1.HTTPRoute{})
+	testutil.MustNotGet(t, c, resources.ModelListPolicyName, testNamespace, &agentgatewayv1alpha1.AgentgatewayPolicy{})
+	testutil.MustNotGet(t, c, resources.ModelListRouteName, testNamespace, &gatewayv1.HTTPRoute{})
 }
 
 func TestModelListReconcile_NoModels(t *testing.T) {

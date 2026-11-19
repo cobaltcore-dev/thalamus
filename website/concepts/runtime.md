@@ -1,12 +1,12 @@
 ---
-title: Native Backend
+title: Runtime
 ---
 
-# Native backend
+# Runtime
 
-The native backend is Thalamus' built-in serving backend and the default for every [`Model`](/reference/model-crd-api). The Thalamus operator reconciles each `Model` custom resource (`thalamus.cloud/v1alpha1`) into a complete per-model runtime, served behind a shared Gateway API gateway backed by [agentgateway](https://agentgateway.dev/).
+Thalamus reconciles each [`Model`](/reference/model-crd-api) custom resource (`thalamus.cloud/v1alpha1`) into a complete per-model runtime, served behind a shared Gateway API gateway backed by [agentgateway](https://agentgateway.dev/).
 
-![Native backend architecture](/backends-native.svg)
+![Runtime architecture](/runtime.svg)
 
 ## Reconciliation
 
@@ -21,10 +21,11 @@ The operator also keeps a model-list `AgentgatewayPolicy` in sync, so the `/v1/m
 
 ## Gateway
 
-The shared inference gateway is a plain Gateway API gateway, backed by agentgateway. A body-based routing `AgentgatewayPolicy` extracts the model name from each request body and sets the Inference Extension's `X-Gateway-Base-Model-Name` header, which the per-model `HTTPRoute` matches to route the request to the right model. See [Request flow](/concepts/backends/native/request-flow) for a step-by-step walkthrough.
+The shared inference gateway is a plain Gateway API gateway, backed by agentgateway. A body-based routing `AgentgatewayPolicy` extracts the model name from each request body and sets the Inference Extension's `X-Gateway-Base-Model-Name` header, which the per-model `HTTPRoute` matches to route the request to the right model. See [Request flow](/concepts/runtime/request-flow) for a step-by-step walkthrough.
 
 ## Artifacts and infrastructure
 
 The `Model` deployments in Thalamus depend on additional infrastructure that needs to be provided by cluster administrators.
 The container images are pulled from an OCI registry and the model weights are fetched from an object store.
 The reconciled workloads run on GPU nodes prepared by the vendor GPU operators (NVIDIA, AMD, Intel), and metrics collected by Prometheus and OpenTelemetry.
+

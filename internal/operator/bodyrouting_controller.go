@@ -16,7 +16,7 @@ import (
 
 	agentgatewayv1alpha1 "github.com/agentgateway/agentgateway/controller/api/v1alpha1/agentgateway"
 
-	"github.com/cobaltcore-dev/thalamus/internal/operator/resources/native"
+	"github.com/cobaltcore-dev/thalamus/internal/operator/resources"
 )
 
 // BodyRoutingReconciler keeps the body-based routing policy in sync, which per-model routes depend on.
@@ -38,7 +38,7 @@ func (r *BodyRoutingReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	if err := applyOwnedNonBlocking(ctx, r.Client, r.Scheme, gateway, native.BuildBodyBasedRoutingPolicy(gateway, r.ListenerName)); err != nil {
+	if err := applyOwnedNonBlocking(ctx, r.Client, r.Scheme, gateway, resources.BuildBodyBasedRoutingPolicy(gateway, r.ListenerName)); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -53,7 +53,7 @@ func (r *BodyRoutingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			predicate.GenerationChangedPredicate{},
 		))).
 		Owns(&agentgatewayv1alpha1.AgentgatewayPolicy{}, builder.WithPredicates(predicate.And(
-			namePredicate(native.BodyBasedRoutingPolicyName),
+			namePredicate(resources.BodyBasedRoutingPolicyName),
 			ownedByPredicate("Gateway", r.GatewayName),
 		))).
 		Named("body-routing").

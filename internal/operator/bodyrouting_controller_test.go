@@ -13,7 +13,7 @@ import (
 
 	agentgatewayv1alpha1 "github.com/agentgateway/agentgateway/controller/api/v1alpha1/agentgateway"
 
-	"github.com/cobaltcore-dev/thalamus/internal/operator/resources/native"
+	"github.com/cobaltcore-dev/thalamus/internal/operator/resources"
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
 )
 
@@ -29,7 +29,7 @@ func reconcileBodyRoutingOnce(t *testing.T, r *BodyRoutingReconciler) {
 
 func mustGetBodyRoutingPolicy(t *testing.T, r *BodyRoutingReconciler) *agentgatewayv1alpha1.AgentgatewayPolicy {
 	t.Helper()
-	return testutil.MustGet(t, r.Client, native.BodyBasedRoutingPolicyName, testNamespace, &agentgatewayv1alpha1.AgentgatewayPolicy{})
+	return testutil.MustGet(t, r.Client, resources.BodyBasedRoutingPolicyName, testNamespace, &agentgatewayv1alpha1.AgentgatewayPolicy{})
 }
 
 func TestBodyRoutingReconcile_NoGateway(t *testing.T) {
@@ -39,7 +39,7 @@ func TestBodyRoutingReconcile_NoGateway(t *testing.T) {
 
 	reconcileBodyRoutingOnce(t, r)
 
-	testutil.MustNotGet(t, c, native.BodyBasedRoutingPolicyName, testNamespace, &agentgatewayv1alpha1.AgentgatewayPolicy{})
+	testutil.MustNotGet(t, c, resources.BodyBasedRoutingPolicyName, testNamespace, &agentgatewayv1alpha1.AgentgatewayPolicy{})
 }
 
 func TestBodyRoutingReconcile_DeletingGateway(t *testing.T) {
@@ -53,7 +53,7 @@ func TestBodyRoutingReconcile_DeletingGateway(t *testing.T) {
 
 	reconcileBodyRoutingOnce(t, r)
 
-	testutil.MustNotGet(t, c, native.BodyBasedRoutingPolicyName, testNamespace, &agentgatewayv1alpha1.AgentgatewayPolicy{})
+	testutil.MustNotGet(t, c, resources.BodyBasedRoutingPolicyName, testNamespace, &agentgatewayv1alpha1.AgentgatewayPolicy{})
 }
 
 func TestBodyRoutingReconcile_CreatesPolicy(t *testing.T) {
@@ -71,7 +71,7 @@ func TestBodyRoutingReconcile_CreatesPolicy(t *testing.T) {
 func TestBodyRoutingReconcile_ReappliesModifiedPolicy(t *testing.T) {
 	s := testutil.NewScheme(t)
 	gateway := newGateway()
-	policy := native.BuildBodyBasedRoutingPolicy(gateway, testGatewayListener)
+	policy := resources.BuildBodyBasedRoutingPolicy(gateway, testGatewayListener)
 	policy.Spec.Traffic.Transformation = nil
 	c := fake.NewClientBuilder().WithScheme(s).WithObjects(gateway, policy).Build()
 	r := &BodyRoutingReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener}

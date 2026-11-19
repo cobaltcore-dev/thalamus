@@ -9,7 +9,6 @@ metadata:
   name: smollm2-135m
   namespace: thalamus
 spec:
-  backend: native
   replicas: 1
   serving:
     engine:

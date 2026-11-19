@@ -1,7 +1,7 @@
 // Copyright SAP SE
 // SPDX-License-Identifier: Apache-2.0
 
-package native
+package resources
 
 import (
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"

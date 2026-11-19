@@ -4,9 +4,9 @@ title: Request flow
 
 # Request flow
 
-This is how a chat completion request flows through the [native backend](/concepts/backends/native/).
+This is how a chat completion request flows through the [runtime](/concepts/runtime).
 
-![Request flow](/backends-native-request-flow.svg)
+![Request flow](/runtime-request-flow.svg)
 
 1. Client sends `POST /v1/chat/completions` with `{"model": "zai-org/GLM-5.3"}` to the API endpoint (`api.thalamus.../v1`).
 2. The request reaches the API listener of the shared inference gateway. An `AgentgatewayPolicy` extracts the model name from the JSON body and sets it as the `X-Gateway-Base-Model-Name` header. Other policies, for example authentication, can apply here too (see [Gateway Integrations](/gateway-integrations)).

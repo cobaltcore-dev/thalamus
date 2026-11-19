@@ -84,20 +84,8 @@ export default {
         collapsed: false,
         items: [
           { text: 'Architecture', link: '/concepts/architecture' },
-        ],
-      },
-      {
-        text: 'Backends',
-        collapsed: false,
-        items: [
-          {
-            text: 'Native',
-            collapsed: false,
-            items: [
-              { text: 'Overview', link: '/concepts/backends/native/' },
-              { text: 'Request flow', link: '/concepts/backends/native/request-flow' },
-            ],
-          },
+          { text: 'Runtime', link: '/concepts/runtime' },
+          { text: 'Request Flow', link: '/concepts/runtime/request-flow' },
         ],
       },
       {

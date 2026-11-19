@@ -20,7 +20,7 @@ import (
 	agentgatewayv1alpha1 "github.com/agentgateway/agentgateway/controller/api/v1alpha1/agentgateway"
 
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
-	"github.com/cobaltcore-dev/thalamus/internal/operator/resources/native"
+	"github.com/cobaltcore-dev/thalamus/internal/operator/resources"
 )
 
 // ModelListReconciler keeps the /v1/models route and policy in sync, listing the namespace's Ready Models.
@@ -47,15 +47,15 @@ func (r *ModelListReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, fmt.Errorf("list models in namespace %s: %w", req.Namespace, err)
 	}
 
-	body, err := native.BuildModelListResponse(modelList.Items)
+	body, err := resources.BuildModelListResponse(modelList.Items)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("build model-list response: %w", err)
 	}
 
-	if err := applyOwnedNonBlocking(ctx, r.Client, r.Scheme, gateway, native.BuildModelListRoute(gateway, r.ListenerName)); err != nil {
+	if err := applyOwnedNonBlocking(ctx, r.Client, r.Scheme, gateway, resources.BuildModelListRoute(gateway, r.ListenerName)); err != nil {
 		return ctrl.Result{}, err
 	}
-	if err := applyOwnedNonBlocking(ctx, r.Client, r.Scheme, gateway, native.BuildModelListPolicy(req.Namespace, body)); err != nil {
+	if err := applyOwnedNonBlocking(ctx, r.Client, r.Scheme, gateway, resources.BuildModelListPolicy(req.Namespace, body)); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -70,11 +70,11 @@ func (r *ModelListReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			predicate.GenerationChangedPredicate{},
 		))).
 		Owns(&gatewayv1.HTTPRoute{}, builder.WithPredicates(predicate.And(
-			namePredicate(native.ModelListRouteName),
+			namePredicate(resources.ModelListRouteName),
 			ownedByPredicate("Gateway", r.GatewayName),
 		))).
 		Owns(&agentgatewayv1alpha1.AgentgatewayPolicy{}, builder.WithPredicates(predicate.And(
-			namePredicate(native.ModelListPolicyName),
+			namePredicate(resources.ModelListPolicyName),
 			ownedByPredicate("Gateway", r.GatewayName),
 		))).
 		// Models are not owned by the gateway, so map their events onto it.

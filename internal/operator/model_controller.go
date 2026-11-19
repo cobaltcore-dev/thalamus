@@ -23,7 +23,7 @@ import (
 	agentgatewayv1alpha1 "github.com/agentgateway/agentgateway/controller/api/v1alpha1/agentgateway"
 
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
-	"github.com/cobaltcore-dev/thalamus/internal/operator/resources/native"
+	"github.com/cobaltcore-dev/thalamus/internal/operator/resources"
 )
 
 // ModelReconciler reconciles Model objects.
@@ -63,7 +63,7 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 // apply creates, updates, or deletes all child resources for the model.
 func (r *ModelReconciler) apply(ctx context.Context, model *v1alpha1.Model, identifiers []v1alpha1.Identifier) error {
-	engineDeployment, err := native.BuildEngineDeployment(model)
+	engineDeployment, err := resources.BuildEngineDeployment(model)
 	if err != nil {
 		return fmt.Errorf("build engine deployment: %w", err)
 	}
@@ -71,22 +71,22 @@ func (r *ModelReconciler) apply(ctx context.Context, model *v1alpha1.Model, iden
 	// Engine stack.
 	objs := []client.Object{
 		engineDeployment,
-		native.BuildEngineService(model),
-		native.BuildInferencePool(model),
-		native.BuildAIBackend(model),
-		native.BuildHTTPRoute(model, identifiers, r.GatewayName, r.ListenerName),
+		resources.BuildEngineService(model),
+		resources.BuildInferencePool(model),
+		resources.BuildAIBackend(model),
+		resources.BuildHTTPRoute(model, identifiers, r.GatewayName, r.ListenerName),
 	}
 
-	eppDeployment, err := native.BuildEPPDeployment(model, r.RouterServiceAccountName)
+	eppDeployment, err := resources.BuildEPPDeployment(model, r.RouterServiceAccountName)
 	if err != nil {
 		return fmt.Errorf("build epp deployment: %w", err)
 	}
 
 	// EPP stack.
 	objs = append(objs,
-		native.BuildEPPConfigMap(model),
+		resources.BuildEPPConfigMap(model),
 		eppDeployment,
-		native.BuildEPPService(model),
+		resources.BuildEPPService(model),
 	)
 
 	if model.Spec.Replicas == 0 {

@@ -15,7 +15,6 @@ func NewModel(name, namespace string) *v1alpha1.Model {
 	model := &v1alpha1.Model{
 		Name: name, Namespace: namespace,
 		Spec: v1alpha1.ModelSpec{
-			Backend:  v1alpha1.BackendTypeNative,
 			Replicas: 1,
 			Serving: v1alpha1.ServingSpec{
 				Engine: corev1.PodSpec{

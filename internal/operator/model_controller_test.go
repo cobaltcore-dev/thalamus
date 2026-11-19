@@ -23,7 +23,7 @@ import (
 	agentgatewayv1alpha1 "github.com/agentgateway/agentgateway/controller/api/v1alpha1/agentgateway"
 
 	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
-	"github.com/cobaltcore-dev/thalamus/internal/operator/resources/native"
+	"github.com/cobaltcore-dev/thalamus/internal/operator/resources"
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
 )
 
@@ -63,7 +63,7 @@ func TestReconcile_NotFound(t *testing.T) {
 	reconcileModelOnce(t, r, "missing")
 }
 
-func TestReconcile_Native(t *testing.T) {
+func TestReconcile(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", testNamespace)
 	r, c := newTestReconciler(t, model)
 
@@ -77,7 +77,7 @@ func TestReconcile_Native(t *testing.T) {
 	testutil.MustGet(t, c, "tiny-llm", testNamespace, backend)
 	route := &gatewayv1.HTTPRoute{}
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, route)
-	if got := testutil.HTTPRouteHeaderValues(*route, native.GatewayBaseModelHeaderName); !slices.Equal(got, []string{"arnir0/Tiny-LLM"}) {
+	if got := testutil.HTTPRouteHeaderValues(*route, resources.GatewayBaseModelHeaderName); !slices.Equal(got, []string{"arnir0/Tiny-LLM"}) {
 		t.Errorf("served names:\ngot:  %q\nwant: %q", got, []string{"arnir0/Tiny-LLM"})
 	}
 
@@ -92,7 +92,7 @@ func TestReconcile_Native(t *testing.T) {
 	}
 }
 
-func TestReconcile_NativeWithAliases(t *testing.T) {
+func TestReconcileWithAliases(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", testNamespace)
 	model.Spec.Aliases = []string{"tiny"}
 	r, c := newTestReconciler(t, model)
@@ -103,7 +103,7 @@ func TestReconcile_NativeWithAliases(t *testing.T) {
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, dep)
 	route := &gatewayv1.HTTPRoute{}
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, route)
-	if got := testutil.HTTPRouteHeaderValues(*route, native.GatewayBaseModelHeaderName); !slices.Equal(got, []string{"tiny"}) {
+	if got := testutil.HTTPRouteHeaderValues(*route, resources.GatewayBaseModelHeaderName); !slices.Equal(got, []string{"tiny"}) {
 		t.Errorf("served names:\ngot:  %q\nwant: %q", got, []string{"tiny"})
 	}
 
@@ -126,7 +126,7 @@ func TestReconcile_NativeWithAliases(t *testing.T) {
 	}
 }
 
-func TestReconcile_NativeWithMultipleAliases(t *testing.T) {
+func TestReconcileWithMultipleAliases(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", testNamespace)
 	model.Spec.Aliases = []string{"tiny", "tiny-latest"}
 	r, c := newTestReconciler(t, model)
@@ -157,7 +157,7 @@ func TestReconcile_NativeWithMultipleAliases(t *testing.T) {
 	}
 }
 
-func TestReconcile_NativeUpdatesRouteAliases(t *testing.T) {
+func TestReconcileUpdatesRouteAliases(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", testNamespace)
 	model.Spec.Aliases = []string{"tiny", "old"}
 	r, c := newTestReconciler(t, model)
@@ -166,7 +166,7 @@ func TestReconcile_NativeUpdatesRouteAliases(t *testing.T) {
 
 	route := &gatewayv1.HTTPRoute{}
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, route)
-	if got := testutil.HTTPRouteHeaderValues(*route, native.GatewayBaseModelHeaderName); !slices.Equal(got, []string{"tiny", "old"}) {
+	if got := testutil.HTTPRouteHeaderValues(*route, resources.GatewayBaseModelHeaderName); !slices.Equal(got, []string{"tiny", "old"}) {
 		t.Fatalf("served names before update:\ngot:  %q\nwant: %q", got, []string{"tiny", "old"})
 	}
 
@@ -180,12 +180,12 @@ func TestReconcile_NativeUpdatesRouteAliases(t *testing.T) {
 	reconcileModelOnce(t, r, "tiny-llm")
 
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, route)
-	if got := testutil.HTTPRouteHeaderValues(*route, native.GatewayBaseModelHeaderName); !slices.Equal(got, []string{"tiny", "new"}) {
+	if got := testutil.HTTPRouteHeaderValues(*route, resources.GatewayBaseModelHeaderName); !slices.Equal(got, []string{"tiny", "new"}) {
 		t.Errorf("served names after update:\ngot:  %q\nwant: %q", got, []string{"tiny", "new"})
 	}
 }
 
-func TestReconcile_NativeWithEPP(t *testing.T) {
+func TestReconcileWithEPP(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", testNamespace)
 	model.Spec.Serving.Router = corev1.PodSpec{
 		Containers: []corev1.Container{{Name: "router", Image: "test/epp:latest"}},
@@ -220,7 +220,7 @@ func TestReconcile_NativeWithEPP(t *testing.T) {
 	testutil.MustNotGet(t, c, epp, testNamespace, &rbacv1.RoleBinding{})
 }
 
-func TestReconcile_NativeMultipleReplicas(t *testing.T) {
+func TestReconcileMultipleReplicas(t *testing.T) {
 	s := testutil.NewScheme(t)
 	model := testutil.NewModel("tiny-llm", testNamespace)
 	model.Spec.Replicas = 3
