@@ -22,7 +22,7 @@ const ubuntuNobody int64 = 65534
 // BuildEngineDeployment returns the desired Deployment for the inference engine.
 func BuildEngineDeployment(model *v1alpha1.Model) (*appsv1.Deployment, error) {
 	// TODO: defaulted fields can't be cleared from the engine configuration in the Model CR
-	podSpec, err := helpers.MergePodSpecs(defaultEnginePodSpec(model), &model.Spec.Serving.Engine)
+	podSpec, err := helpers.MergePodSpecs(defaultEnginePodSpec(), &model.Spec.Serving.Engine)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func BuildEngineDeployment(model *v1alpha1.Model) (*appsv1.Deployment, error) {
 
 // defaultEnginePodSpec is the out-of-the-box engine pod spec,
 // configuration from spec.serving.engine is merged on top of it.
-func defaultEnginePodSpec(model *v1alpha1.Model) *corev1.PodSpec {
+func defaultEnginePodSpec() *corev1.PodSpec {
 	env := []corev1.EnvVar{
 		// Point the engine caches at the cache volume instead of $HOME.
 		{Name: "HOME", Value: "/cache"},
@@ -92,9 +92,8 @@ func defaultEnginePodSpec(model *v1alpha1.Model) *corev1.PodSpec {
 				Type: corev1.SeccompProfileTypeRuntimeDefault,
 			},
 		},
-	}
-	if model.DetectedEngineType() == v1alpha1.EngineTypeVLLM {
-		container.StartupProbe = &corev1.Probe{
+
+		StartupProbe: &corev1.Probe{
 			HTTPGet: &corev1.HTTPGetAction{
 				Path: "/v1/models",
 				Port: intstr.FromInt32(engineHTTPPort),
@@ -103,8 +102,8 @@ func defaultEnginePodSpec(model *v1alpha1.Model) *corev1.PodSpec {
 			PeriodSeconds:       10,
 			TimeoutSeconds:      5,
 			FailureThreshold:    360,
-		}
-		container.LivenessProbe = &corev1.Probe{
+		},
+		LivenessProbe: &corev1.Probe{
 			HTTPGet: &corev1.HTTPGetAction{
 				Path: "/health",
 				Port: intstr.FromInt32(engineHTTPPort),
@@ -112,8 +111,8 @@ func defaultEnginePodSpec(model *v1alpha1.Model) *corev1.PodSpec {
 			PeriodSeconds:    10,
 			TimeoutSeconds:   5,
 			FailureThreshold: 3,
-		}
-		container.ReadinessProbe = &corev1.Probe{
+		},
+		ReadinessProbe: &corev1.Probe{
 			HTTPGet: &corev1.HTTPGetAction{
 				Path: "/v1/models",
 				Port: intstr.FromInt32(engineHTTPPort),
@@ -121,8 +120,7 @@ func defaultEnginePodSpec(model *v1alpha1.Model) *corev1.PodSpec {
 			PeriodSeconds:    5,
 			TimeoutSeconds:   2,
 			FailureThreshold: 3,
-		}
-	}
+		}}
 
 	return &corev1.PodSpec{
 		Containers: []corev1.Container{container},

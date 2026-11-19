@@ -38,14 +38,6 @@ const (
 	ModelReasonReconcileError            ModelReason = "ReconcileError"
 )
 
-// +kubebuilder:validation:Enum=vllm;unknown
-type EngineType string
-
-const (
-	EngineTypeVLLM    EngineType = "vllm"
-	EngineTypeUnknown EngineType = "unknown"
-)
-
 // HFWeightsSpec configures model weights sourced from Hugging Face.
 // Authentication is configured through the HF_TOKEN environment variable on
 // the engine container in spec.serving.engine.
@@ -68,8 +60,9 @@ type WeightsSpec struct {
 // ServingSpec defines the serving configuration for the model instance.
 type ServingSpec struct {
 	// Engine is the pod spec for the inference engine. The container named
-	// 'engine' is the main container and must set an image. Containers with
-	// other names are added as sidecars.
+	// 'engine' is the main container and must set an image. It is merged
+	// onto vLLM-tailored defaults. Other engines are unsupported and might
+	// not work. Containers with other names are added as sidecars.
 	Engine corev1.PodSpec `json:"engine"`
 
 	// Router is the pod spec for the entry point. The container named
@@ -126,10 +119,6 @@ type Identifier struct {
 
 // ModelStatus defines the observed state of a Model.
 type ModelStatus struct {
-	// EngineType is the detected inference engine type, derived from the engine image.
-	// +kubebuilder:validation:Optional
-	EngineType EngineType `json:"engineType,omitempty"`
-
 	// Identifiers are the model identifiers this Model exposes.
 	// +kubebuilder:validation:Optional
 	// +listType=map
@@ -146,7 +135,6 @@ type ModelStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,shortName=mdl,categories=thalamus
-// +kubebuilder:printcolumn:name="Engine",type="string",JSONPath=".status.engineType"
 // +kubebuilder:printcolumn:name="Weights",type="string",JSONPath=".spec.weights.type"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
@@ -226,16 +214,6 @@ func (m *Model) EngineName() string { return m.Name + "-engine" }
 
 // EPPName returns the Kubernetes resource name for the model's Endpoint Picker Proxy.
 func (m *Model) EPPName() string { return m.Name + "-epp" }
-
-// DetectedEngineType derives the engine type from the engine container image.
-func (m *Model) DetectedEngineType() EngineType {
-	for _, c := range m.Spec.Serving.Engine.Containers {
-		if c.Name == "engine" && strings.Contains(c.Image, "vllm") {
-			return EngineTypeVLLM
-		}
-	}
-	return EngineTypeUnknown
-}
 
 // +kubebuilder:object:root=true
 

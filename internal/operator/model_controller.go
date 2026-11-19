@@ -128,8 +128,6 @@ func (r *ModelReconciler) observe(ctx context.Context, model *v1alpha1.Model, id
 	patch := client.MergeFrom(model.DeepCopy())
 	before := model.Status.DeepCopy()
 
-	model.Status.EngineType = model.DetectedEngineType()
-
 	if err := r.syncModelStatus(ctx, model, identifiers); err != nil {
 		return fmt.Errorf("sync model status: %w", err)
 	}
