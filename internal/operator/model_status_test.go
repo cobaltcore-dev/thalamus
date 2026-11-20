@@ -271,9 +271,22 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 				markDeploymentReady(t, c, m.EPPName())
 				markInferencePoolReady(t, c, m.EngineName())
 				markHTTPRouteStatus(t, c, m.EngineName(),
-					metav1.Condition{Type: string(gatewayv1.RouteConditionAccepted), Status: metav1.ConditionTrue, Reason: string(gatewayv1.RouteReasonAccepted)},
-					metav1.Condition{Type: string(gatewayv1.RouteConditionResolvedRefs), Status: metav1.ConditionTrue, Reason: string(gatewayv1.RouteReasonResolvedRefs)},
-					metav1.Condition{Type: string(gatewayv1.RouteConditionPartiallyInvalid), Status: metav1.ConditionTrue, Reason: "PartiallyInvalid", Message: "partial error"},
+					metav1.Condition{
+						Type:   string(gatewayv1.RouteConditionAccepted),
+						Status: metav1.ConditionTrue,
+						Reason: string(gatewayv1.RouteReasonAccepted),
+					},
+					metav1.Condition{
+						Type:   string(gatewayv1.RouteConditionResolvedRefs),
+						Status: metav1.ConditionTrue,
+						Reason: string(gatewayv1.RouteReasonResolvedRefs),
+					},
+					metav1.Condition{
+						Type:    string(gatewayv1.RouteConditionPartiallyInvalid),
+						Status:  metav1.ConditionTrue,
+						Reason:  "PartiallyInvalid",
+						Message: "partial error",
+					},
 				)
 			},
 			want: wantCondition{status: false, reason: v1alpha1.ModelReasonHTTPRoutePartiallyInvalid},
@@ -290,9 +303,24 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 						ParentRef:      gatewayv1.ParentReference{Name: gatewayv1.ObjectName("gw")},
 						ControllerName: "test-controller",
 						Conditions: []metav1.Condition{
-							{Type: string(gatewayv1.RouteConditionAccepted), Status: metav1.ConditionTrue, Reason: string(gatewayv1.RouteReasonAccepted), ObservedGeneration: 2},
-							{Type: string(gatewayv1.RouteConditionResolvedRefs), Status: metav1.ConditionTrue, Reason: string(gatewayv1.RouteReasonResolvedRefs), ObservedGeneration: 2},
-							{Type: string(gatewayv1.RouteConditionPartiallyInvalid), Status: metav1.ConditionTrue, Reason: string(gatewayv1.RouteReasonUnsupportedValue), ObservedGeneration: 1},
+							{
+								Type:               string(gatewayv1.RouteConditionAccepted),
+								Status:             metav1.ConditionTrue,
+								Reason:             string(gatewayv1.RouteReasonAccepted),
+								ObservedGeneration: 2,
+							},
+							{
+								Type:               string(gatewayv1.RouteConditionResolvedRefs),
+								Status:             metav1.ConditionTrue,
+								Reason:             string(gatewayv1.RouteReasonResolvedRefs),
+								ObservedGeneration: 2,
+							},
+							{
+								Type:               string(gatewayv1.RouteConditionPartiallyInvalid),
+								Status:             metav1.ConditionTrue,
+								Reason:             string(gatewayv1.RouteReasonUnsupportedValue),
+								ObservedGeneration: 1,
+							},
 						},
 					},
 				)
@@ -323,14 +351,27 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 					inferencev1.ParentStatus{
 						ParentRef: inferencev1.ParentReference{Name: "gw"},
 						Conditions: []metav1.Condition{
-							{Type: string(inferencev1.InferencePoolConditionAccepted), Status: metav1.ConditionTrue, Reason: string(inferencev1.InferencePoolReasonAccepted)},
-							{Type: string(inferencev1.InferencePoolConditionResolvedRefs), Status: metav1.ConditionTrue, Reason: string(inferencev1.InferencePoolReasonResolvedRefs)},
+							{
+								Type:   string(inferencev1.InferencePoolConditionAccepted),
+								Status: metav1.ConditionTrue,
+								Reason: string(inferencev1.InferencePoolReasonAccepted),
+							},
+							{
+								Type:   string(inferencev1.InferencePoolConditionResolvedRefs),
+								Status: metav1.ConditionTrue,
+								Reason: string(inferencev1.InferencePoolReasonResolvedRefs),
+							},
 						},
 					},
 					inferencev1.ParentStatus{
 						ParentRef: inferencev1.ParentReference{Name: "gw2"},
 						Conditions: []metav1.Condition{
-							{Type: string(inferencev1.InferencePoolConditionAccepted), Status: metav1.ConditionFalse, Reason: string(inferencev1.InferencePoolReasonNotSupportedByParent), Message: "not supported"},
+							{
+								Type:    string(inferencev1.InferencePoolConditionAccepted),
+								Status:  metav1.ConditionFalse,
+								Reason:  string(inferencev1.InferencePoolReasonNotSupportedByParent),
+								Message: "not supported",
+							},
 						},
 					},
 				)
@@ -346,14 +387,27 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 					inferencev1.ParentStatus{
 						ParentRef: inferencev1.ParentReference{Name: "gw"},
 						Conditions: []metav1.Condition{
-							{Type: string(inferencev1.InferencePoolConditionAccepted), Status: metav1.ConditionTrue, Reason: string(inferencev1.InferencePoolReasonAccepted)},
-							{Type: string(inferencev1.InferencePoolConditionResolvedRefs), Status: metav1.ConditionTrue, Reason: string(inferencev1.InferencePoolReasonResolvedRefs)},
+							{
+								Type:   string(inferencev1.InferencePoolConditionAccepted),
+								Status: metav1.ConditionTrue,
+								Reason: string(inferencev1.InferencePoolReasonAccepted),
+							},
+							{
+								Type:   string(inferencev1.InferencePoolConditionResolvedRefs),
+								Status: metav1.ConditionTrue,
+								Reason: string(inferencev1.InferencePoolReasonResolvedRefs),
+							},
 						},
 					},
 					inferencev1.ParentStatus{
 						ParentRef: inferencev1.ParentReference{Name: "gw2"},
 						Conditions: []metav1.Condition{
-							{Type: string(inferencev1.InferencePoolConditionAccepted), Status: metav1.ConditionFalse, Reason: string(inferencev1.InferencePoolReasonNotRequested), Message: "not requested"},
+							{
+								Type:    string(inferencev1.InferencePoolConditionAccepted),
+								Status:  metav1.ConditionFalse,
+								Reason:  string(inferencev1.InferencePoolReasonNotRequested),
+								Message: "not requested",
+							},
 						},
 					},
 				)
@@ -371,15 +425,28 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 						ParentRef:      gatewayv1.ParentReference{Name: gatewayv1.ObjectName("gw")},
 						ControllerName: "test-controller",
 						Conditions: []metav1.Condition{
-							{Type: string(gatewayv1.RouteConditionAccepted), Status: metav1.ConditionTrue, Reason: string(gatewayv1.RouteReasonAccepted)},
-							{Type: string(gatewayv1.RouteConditionResolvedRefs), Status: metav1.ConditionTrue, Reason: string(gatewayv1.RouteReasonResolvedRefs)},
+							{
+								Type:   string(gatewayv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+								Reason: string(gatewayv1.RouteReasonAccepted),
+							},
+							{
+								Type:   string(gatewayv1.RouteConditionResolvedRefs),
+								Status: metav1.ConditionTrue,
+								Reason: string(gatewayv1.RouteReasonResolvedRefs),
+							},
 						},
 					},
 					gatewayv1.RouteParentStatus{
 						ParentRef:      gatewayv1.ParentReference{Name: gatewayv1.ObjectName("gw2")},
 						ControllerName: "test-controller",
 						Conditions: []metav1.Condition{
-							{Type: string(gatewayv1.RouteConditionAccepted), Status: metav1.ConditionFalse, Reason: string(gatewayv1.RouteReasonNotAllowedByListeners), Message: "not allowed"},
+							{
+								Type:    string(gatewayv1.RouteConditionAccepted),
+								Status:  metav1.ConditionFalse,
+								Reason:  string(gatewayv1.RouteReasonNotAllowedByListeners),
+								Message: "not allowed",
+							},
 						},
 					},
 				)
@@ -418,15 +485,28 @@ func TestReconcile_ModelConditionReady(t *testing.T) {
 						ParentRef:      gatewayv1.ParentReference{Name: gatewayv1.ObjectName("gw")},
 						ControllerName: "test-controller",
 						Conditions: []metav1.Condition{
-							{Type: string(gatewayv1.RouteConditionAccepted), Status: metav1.ConditionTrue, Reason: string(gatewayv1.RouteReasonAccepted)},
-							{Type: string(gatewayv1.RouteConditionResolvedRefs), Status: metav1.ConditionTrue, Reason: string(gatewayv1.RouteReasonResolvedRefs)},
+							{
+								Type:   string(gatewayv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+								Reason: string(gatewayv1.RouteReasonAccepted),
+							},
+							{
+								Type:   string(gatewayv1.RouteConditionResolvedRefs),
+								Status: metav1.ConditionTrue,
+								Reason: string(gatewayv1.RouteReasonResolvedRefs),
+							},
 						},
 					},
 					gatewayv1.RouteParentStatus{
 						ParentRef:      gatewayv1.ParentReference{Name: gatewayv1.ObjectName("gw2")},
 						ControllerName: "test-controller",
 						Conditions: []metav1.Condition{
-							{Type: string(gatewayv1.RouteConditionAccepted), Status: metav1.ConditionFalse, Reason: string(gatewayv1.RouteReasonPending), Message: "pending"},
+							{
+								Type:    string(gatewayv1.RouteConditionAccepted),
+								Status:  metav1.ConditionFalse,
+								Reason:  string(gatewayv1.RouteReasonPending),
+								Message: "pending",
+							},
 						},
 					},
 				)
@@ -596,8 +676,16 @@ func markInferencePoolStatus(t *testing.T, c client.Client, name string, conds .
 func markInferencePoolReady(t *testing.T, c client.Client, name string) {
 	t.Helper()
 	markInferencePoolStatus(t, c, name,
-		metav1.Condition{Type: string(inferencev1.InferencePoolConditionAccepted), Status: metav1.ConditionTrue, Reason: string(inferencev1.InferencePoolReasonAccepted)},
-		metav1.Condition{Type: string(inferencev1.InferencePoolConditionResolvedRefs), Status: metav1.ConditionTrue, Reason: string(inferencev1.InferencePoolReasonResolvedRefs)},
+		metav1.Condition{
+			Type:   string(inferencev1.InferencePoolConditionAccepted),
+			Status: metav1.ConditionTrue,
+			Reason: string(inferencev1.InferencePoolReasonAccepted),
+		},
+		metav1.Condition{
+			Type:   string(inferencev1.InferencePoolConditionResolvedRefs),
+			Status: metav1.ConditionTrue,
+			Reason: string(inferencev1.InferencePoolReasonResolvedRefs),
+		},
 	)
 }
 
@@ -615,8 +703,16 @@ func markHTTPRouteStatus(t *testing.T, c client.Client, name string, conds ...me
 func markHTTPRouteReady(t *testing.T, c client.Client, name string) {
 	t.Helper()
 	markHTTPRouteStatus(t, c, name,
-		metav1.Condition{Type: string(gatewayv1.RouteConditionAccepted), Status: metav1.ConditionTrue, Reason: string(gatewayv1.RouteReasonAccepted)},
-		metav1.Condition{Type: string(gatewayv1.RouteConditionResolvedRefs), Status: metav1.ConditionTrue, Reason: string(gatewayv1.RouteReasonResolvedRefs)},
+		metav1.Condition{
+			Type:   string(gatewayv1.RouteConditionAccepted),
+			Status: metav1.ConditionTrue,
+			Reason: string(gatewayv1.RouteReasonAccepted),
+		},
+		metav1.Condition{
+			Type:   string(gatewayv1.RouteConditionResolvedRefs),
+			Status: metav1.ConditionTrue,
+			Reason: string(gatewayv1.RouteReasonResolvedRefs),
+		},
 	)
 }
 
