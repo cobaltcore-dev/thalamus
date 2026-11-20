@@ -1,0 +1,110 @@
+{{- if .Values.cleanup.enabled }}
+{{- $cleanup := .Values.cleanup }}
+{{- $name := printf "%s-cleanup" .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- $annotations := dict
+  "helm.sh/hook" "pre-delete"
+  "helm.sh/hook-weight" "-5"
+  "helm.sh/hook-delete-policy" "before-hook-creation,hook-succeeded"
+}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "thalamus.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cleanup
+  annotations:
+    {{- toYaml $annotations | nindent 4 }}
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "thalamus.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cleanup
+  annotations:
+    {{- toYaml $annotations | nindent 4 }}
+rules:
+  - apiGroups: [thalamus.cloud]
+    resources: [models, modelartifacts]
+    verbs: [get, list, watch, delete, deletecollection]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "thalamus.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cleanup
+  annotations:
+    {{- toYaml $annotations | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "thalamus.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cleanup
+  annotations:
+    helm.sh/hook: pre-delete
+    helm.sh/hook-weight: "0"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ $cleanup.backoffLimit }}
+  activeDeadlineSeconds: {{ $cleanup.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "thalamus.labels" . | nindent 8 }}
+        app.kubernetes.io/component: cleanup
+    spec:
+      serviceAccountName: {{ $name }}
+      restartPolicy: Never
+      {{- with $cleanup.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $cleanup.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $cleanup.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: cleanup
+          image: {{ printf "%s/%s:%s" $cleanup.image.registry $cleanup.image.repository $cleanup.image.tag | quote }}
+          imagePullPolicy: {{ $cleanup.image.pullPolicy }}
+          args:
+            - delete
+            - models.thalamus.cloud,modelartifacts.thalamus.cloud
+            - --namespace={{ .Release.Namespace }}
+            - --all
+            - --ignore-not-found=true
+            - --wait=true
+            - --timeout={{ $cleanup.timeout }}
+          {{- with $cleanup.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $cleanup.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}

@@ -56,6 +56,37 @@ operator:
   rbac:
     create: true
 
+cleanup:
+  enabled: true
+  image:
+    registry: registry.k8s.io
+    repository: kubectl
+    tag: v1.37.2
+    pullPolicy: IfNotPresent
+  timeout: 2m
+  backoffLimit: 1
+  activeDeadlineSeconds: 420
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 64Mi
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    privileged: false
+    capabilities:
+      drop: [ALL]
+  nodeSelector: {}
+  tolerations: []
+
 router:
   serviceAccount:
     create: true

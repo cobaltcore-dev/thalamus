@@ -93,19 +93,13 @@ func TestBuildModelListResponse_Empty(t *testing.T) {
 }
 
 func TestBuildModelListResponse_OnlyReady(t *testing.T) {
-	a := testutil.NewModel("a", "default")
-	a.Spec.Weights.HF.RepoID = "org/model-a"
-	testutil.SetIdentifiers(a)
+	a := testutil.Fixture("a", "default").Base("hf://org/model-a").BuildModel()
 	a.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
 
-	b := testutil.NewModel("b", "default")
-	b.Spec.Weights.HF.RepoID = "org/model-b"
-	testutil.SetIdentifiers(b)
+	b := testutil.Fixture("b", "default").Base("hf://org/model-b").BuildModel()
 	b.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonEngineNotReady, "")
 
-	c := testutil.NewModel("c", "default")
-	c.Spec.Weights.HF.RepoID = "org/model-c"
-	testutil.SetIdentifiers(c)
+	c := testutil.Fixture("c", "default").Base("hf://org/model-c").BuildModel()
 	c.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonEngineDeploymentFailed, "")
 
 	body, err := BuildModelListResponse([]v1alpha1.Model{*a, *b, *c})
@@ -119,19 +113,13 @@ func TestBuildModelListResponse_OnlyReady(t *testing.T) {
 }
 
 func TestBuildModelListResponse_MultipleReady_Sorted(t *testing.T) {
-	z := testutil.NewModel("z", "default")
-	z.Spec.Weights.HF.RepoID = "org/zzz"
-	testutil.SetIdentifiers(z)
+	z := testutil.Fixture("z", "default").Base("hf://org/zzz").BuildModel()
 	z.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
 
-	a := testutil.NewModel("a", "default")
-	a.Spec.Weights.HF.RepoID = "org/aaa"
-	testutil.SetIdentifiers(a)
+	a := testutil.Fixture("a", "default").Base("hf://org/aaa").BuildModel()
 	a.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
 
-	m := testutil.NewModel("m", "default")
-	m.Spec.Weights.HF.RepoID = "org/mmm"
-	testutil.SetIdentifiers(m)
+	m := testutil.Fixture("m", "default").Base("hf://org/mmm").BuildModel()
 	m.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
 
 	body, err := BuildModelListResponse([]v1alpha1.Model{*z, *a, *m})
@@ -145,9 +133,7 @@ func TestBuildModelListResponse_MultipleReady_Sorted(t *testing.T) {
 }
 
 func TestBuildModelListResponse_NoSlashInRepoID(t *testing.T) {
-	model := testutil.NewModel("tiny-llm", "default")
-	model.Spec.Weights.HF.RepoID = "somemodel"
-	testutil.SetIdentifiers(model)
+	model := testutil.Fixture("tiny-llm", "default").Base("hf://somemodel").BuildModel()
 	model.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
 
 	body, err := BuildModelListResponse([]v1alpha1.Model{*model})
@@ -161,10 +147,7 @@ func TestBuildModelListResponse_NoSlashInRepoID(t *testing.T) {
 }
 
 func TestBuildModelListResponse_Aliases(t *testing.T) {
-	model := testutil.NewModel("tiny-llm", "default")
-	model.Spec.Weights.HF.RepoID = "org/model-a"
-	model.Spec.Aliases = []string{"short", "other"}
-	testutil.SetIdentifiers(model)
+	model := testutil.Fixture("tiny-llm", "default").Base("hf://org/model-a").Aliases("short", "other").BuildModel()
 	model.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
 
 	body, err := BuildModelListResponse([]v1alpha1.Model{*model})
@@ -178,14 +161,10 @@ func TestBuildModelListResponse_Aliases(t *testing.T) {
 }
 
 func TestBuildModelListResponse_Stable(t *testing.T) {
-	z := testutil.NewModel("z", "default")
-	z.Spec.Weights.HF.RepoID = "org/zzz"
-	testutil.SetIdentifiers(z)
+	z := testutil.Fixture("z", "default").Base("hf://org/zzz").BuildModel()
 	z.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
 
-	a := testutil.NewModel("a", "default")
-	a.Spec.Weights.HF.RepoID = "org/aaa"
-	testutil.SetIdentifiers(a)
+	a := testutil.Fixture("a", "default").Base("hf://org/aaa").BuildModel()
 	a.SetReady(metav1.ConditionTrue, v1alpha1.ModelReasonReady, "")
 
 	models := []v1alpha1.Model{*z, *a}
