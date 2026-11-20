@@ -46,14 +46,6 @@ const (
 	EngineTypeUnknown EngineType = "unknown"
 )
 
-// +kubebuilder:validation:Enum=llm-d;unknown
-type EPPType string
-
-const (
-	EPPTypeLLMD    EPPType = "llm-d"
-	EPPTypeUnknown EPPType = "unknown"
-)
-
 // HFWeightsSpec configures model weights sourced from Hugging Face.
 // Authentication is configured through the HF_TOKEN environment variable on
 // the engine container in spec.serving.engine.
@@ -138,10 +130,6 @@ type ModelStatus struct {
 	// +kubebuilder:validation:Optional
 	EngineType EngineType `json:"engineType,omitempty"`
 
-	// EPPType is the detected EPP type, derived from the EPP image.
-	// +kubebuilder:validation:Optional
-	EPPType EPPType `json:"eppType,omitempty"`
-
 	// Identifiers are the model identifiers this Model exposes.
 	// +kubebuilder:validation:Optional
 	// +listType=map
@@ -159,7 +147,6 @@ type ModelStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,shortName=mdl,categories=thalamus
 // +kubebuilder:printcolumn:name="Engine",type="string",JSONPath=".status.engineType"
-// +kubebuilder:printcolumn:name="EPP",type="string",JSONPath=".status.eppType"
 // +kubebuilder:printcolumn:name="Weights",type="string",JSONPath=".spec.weights.type"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
@@ -248,16 +235,6 @@ func (m *Model) DetectedEngineType() EngineType {
 		}
 	}
 	return EngineTypeUnknown
-}
-
-// DetectedEPPType derives the EPP type from the EPP container image.
-func (m *Model) DetectedEPPType() EPPType {
-	for _, c := range m.Spec.Serving.Router.Containers {
-		if c.Name == "router" && strings.Contains(c.Image, "llm-d") {
-			return EPPTypeLLMD
-		}
-	}
-	return EPPTypeUnknown
 }
 
 // +kubebuilder:object:root=true

@@ -21,24 +21,6 @@ Package v1alpha1 contains API Schema definitions for the thalamus.cloud v1alpha1
 
 
 
-#### EPPType
-
-_Underlying type:_ _string_
-
-
-
-_Validation:_
-- Enum: [llm-d unknown]
-
-_Appears in:_
-- [ModelStatus](#modelstatus)
-
-| Field | Description |
-| --- | --- |
-| `llm-d` |  |
-| `unknown` |  |
-
-
 #### EngineType
 
 _Underlying type:_ _string_
@@ -165,7 +147,6 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `engineType` _[EngineType](#enginetype)_ | EngineType is the detected inference engine type, derived from the engine image. |  | Enum: [vllm unknown] <br />Optional: \{\} <br /> |
-| `eppType` _[EPPType](#epptype)_ | EPPType is the detected EPP type, derived from the EPP image. |  | Enum: [llm-d unknown] <br />Optional: \{\} <br /> |
 | `identifiers` _[Identifier](#identifier) array_ | Identifiers are the model identifiers this Model exposes. |  | Optional: \{\} <br /> |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | Conditions represent the latest observations of the model's state. |  | Optional: \{\} <br /> |
 
