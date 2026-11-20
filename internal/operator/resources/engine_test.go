@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/cobaltcore-dev/thalamus/internal/operator/resources/helpers"
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
@@ -131,6 +132,10 @@ func TestBuildEngineDeployment_UserOverrides(t *testing.T) {
 	model := testutil.NewModel("tiny-llm", "default")
 	userUID := int64(1234)
 	model.Spec.Serving.Engine.Containers[0].SecurityContext = &corev1.SecurityContext{RunAsUser: &userUID}
+	model.Spec.Serving.Engine.Containers[0].ReadinessProbe = &corev1.Probe{
+		HTTPGet:       &corev1.HTTPGetAction{Path: "/health", Port: intstr.FromInt32(engineHTTPPort)},
+		PeriodSeconds: 30,
+	}
 	model.Spec.Serving.Engine.Volumes = []corev1.Volume{
 		{
 			Name:                  "cache",
@@ -145,6 +150,10 @@ func TestBuildEngineDeployment_UserOverrides(t *testing.T) {
 
 	if c.SecurityContext == nil || c.SecurityContext.RunAsUser == nil || *c.SecurityContext.RunAsUser != userUID {
 		t.Errorf("user securityContext must win:\ngot:  %+v", c.SecurityContext)
+	}
+	if c.ReadinessProbe == nil || c.ReadinessProbe.HTTPGet == nil ||
+		c.ReadinessProbe.HTTPGet.Path != "/health" || c.ReadinessProbe.PeriodSeconds != 30 {
+		t.Errorf("user readinessProbe must win:\ngot:  %+v", c.ReadinessProbe)
 	}
 	for _, v := range dep.Spec.Template.Spec.Volumes {
 		if v.Name == "cache" {
@@ -181,23 +190,6 @@ func TestBuildEngineDeployment_UserEnvWins(t *testing.T) {
 	}
 	if got["HOME"] != "/root" {
 		t.Errorf("HOME:\ngot:  %q\nwant: /root", got["HOME"])
-	}
-}
-
-func TestBuildEngineDeployment_NonVLLM(t *testing.T) {
-	model := testutil.NewModel("tiny-llm", "default")
-	model.Spec.Serving.Engine.Containers[0].Image = "test/other-engine:latest"
-	dep, err := BuildEngineDeployment(model)
-	if err != nil {
-		t.Fatalf("BuildEngineDeployment: %v", err)
-	}
-	c := dep.Spec.Template.Spec.Containers[0]
-
-	if !slices.Equal(c.Args, []string{"arnir0/Tiny-LLM", "--max-model-len=512"}) {
-		t.Errorf("Args:\ngot:  %v\nwant: the model id followed by the user args", c.Args)
-	}
-	if c.StartupProbe != nil || c.LivenessProbe != nil || c.ReadinessProbe != nil {
-		t.Error("vllm probes must not be applied to non-vllm engines")
 	}
 }
 

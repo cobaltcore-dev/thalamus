@@ -21,24 +21,6 @@ Package v1alpha1 contains API Schema definitions for the thalamus.cloud v1alpha1
 
 
 
-#### EngineType
-
-_Underlying type:_ _string_
-
-
-
-_Validation:_
-- Enum: [vllm unknown]
-
-_Appears in:_
-- [ModelStatus](#modelstatus)
-
-| Field | Description |
-| --- | --- |
-| `vllm` |  |
-| `unknown` |  |
-
-
 #### HFWeightsSpec
 
 
@@ -146,7 +128,6 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `engineType` _[EngineType](#enginetype)_ | EngineType is the detected inference engine type, derived from the engine image. |  | Enum: [vllm unknown] <br />Optional: \{\} <br /> |
 | `identifiers` _[Identifier](#identifier) array_ | Identifiers are the model identifiers this Model exposes. |  | Optional: \{\} <br /> |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | Conditions represent the latest observations of the model's state. |  | Optional: \{\} <br /> |
 
@@ -164,7 +145,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `engine` _[PodSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#podspec-v1-core)_ | Engine is the pod spec for the inference engine. The container named<br />'engine' is the main container and must set an image. Containers with<br />other names are added as sidecars. |  |  |
+| `engine` _[PodSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#podspec-v1-core)_ | Engine is the pod spec for the inference engine. The container named<br />'engine' is the main container and must set an image. It is merged<br />onto vLLM-tailored defaults. Other engines are unsupported and might<br />not work. Containers with other names are added as sidecars. |  |  |
 | `router` _[PodSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#podspec-v1-core)_ | Router is the pod spec for the entry point. The container named<br />'router' is the main container and must set an image. Containers with<br />other names are added as sidecars. |  |  |
 
 

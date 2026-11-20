@@ -19,9 +19,6 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .status.engineType
-      name: Engine
-      type: string
     - jsonPath: .spec.weights.type
       name: Weights
       type: string
@@ -7958,11 +7955,6 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              engineType:
-                enum:
-                - vllm
-                - unknown
-                type: string
               identifiers:
                 items:
                   properties:
