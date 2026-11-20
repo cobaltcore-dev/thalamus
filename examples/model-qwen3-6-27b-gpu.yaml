@@ -8,7 +8,6 @@ metadata:
   name: qwen3-6-27b
   namespace: thalamus
 spec:
-  backend: native
   replicas: 1
   serving:
     engine:

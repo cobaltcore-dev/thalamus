@@ -21,25 +21,6 @@ Package v1alpha1 contains API Schema definitions for the thalamus.cloud v1alpha1
 
 
 
-#### BackendType
-
-_Underlying type:_ _string_
-
-
-
-_Validation:_
-- Enum: [native kserve kaito]
-
-_Appears in:_
-- [ModelSpec](#modelspec)
-
-| Field | Description |
-| --- | --- |
-| `native` |  |
-| `kserve` |  |
-| `kaito` |  |
-
-
 #### EPPType
 
 _Underlying type:_ _string_
@@ -164,7 +145,6 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `backend` _[BackendType](#backendtype)_ | Backend selects which inference backend manages this model's resources.<br />Defaults to "native". | native | Enum: [native kserve kaito] <br />Optional: \{\} <br /> |
 | `replicas` _integer_ | Replicas defines the number of engine replicas to deploy for this model.<br />Defaults to 1. | 1 | Minimum: 0 <br />Optional: \{\} <br /> |
 | `serving` _[ServingSpec](#servingspec)_ | Serving defines how the model is served. |  |  |
 | `weights` _[WeightsSpec](#weightsspec)_ | Weights defines where the model weights are sourced from. |  |  |
