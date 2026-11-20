@@ -37,26 +37,33 @@ type ModelReconciler struct {
 	RouterServiceAccountName string
 }
 
-func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, err error) {
 	model := &v1alpha1.Model{}
-	if err := r.Get(ctx, req.NamespacedName, model); err != nil {
+	if err = r.Get(ctx, req.NamespacedName, model); err != nil {
 		if err = client.IgnoreNotFound(err); err != nil {
 			return ctrl.Result{}, fmt.Errorf("get model %s: %w", req.NamespacedName, err)
 		}
-		return ctrl.Result{}, nil
+		return
 	}
 
 	identifiers := v1alpha1.Identifiers(model.Spec.Aliases, model.BaseModelName())
+	//patch := client.MergeFrom(model.DeepCopy())
 
-	if err := r.apply(ctx, model, identifiers); err != nil {
+	defer func() {
+		if err != nil {
+			_ = r.setFailedStatus(ctx, model, err)
+		}
+	}()
+
+	if err = r.apply(ctx, model, identifiers); err != nil {
 		return ctrl.Result{}, fmt.Errorf("reconcile model %s: %w", req.NamespacedName, r.setFailedStatus(ctx, model, err))
 	}
-	if err := r.observe(ctx, model, identifiers); err != nil {
-		return ctrl.Result{}, err
+	if err = r.observe(ctx, model, identifiers); err != nil {
+		return
 	}
 	log.FromContext(ctx).V(levelDebug).
 		Info("Reconciled model", "namespace", model.Namespace, "name", model.Name, "conditions", model.Status.Conditions)
-	return ctrl.Result{}, nil
+	return
 }
 
 // apply creates, updates, or deletes all child resources for the model.
@@ -138,6 +145,7 @@ func (r *ModelReconciler) observe(ctx context.Context, model *v1alpha1.Model, id
 	case model.Spec.Replicas == 0:
 		model.Status.Identifiers = nil
 	}
+	model.SetSynced(metav1.ConditionTrue, v1alpha1.ModelReasonSynced, "latest model state is applied")
 
 	if apiequality.Semantic.DeepEqual(before, &model.Status) {
 		return nil
@@ -154,7 +162,7 @@ func (r *ModelReconciler) observe(ctx context.Context, model *v1alpha1.Model, id
 // setFailedStatus records the reconcile error on the model and returns the original error.
 func (r *ModelReconciler) setFailedStatus(ctx context.Context, model *v1alpha1.Model, cause error) error {
 	patch := client.MergeFrom(model.DeepCopy())
-	model.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonReconcileError, cause.Error())
+	model.SetSynced(metav1.ConditionFalse, v1alpha1.ModelReasonReconcileError, cause.Error())
 	if patchErr := r.Status().Patch(ctx, model, patch); patchErr != nil {
 		log.FromContext(ctx).Error(patchErr, "failed to patch status after reconcile error")
 	}

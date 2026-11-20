@@ -304,7 +304,9 @@ func TestReconcile_ScaleToZero_KeepsForeignOwnedObject(t *testing.T) {
 		t.Fatal("expected error for foreign-owned colliding resource, got nil")
 	}
 
-	wantCondition{v1alpha1.ModelConditionSynced, false, v1alpha1.ModelReasonReconcileError}.assert(t, model)
+	updated := &v1alpha1.Model{}
+	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
+	wantCondition{v1alpha1.ModelConditionSynced, false, v1alpha1.ModelReasonReconcileError}.assert(t, updated)
 
 	// The foreign-owned deployment must not be deleted.
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, &appsv1.Deployment{})

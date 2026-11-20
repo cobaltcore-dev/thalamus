@@ -542,7 +542,7 @@ func TestReconcile_ModelConditionNotSynced(t *testing.T) {
 		wantReady wantCondition
 	}{
 		{
-			name:      "not synced when apply fails on not ready",
+			name:      "not synced and not ready when apply fails on not ready",
 			prepare:   func(*testing.T, *ModelReconciler, client.Client, *v1alpha1.Model) {},
 			wantReady: wantCondition{status: false, reason: v1alpha1.ModelReasonEngineNotReady},
 		},

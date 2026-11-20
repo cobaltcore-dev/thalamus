@@ -81,7 +81,7 @@ func reconcileModelOnce(t *testing.T, r *ModelReconciler, name string) ctrl.Resu
 
 	model := new(v1alpha1.Model)
 	testutil.MustGet(t, r.Client, name, testNamespace, model)
-	wantCondition{v1alpha1.ModelConditionSynced, true, ""}.assert(t, model)
+	wantCondition{v1alpha1.ModelConditionSynced, true, v1alpha1.ModelReasonSynced}.assert(t, model)
 
 	return res
 }

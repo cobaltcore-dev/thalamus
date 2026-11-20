@@ -37,7 +37,9 @@ const (
 	ModelReasonHTTPRouteNotAccepted      ModelReason = "HTTPRouteNotAccepted"
 	ModelReasonHTTPRouteRejected         ModelReason = "HTTPRouteRejected"
 	ModelReasonHTTPRoutePartiallyInvalid ModelReason = "HTTPRoutePartiallyInvalid"
-	ModelReasonReconcileError            ModelReason = "ReconcileError"
+
+	ModelReasonSynced         ModelReason = "Synced"
+	ModelReasonReconcileError ModelReason = "ReconcileError"
 )
 
 // HFWeightsSpec configures model weights sourced from Hugging Face.
@@ -181,6 +183,17 @@ func (m *Model) IsReady() bool {
 func (m *Model) SetReady(status metav1.ConditionStatus, reason ModelReason, message string) {
 	meta.SetStatusCondition(&m.Status.Conditions, metav1.Condition{
 		Type:               ModelConditionReady,
+		Status:             status,
+		Reason:             string(reason),
+		Message:            message,
+		ObservedGeneration: m.Generation,
+	})
+}
+
+// SetSynced updates the Model's Synced condition in place without patching the status.
+func (m *Model) SetSynced(status metav1.ConditionStatus, reason ModelReason, message string) {
+	meta.SetStatusCondition(&m.Status.Conditions, metav1.Condition{
+		Type:               ModelConditionSynced,
 		Status:             status,
 		Reason:             string(reason),
 		Message:            message,
