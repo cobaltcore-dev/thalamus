@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"github.com/cobaltcore-dev/thalamus/internal/operator/resources/helpers"
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
@@ -131,6 +132,10 @@ func TestBuildEngineDeployment_UserOverrides(t *testing.T) {
 	model, artifact := testutil.Fixture("tiny-llm", "default").Build()
 	userUID := int64(1234)
 	model.Spec.Serving.Engine.Containers[0].SecurityContext = &corev1.SecurityContext{RunAsUser: &userUID}
+	model.Spec.Serving.Engine.Containers[0].ReadinessProbe = &corev1.Probe{
+		HTTPGet:       &corev1.HTTPGetAction{Path: "/health", Port: intstr.FromInt32(engineHTTPPort)},
+		PeriodSeconds: 30,
+	}
 	model.Spec.Serving.Engine.Volumes = []corev1.Volume{
 		{
 			Name:                  "cache",
@@ -145,6 +150,10 @@ func TestBuildEngineDeployment_UserOverrides(t *testing.T) {
 
 	if c.SecurityContext == nil || c.SecurityContext.RunAsUser == nil || *c.SecurityContext.RunAsUser != userUID {
 		t.Errorf("user securityContext must win:\ngot:  %+v", c.SecurityContext)
+	}
+	if c.ReadinessProbe == nil || c.ReadinessProbe.HTTPGet == nil ||
+		c.ReadinessProbe.HTTPGet.Path != "/health" || c.ReadinessProbe.PeriodSeconds != 30 {
+		t.Errorf("user readinessProbe must win:\ngot:  %+v", c.ReadinessProbe)
 	}
 	for _, v := range dep.Spec.Template.Spec.Volumes {
 		if v.Name == "cache" {
@@ -224,6 +233,7 @@ func TestBuildEngineDeployment_NilArtifact(t *testing.T) {
 		t.Errorf("Replicas:\ngot:  %v\nwant: 0", dep.Spec.Replicas)
 	}
 }
+
 func TestBuildEngineDeployment_NodeSelector(t *testing.T) {
 	model, artifact := testutil.Fixture("tiny-llm", "default").Build()
 	model.Spec.Serving.Engine.NodeSelector = map[string]string{"kubernetes.io/arch": "amd64"}

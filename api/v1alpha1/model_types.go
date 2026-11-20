@@ -61,8 +61,9 @@ type ModelArtifactReference struct {
 // ServingSpec defines the serving configuration for the model instance.
 type ServingSpec struct {
 	// Engine is the pod spec for the inference engine. The container named
-	// 'engine' is the main container and must set an image. Containers with
-	// other names are added as sidecars.
+	// 'engine' is the main container and must set an image. It is merged
+	// onto vLLM-tailored defaults. Other engines are unsupported and might
+	// not work. Containers with other names are added as sidecars.
 	Engine corev1.PodSpec `json:"engine"`
 
 	// Router is the pod spec for the entry point. The container named

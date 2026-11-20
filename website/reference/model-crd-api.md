@@ -203,7 +203,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `engine` _[PodSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#podspec-v1-core)_ | Engine is the pod spec for the inference engine. The container named<br />'engine' is the main container and must set an image. Containers with<br />other names are added as sidecars. |  |  |
+| `engine` _[PodSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#podspec-v1-core)_ | Engine is the pod spec for the inference engine. The container named<br />'engine' is the main container and must set an image. It is merged<br />onto vLLM-tailored defaults. Other engines are unsupported and might<br />not work. Containers with other names are added as sidecars. |  |  |
 | `router` _[PodSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#podspec-v1-core)_ | Router is the pod spec for the entry point. The container named<br />'router' is the main container and must set an image. Containers with<br />other names are added as sidecars. |  |  |
 
 

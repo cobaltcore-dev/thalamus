@@ -19,7 +19,6 @@ metadata:
   name: smollm2-360m-spec
   namespace: thalamus
 spec:
-  backend: native
   replicas: 1
   artifactRef:
     name: smollm2-360m-spec
