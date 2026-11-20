@@ -6,6 +6,8 @@ package helpers
 
 import (
 	"encoding/json"
+	"reflect"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -51,5 +53,134 @@ func MergePodSpecs(base, patch *corev1.PodSpec) (corev1.PodSpec, error) {
 	if err := json.Unmarshal(merged, &out); err != nil {
 		return corev1.PodSpec{}, err
 	}
-	return out, nil
+	return sanitizeSpecs(&out, patch), nil
+}
+
+// sanitizeSpecs repairs merged entries that combine mutually exclusive
+// fields of the base and the patch, which the API server would reject.
+func sanitizeSpecs(merged, patch *corev1.PodSpec) corev1.PodSpec {
+	sanitizeVolumes(merged.Volumes, patch.Volumes)
+	sanitizeContainers(merged.Containers, patch.Containers)
+	sanitizeContainers(merged.InitContainers, patch.InitContainers)
+	return *merged
+}
+
+// sanitizeVolumes keeps only the volume sources the patch sets for the
+// volumes it overrides by name.
+func sanitizeVolumes(merged, patch []corev1.Volume) {
+	for i := range merged {
+		for _, pv := range patch {
+			if merged[i].Name == pv.Name {
+				sanitizeExclusive(&merged[i].VolumeSource, &pv.VolumeSource)
+			}
+		}
+	}
+}
+
+// sanitizeContainers sanitizes the env, ports, and probes of the merged
+// containers that the patch overrides by name.
+func sanitizeContainers(merged, patch []corev1.Container) {
+	for i := range merged {
+		var pc *corev1.Container
+		for j := range patch {
+			if patch[j].Name == merged[i].Name {
+				pc = &patch[j]
+				break
+			}
+		}
+		if pc == nil {
+			continue
+		}
+		sanitizeEnv(merged[i].Env, pc.Env)
+		sanitizePorts(&merged[i], pc)
+		sanitizeProbes(&merged[i], pc)
+	}
+}
+
+// sanitizeEnv clears the value or valueFrom that the patch entry did not
+// set; env vars must not have both.
+func sanitizeEnv(merged, patch []corev1.EnvVar) {
+	for i := range merged {
+		e := &merged[i]
+		if e.Value == "" || e.ValueFrom == nil {
+			continue
+		}
+		for _, pe := range patch {
+			if pe.Name != e.Name {
+				continue
+			}
+			if pe.ValueFrom != nil {
+				e.Value = ""
+			} else if pe.Value != "" {
+				e.ValueFrom = nil
+			}
+		}
+	}
+}
+
+// sanitizePorts removes merged ports whose name the patch overrides with a
+// different number, clearing inherited names from unnamed patch ports;
+// port names must be unique within a container.
+func sanitizePorts(c, pc *corev1.Container) {
+	if len(pc.Ports) == 0 {
+		return
+	}
+	numbers := make(map[string]int32, len(pc.Ports))
+	unnamed := make(map[int32]bool, len(pc.Ports))
+	for _, p := range pc.Ports {
+		if p.Name != "" {
+			numbers[p.Name] = p.ContainerPort
+		} else {
+			unnamed[p.ContainerPort] = true
+		}
+	}
+	for i := range c.Ports {
+		if !unnamed[c.Ports[i].ContainerPort] {
+			continue
+		}
+		if number, ok := numbers[c.Ports[i].Name]; ok && number != c.Ports[i].ContainerPort {
+			c.Ports[i].Name = ""
+		}
+	}
+	c.Ports = slices.DeleteFunc(c.Ports, func(p corev1.ContainerPort) bool {
+		number, ok := numbers[p.Name]
+		return ok && number != p.ContainerPort
+	})
+}
+
+// sanitizeProbes takes the patch's probe handlers, keeping the base timing
+// fields; probe handlers are mutually exclusive.
+func sanitizeProbes(c, pc *corev1.Container) {
+	sanitizeProbe(c.LivenessProbe, pc.LivenessProbe)
+	sanitizeProbe(c.ReadinessProbe, pc.ReadinessProbe)
+	sanitizeProbe(c.StartupProbe, pc.StartupProbe)
+}
+
+// sanitizeProbe keeps only the probe handlers the patch sets.
+func sanitizeProbe(merged, patch *corev1.Probe) {
+	if merged == nil || patch == nil {
+		return
+	}
+	sanitizeExclusive(&merged.ProbeHandler, &patch.ProbeHandler)
+}
+
+// sanitizeExclusive zeroes the fields of dst that src does not set; if src
+// sets none, dst is untouched
+func sanitizeExclusive[T corev1.VolumeSource | corev1.ProbeHandler](dst, src *T) {
+	d, s := reflect.ValueOf(dst).Elem(), reflect.ValueOf(src).Elem()
+	set := false
+	for i := range d.NumField() {
+		if !s.Field(i).IsNil() {
+			set = true
+			break
+		}
+	}
+	if !set {
+		return
+	}
+	for i := range d.NumField() {
+		if s.Field(i).IsNil() {
+			d.Field(i).SetZero()
+		}
+	}
 }
