@@ -47,18 +47,13 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res 
 	}
 
 	identifiers := v1alpha1.Identifiers(model.Spec.Aliases, model.BaseModelName())
-	//patch := client.MergeFrom(model.DeepCopy())
-
-	defer func() {
-		if err != nil {
-			_ = r.setFailedStatus(ctx, model, err)
-		}
-	}()
 
 	if err = r.apply(ctx, model, identifiers); err != nil {
-		return ctrl.Result{}, fmt.Errorf("reconcile model %s: %w", req.NamespacedName, r.setFailedStatus(ctx, model, err))
+		r.setNotSynced(ctx, model, err)
+		return ctrl.Result{}, fmt.Errorf("reconcile model %s: %w", req.NamespacedName, err)
 	}
 	if err = r.observe(ctx, model, identifiers); err != nil {
+		r.setNotSynced(ctx, model, err)
 		return
 	}
 	log.FromContext(ctx).V(levelDebug).
@@ -159,14 +154,13 @@ func (r *ModelReconciler) observe(ctx context.Context, model *v1alpha1.Model, id
 	return nil
 }
 
-// setFailedStatus records the reconcile error on the model and returns the original error.
-func (r *ModelReconciler) setFailedStatus(ctx context.Context, model *v1alpha1.Model, cause error) error {
+// setNotSynced records the provided error on the model on reconcile failure
+func (r *ModelReconciler) setNotSynced(ctx context.Context, model *v1alpha1.Model, cause error) {
 	patch := client.MergeFrom(model.DeepCopy())
 	model.SetSynced(metav1.ConditionFalse, v1alpha1.ModelReasonReconcileError, cause.Error())
 	if patchErr := r.Status().Patch(ctx, model, patch); patchErr != nil {
 		log.FromContext(ctx).Error(patchErr, "failed to patch status after reconcile error")
 	}
-	return cause
 }
 
 func (r *ModelReconciler) SetupWithManager(mgr ctrl.Manager) error {

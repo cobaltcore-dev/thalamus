@@ -297,9 +297,7 @@ func TestReconcile_ScaleToZero_KeepsForeignOwnedObject(t *testing.T) {
 	c := fake.NewClientBuilder().WithScheme(s).WithObjects(model, foreign).WithStatusSubresource(model).Build()
 	r := &ModelReconciler{Client: c, Scheme: s, GatewayName: testGatewayName, ListenerName: testGatewayListener, RouterServiceAccountName: testRouterSAName}
 
-	_, err := r.Reconcile(context.Background(), ctrl.Request{
-		Name: "tiny-llm", Namespace: testNamespace,
-	})
+	_, err := r.Reconcile(context.Background(), ctrl.Request{Name: "tiny-llm", Namespace: testNamespace})
 	if err == nil {
 		t.Fatal("expected error for foreign-owned colliding resource, got nil")
 	}
