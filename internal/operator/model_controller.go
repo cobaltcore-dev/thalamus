@@ -11,7 +11,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -38,27 +37,28 @@ type ModelReconciler struct {
 	RouterServiceAccountName string
 }
 
-func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (res ctrl.Result, err error) {
 	model := &v1alpha1.Model{}
-	if err := r.Get(ctx, req.NamespacedName, model); err != nil {
+	if err = r.Get(ctx, req.NamespacedName, model); err != nil {
 		if err = client.IgnoreNotFound(err); err != nil {
 			return ctrl.Result{}, fmt.Errorf("get model %s: %w", req.NamespacedName, err)
 		}
-		return ctrl.Result{}, nil
+		return
 	}
 
 	identifiers := v1alpha1.Identifiers(model.Spec.Aliases, model.BaseModelName())
 
-	if err := r.apply(ctx, model, identifiers); err != nil {
-		return ctrl.Result{}, fmt.Errorf("reconcile model %s: %w", req.NamespacedName, r.setFailedStatus(ctx, model, err))
+	if err = r.apply(ctx, model, identifiers); err != nil {
+		r.setNotSynced(ctx, model, err)
+		return ctrl.Result{}, fmt.Errorf("reconcile model %s: %w", req.NamespacedName, err)
 	}
-	if err := r.observe(ctx, model, identifiers); err != nil {
-		return ctrl.Result{}, err
+	if err = r.observe(ctx, model, identifiers); err != nil {
+		r.setNotSynced(ctx, model, err)
+		return
 	}
-	if cond := meta.FindStatusCondition(model.Status.Conditions, v1alpha1.ModelConditionReady); cond != nil {
-		log.FromContext(ctx).V(levelDebug).Info("reconciled model", "namespace", model.Namespace, "name", model.Name, "ready", cond.Status, "reason", cond.Reason, "message", cond.Message)
-	}
-	return ctrl.Result{}, nil
+	log.FromContext(ctx).V(levelDebug).
+		Info("Reconciled model", "namespace", model.Namespace, "name", model.Name, "conditions", model.Status.Conditions)
+	return
 }
 
 // apply creates, updates, or deletes all child resources for the model.
@@ -91,7 +91,8 @@ func (r *ModelReconciler) apply(ctx context.Context, model *v1alpha1.Model, iden
 
 	if model.Spec.Replicas == 0 {
 		// Delete in reverse order so consumers are removed before their dependencies.
-		log.FromContext(ctx).V(levelDebug).Info("deleting owned resources", "namespace", model.Namespace, "name", model.Name, "resources", len(objs))
+		log.FromContext(ctx).V(levelDebug).
+			Info("deleting owned resources", "namespace", model.Namespace, "name", model.Name, "resources", len(objs))
 		for _, obj := range slices.Backward(objs) {
 			if err := r.deleteOwned(ctx, model, obj); err != nil {
 				return err
@@ -139,27 +140,27 @@ func (r *ModelReconciler) observe(ctx context.Context, model *v1alpha1.Model, id
 	case model.Spec.Replicas == 0:
 		model.Status.Identifiers = nil
 	}
+	model.SetSynced(metav1.ConditionTrue, v1alpha1.ModelReasonSynced, "latest model state is applied")
 
 	if apiequality.Semantic.DeepEqual(before, &model.Status) {
 		return nil
 	}
-	if cond := meta.FindStatusCondition(model.Status.Conditions, v1alpha1.ModelConditionReady); cond != nil {
-		log.FromContext(ctx).V(levelInfo).Info("model status changed", "namespace", model.Namespace, "name", model.Name, "ready", cond.Status, "reason", cond.Reason, "message", cond.Message)
-	}
+
 	if err := r.Status().Patch(ctx, model, patch); err != nil {
 		return fmt.Errorf("patch model status %s/%s: %w", model.Namespace, model.Name, err)
 	}
+	log.FromContext(ctx).V(levelInfo).
+		Info("Model status changed", "namespace", model.Namespace, "name", model.Name, "status", model.Status)
 	return nil
 }
 
-// setFailedStatus records the reconcile error on the model and returns the original error.
-func (r *ModelReconciler) setFailedStatus(ctx context.Context, model *v1alpha1.Model, cause error) error {
+// setNotSynced records the provided error on the model on reconcile failure
+func (r *ModelReconciler) setNotSynced(ctx context.Context, model *v1alpha1.Model, cause error) {
 	patch := client.MergeFrom(model.DeepCopy())
-	model.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonReconcileError, cause.Error())
+	model.SetSynced(metav1.ConditionFalse, v1alpha1.ModelReasonReconcileError, cause.Error())
 	if patchErr := r.Status().Patch(ctx, model, patch); patchErr != nil {
 		log.FromContext(ctx).Error(patchErr, "failed to patch status after reconcile error")
 	}
-	return cause
 }
 
 func (r *ModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
