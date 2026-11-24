@@ -224,6 +224,7 @@ jobs:
             assert_skipped /tmp/agw-crds.yaml
           fi
           printf '%s' "$manifest" | grep -q '^  name: models.thalamus.cloud'
+          printf '%s' "$manifest" | grep -q '^  name: modelartifacts.thalamus.cloud'
           echo "PASS: thalamus skipped all disabled CRD dependencies"
 
       - name: Verify disabled agentgateway controller was skipped
@@ -245,7 +246,8 @@ jobs:
             crd/httproutes.gateway.networking.k8s.io \
             crd/inferencepools.inference.networking.k8s.io \
             crd/agentgatewaypolicies.agentgateway.dev \
-            crd/models.thalamus.cloud
+            crd/models.thalamus.cloud \
+            crd/modelartifacts.thalamus.cloud
 
       - name: Verify Model argument validation
         run: |
@@ -277,10 +279,22 @@ jobs:
             --sort-by=.lastTimestamp || true
 
   inference:
-    name: Inference (v1 endpoints)
+    name: Inference (v1 endpoints, ${{ matrix.scenario }})
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - scenario: default
+            example: examples/model-smollm2-cpu.yaml
+            model_name: smollm2-135m
+            model_id: HuggingFaceTB/SmolLM2-135M-Instruct
+          - scenario: speculative-decoding
+            example: examples/model-smollm2-360m-spec-cpu.yaml
+            model_name: smollm2-360m-spec
+            model_id: HuggingFaceTB/SmolLM2-360M-Instruct
     env:
       GATEWAY_HOST: localhost
       GATEWAY_PORT: "8080"
@@ -341,16 +355,26 @@ jobs:
             --namespace thalamus \
             --from-literal=HF_TOKEN=${{ secrets.HF_TOKEN }}
 
-      - name: Apply Model
+      - name: Apply Artifact and Model
         run: |
-          kubectl apply -f ${{ github.workspace }}/examples/model-smollm2-cpu.yaml
+          kubectl apply -f ${{ github.workspace }}/${{ matrix.example }}
 
       - name: Wait for Model readiness
         run: |
-          kubectl wait model/smollm2-135m \
+          kubectl wait model/${{ matrix.model_name }} \
             --namespace thalamus \
             --for=condition=Ready \
             --timeout=600s
+
+      - name: Verify speculative decoding is active
+        if: matrix.scenario == 'speculative-decoding'
+        run: |
+          # Spec decoding is API-transparent, so only engine logs prove drafter
+          kubectl logs -n thalamus "$(kubectl get pods -n thalamus \
+            -l thalamus.cloud/engine=smollm2-360m-spec-engine \
+            --field-selector=status.phase=Running -o name | head -1)" \
+            | grep -F "SpeculativeConfig(method='draft_model'" \
+            || { echo "FAIL: draft model not active in engine logs"; exit 1; }
 
       - name: Port-forward Gateway
         run: |
@@ -360,20 +384,20 @@ jobs:
 
       - name: Run e2e validation
         env:
-          MODEL: HuggingFaceTB/SmolLM2-135M-Instruct
+          MODEL: ${{ matrix.model_id }}
         run: uv run test/e2e/validate.py
 
       - name: Add alias to the Model
         run: |
-          kubectl patch model smollm2-135m \
+          kubectl patch model ${{ matrix.model_name }} \
             --namespace thalamus \
             --type merge \
-            -p '{"spec":{"aliases":["HuggingFaceTB/SmolLM2-135M-Instruct-e2e"]}}'
+            -p '{"spec":{"aliases":["${{ matrix.model_id }}-e2e"]}}'
 
-          generation="$(kubectl get model smollm2-135m \
+          generation="$(kubectl get model ${{ matrix.model_name }} \
             --namespace thalamus \
             -o jsonpath='{.metadata.generation}')"
-          kubectl wait model/smollm2-135m \
+          kubectl wait model/${{ matrix.model_name }} \
             --namespace thalamus \
             --for=jsonpath='{.status.conditions[?(@.type=="Ready")].observedGeneration}'="$generation" \
             --for=condition=Ready \
@@ -381,12 +405,12 @@ jobs:
 
       - name: Run e2e validation with alias
         env:
-          MODEL: HuggingFaceTB/SmolLM2-135M-Instruct-e2e
+          MODEL: ${{ matrix.model_id }}-e2e
         run: uv run test/e2e/validate.py
 
       - name: Assert old model name is no longer served
         env:
-          MODEL: HuggingFaceTB/SmolLM2-135M-Instruct
+          MODEL: ${{ matrix.model_id }}
         run: |
           # /v1/models returns 200 even when the model is absent.
           if uv run test/e2e/validate.py models; then
@@ -404,6 +428,27 @@ jobs:
             fi
           done
           echo "PASS: base model name is absent from /v1/models and rejected with 404"
+
+      - name: Verify uninstall removes models and CRDs
+        run: |
+          helm uninstall thalamus --namespace thalamus --wait --timeout 5m
+
+          for crd in models.thalamus.cloud modelartifacts.thalamus.cloud; do
+            if kubectl get crd "$crd" >/dev/null 2>&1; then
+              echo "FAIL: $crd still exists after helm uninstall"
+              kubectl get crd "$crd" -o yaml
+              exit 1
+            fi
+          done
+
+          for kind in serviceaccount role rolebinding job; do
+            if kubectl -n thalamus get "$kind" thalamus-cleanup >/dev/null 2>&1; then
+              echo "FAIL: cleanup $kind was left behind after helm uninstall"
+              exit 1
+            fi
+          done
+
+          echo "PASS: uninstall released the artifact finalizers and removed the CRDs"
 
       - name: Debug on failure
         if: failure()
@@ -442,6 +487,6 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: e2e-inference-debug-logs
+          name: e2e-inference-debug-logs-${{ matrix.scenario }}
           path: debug-logs/
           retention-days: 1

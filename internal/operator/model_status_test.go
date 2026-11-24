@@ -470,7 +470,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			updated := &v1alpha1.Model{}
 			testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
 
-			cond := meta.FindStatusCondition(updated.Status.Conditions, v1alpha1.ModelConditionReady)
+			cond := meta.FindStatusCondition(updated.Status.Conditions, string(v1alpha1.ModelConditionReady))
 			if cond == nil {
 				t.Fatalf("Ready condition not found on model")
 			}
@@ -480,6 +480,7 @@ func TestReconcile_ModelStatus(t *testing.T) {
 			if cond.Reason != string(tc.wantReason) {
 				t.Errorf("Ready condition reason:\ngot:  %q\nwant: %q", cond.Reason, tc.wantReason)
 			}
+			assertModelCondition(t, updated, v1alpha1.ModelConditionArtifactReady, metav1.ConditionTrue, v1alpha1.ModelArtifactReasonReady)
 		})
 	}
 }
@@ -501,16 +502,15 @@ func TestSyncHTTPRouteCondition_StaleMatches(t *testing.T) {
 	}
 
 	testutil.MustGet(t, c, "tiny-llm", testNamespace, model)
-	ready, err := r.syncHTTPRouteCondition(context.Background(), model, v1alpha1.Identifiers(model.Spec.Aliases, model.BaseModelName()))
+	condition, err := r.syncHTTPRouteCondition(context.Background(), model, v1alpha1.Identifiers(model.Spec.Aliases, testutil.DefaultModelBaseRepoID))
 	if err != nil {
 		t.Fatalf("sync http route condition: %v", err)
 	}
-	if ready {
-		t.Fatal("expected a route with stale matches to be not ready")
+	if condition.Status != metav1.ConditionFalse {
+		t.Fatalf("expected a route with stale matches to be not ready, got %+v", condition)
 	}
-	cond := meta.FindStatusCondition(model.Status.Conditions, v1alpha1.ModelConditionReady)
-	if cond == nil || cond.Reason != string(v1alpha1.ModelReasonHTTPRouteNotAccepted) {
-		t.Errorf("Ready condition: %+v, want reason %q", cond, v1alpha1.ModelReasonHTTPRouteNotAccepted)
+	if condition.Reason != string(v1alpha1.ModelReasonHTTPRouteNotAccepted) {
+		t.Errorf("Ready condition: %+v, want reason %q", condition, v1alpha1.ModelReasonHTTPRouteNotAccepted)
 	}
 }
 
@@ -654,7 +654,7 @@ func TestReconcile_ModelStatus_AvailableButIncomplete(t *testing.T) {
 	updated := &v1alpha1.Model{}
 	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
 
-	cond := meta.FindStatusCondition(updated.Status.Conditions, v1alpha1.ModelConditionReady)
+	cond := meta.FindStatusCondition(updated.Status.Conditions, string(v1alpha1.ModelConditionReady))
 	if cond == nil {
 		t.Fatalf("Ready condition not found on model")
 	}

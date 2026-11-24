@@ -5,6 +5,7 @@ package operator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 
@@ -16,7 +17,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -30,6 +34,8 @@ import (
 type ModelReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	// APIReader reads directly from the API server.
+	APIReader client.Reader
 	// GatewayName is the name of the gateway the model routes attach to.
 	GatewayName string
 	// ListenerName is the gateway listener the model routes attach to.
@@ -38,32 +44,86 @@ type ModelReconciler struct {
 	RouterServiceAccountName string
 }
 
+// Reconcile applies the desired state and records the observed status.
 func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	model := &v1alpha1.Model{}
-	if err := r.Get(ctx, req.NamespacedName, model); err != nil {
-		if err = client.IgnoreNotFound(err); err != nil {
-			return ctrl.Result{}, fmt.Errorf("get model %s: %w", req.NamespacedName, err)
-		}
-		return ctrl.Result{}, nil
-	}
-
-	identifiers := v1alpha1.Identifiers(model.Spec.Aliases, model.BaseModelName())
-
-	if err := r.apply(ctx, model, identifiers); err != nil {
-		return ctrl.Result{}, fmt.Errorf("reconcile model %s: %w", req.NamespacedName, r.setFailedStatus(ctx, model, err))
-	}
-	if err := r.observe(ctx, model, identifiers); err != nil {
+	model, err := getObject(ctx, r.Client, req.Namespace, req.Name, &v1alpha1.Model{})
+	if err != nil || model == nil {
 		return ctrl.Result{}, err
 	}
-	if cond := meta.FindStatusCondition(model.Status.Conditions, v1alpha1.ModelConditionReady); cond != nil {
-		log.FromContext(ctx).V(levelDebug).Info("reconciled model", "namespace", model.Namespace, "name", model.Name, "ready", cond.Status, "reason", cond.Reason, "message", cond.Message)
+
+	artifact, err := getObject(ctx, r.APIReader, model.Namespace, model.Spec.ArtifactRef.Name, &v1alpha1.ModelArtifact{})
+	if err != nil {
+		return ctrl.Result{}, err
 	}
-	return ctrl.Result{}, nil
+
+	before := model.DeepCopy()
+	identifiers := modelIdentifiers(model, artifact)
+	usable := isArtifactUsable(artifact) || model.Spec.Replicas == 0
+	var applyErr error
+	if usable {
+		applyErr = r.apply(ctx, model, artifact, identifiers)
+	}
+
+	serving, observeErr := r.syncModelStatus(ctx, model, identifiers)
+
+	reconcileErr := errors.Join(applyErr, observeErr)
+	if reconcileErr != nil {
+		reconcileErr = fmt.Errorf("reconcile model %s: %w", client.ObjectKeyFromObject(model), reconcileErr)
+	}
+
+	status := *before.Status.DeepCopy()
+	// Publish identifiers only once routing serves them.
+	switch {
+	case serving.Status == metav1.ConditionTrue:
+		status.Identifiers = identifiers
+	case model.Spec.Replicas == 0:
+		status.Identifiers = nil
+	}
+	meta.SetStatusCondition(&status.Conditions, artifactReadyCondition(model, artifact))
+
+	ready := serving
+	if !usable {
+		ready.ObservedGeneration = lastAppliedGeneration(before.Status.Conditions)
+	}
+	if reconcileErr != nil {
+		ready = modelCondition(model, v1alpha1.ModelConditionReady, metav1.ConditionFalse,
+			v1alpha1.ModelReasonReconcileError, reconcileErr.Error())
+	}
+	meta.SetStatusCondition(&status.Conditions, ready)
+	model.Status = status
+
+	var patchErr error
+	if !apiequality.Semantic.DeepEqual(before.Status, model.Status) {
+		log.FromContext(ctx).V(levelInfo).Info("model status changed",
+			"namespace", model.Namespace, "name", model.Name, "conditions", model.Status.Conditions)
+		if err := r.Status().Patch(ctx, model, client.MergeFrom(before)); err != nil {
+			patchErr = fmt.Errorf("patch model status %s: %w", client.ObjectKeyFromObject(model), err)
+		}
+	}
+	log.FromContext(ctx).V(levelDebug).Info("reconciled model",
+		"namespace", model.Namespace, "name", model.Name, "conditions", model.Status.Conditions)
+	return ctrl.Result{}, errors.Join(reconcileErr, patchErr)
+}
+
+func modelIdentifiers(model *v1alpha1.Model, artifact *v1alpha1.ModelArtifact) []v1alpha1.Identifier {
+	if isArtifactUsable(artifact) {
+		return v1alpha1.Identifiers(model.Spec.Aliases, artifact.BaseRepoID())
+	}
+	if model.Spec.Replicas > 0 {
+		return model.Status.Identifiers
+	}
+	return nil
+}
+
+func isArtifactUsable(artifact *v1alpha1.ModelArtifact) bool {
+	return artifact != nil &&
+		artifact.GetDeletionTimestamp() == nil &&
+		controllerutil.ContainsFinalizer(artifact, ModelArtifactFinalizer)
 }
 
 // apply creates, updates, or deletes all child resources for the model.
-func (r *ModelReconciler) apply(ctx context.Context, model *v1alpha1.Model, identifiers []v1alpha1.Identifier) error {
-	engineDeployment, err := resources.BuildEngineDeployment(model)
+func (r *ModelReconciler) apply(ctx context.Context, model *v1alpha1.Model, artifact *v1alpha1.ModelArtifact, identifiers []v1alpha1.Identifier) error {
+	engineDeployment, err := resources.BuildEngineDeployment(model, artifact)
 	if err != nil {
 		return fmt.Errorf("build engine deployment: %w", err)
 	}
@@ -123,48 +183,29 @@ func (r *ModelReconciler) deleteOwned(ctx context.Context, owner *v1alpha1.Model
 	return nil
 }
 
-// observe derives the model's status from its child resources and patches it.
-func (r *ModelReconciler) observe(ctx context.Context, model *v1alpha1.Model, identifiers []v1alpha1.Identifier) error {
-	patch := client.MergeFrom(model.DeepCopy())
-	before := model.Status.DeepCopy()
-
-	if err := r.syncModelStatus(ctx, model, identifiers); err != nil {
-		return fmt.Errorf("sync model status: %w", err)
-	}
-
-	// Publish identifiers only once routing serves them.
-	switch {
-	case model.IsReady():
-		model.Status.Identifiers = identifiers
-	case model.Spec.Replicas == 0:
-		model.Status.Identifiers = nil
-	}
-
-	if apiequality.Semantic.DeepEqual(before, &model.Status) {
+// mapArtifactToModels enqueues the models referencing an artifact.
+func (r *ModelReconciler) mapArtifactToModels(ctx context.Context, obj client.Object) []reconcile.Request {
+	var models v1alpha1.ModelList
+	if err := r.List(ctx, &models, client.InNamespace(obj.GetNamespace())); err != nil {
+		log.FromContext(ctx).Error(err, "failed to list models for artifact", "namespace", obj.GetNamespace(), "name", obj.GetName())
 		return nil
 	}
-	if cond := meta.FindStatusCondition(model.Status.Conditions, v1alpha1.ModelConditionReady); cond != nil {
-		log.FromContext(ctx).V(levelInfo).Info("model status changed", "namespace", model.Namespace, "name", model.Name, "ready", cond.Status, "reason", cond.Reason, "message", cond.Message)
-	}
-	if err := r.Status().Patch(ctx, model, patch); err != nil {
-		return fmt.Errorf("patch model status %s/%s: %w", model.Namespace, model.Name, err)
-	}
-	return nil
-}
 
-// setFailedStatus records the reconcile error on the model and returns the original error.
-func (r *ModelReconciler) setFailedStatus(ctx context.Context, model *v1alpha1.Model, cause error) error {
-	patch := client.MergeFrom(model.DeepCopy())
-	model.SetReady(metav1.ConditionFalse, v1alpha1.ModelReasonReconcileError, cause.Error())
-	if patchErr := r.Status().Patch(ctx, model, patch); patchErr != nil {
-		log.FromContext(ctx).Error(patchErr, "failed to patch status after reconcile error")
+	requests := make([]reconcile.Request, 0)
+	for i := range models.Items {
+		model := &models.Items[i]
+		if model.Spec.ArtifactRef.Name != obj.GetName() {
+			continue
+		}
+		requests = append(requests, reconcile.Request{Name: model.Name, Namespace: model.Namespace})
 	}
-	return cause
+	return requests
 }
 
 func (r *ModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Model{}).
+		Watches(&v1alpha1.ModelArtifact{}, handler.EnqueueRequestsFromMapFunc(r.mapArtifactToModels)).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{}).
 		Owns(&corev1.ConfigMap{}).
