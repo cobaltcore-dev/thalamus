@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"github.com/cobaltcore-dev/thalamus/api/v1alpha1"
 	"github.com/cobaltcore-dev/thalamus/internal/operator/resources/helpers"
 	"github.com/cobaltcore-dev/thalamus/internal/operator/testutil"
 )
@@ -103,6 +104,64 @@ func TestBuildEngineDeployment(t *testing.T) {
 		if mounts[name] != path {
 			t.Errorf("mount %q:\ngot:  %q\nwant: %q", name, mounts[name], path)
 		}
+	}
+	if _, ok := vols["model"]; ok {
+		t.Error("non-PVC artifact must not add a model volume")
+	}
+	if mounts["model"] != "" {
+		t.Error("non-PVC artifact must not mount a model volume")
+	}
+	if len(dep.Spec.Template.Spec.InitContainers) != 0 {
+		t.Errorf("non-PVC artifact must not add init containers: %+v", dep.Spec.Template.Spec.InitContainers)
+	}
+}
+
+func TestBuildEngineDeployment_PVCArtifact(t *testing.T) {
+	model, artifact := testutil.Fixture("tiny-llm", "default").Build()
+	artifact.Spec.Volume = &v1alpha1.ModelArtifactVolume{ClaimName: "model-data"}
+	dep, err := BuildEngineDeployment(model, artifact)
+	if err != nil {
+		t.Fatalf("BuildEngineDeployment: %v", err)
+	}
+	if len(dep.Spec.Template.Spec.InitContainers) != 0 {
+		t.Errorf("PVC-backed artifact must not download in the engine pod: %+v", dep.Spec.Template.Spec.InitContainers)
+	}
+	engine := dep.Spec.Template.Spec.Containers[0]
+	if len(engine.Args) == 0 || engine.Args[0] != "/models/base" {
+		t.Errorf("engine model path:\ngot:  %v", engine.Args)
+	}
+	var modelVolume *corev1.Volume
+	for i := range dep.Spec.Template.Spec.Volumes {
+		if dep.Spec.Template.Spec.Volumes[i].Name == "model" {
+			modelVolume = &dep.Spec.Template.Spec.Volumes[i]
+			break
+		}
+	}
+	if modelVolume == nil || modelVolume.PersistentVolumeClaim == nil || modelVolume.PersistentVolumeClaim.ClaimName != "model-data" {
+		t.Errorf("model volume:\ngot:  %+v", modelVolume)
+	}
+	for _, mount := range engine.VolumeMounts {
+		if mount.Name == "model" && mount.MountPath == "/models" {
+			return
+		}
+	}
+	t.Error("engine is missing the /models mount")
+}
+
+func TestBuildEngineDeployment_PVCArtifactDraft(t *testing.T) {
+	model, artifact := testutil.Fixture("tiny-llm", "default").Draft("hf://arnir0/Tiny-Draft").Build()
+	artifact.Spec.Volume = &v1alpha1.ModelArtifactVolume{ClaimName: "model-data"}
+	dep, err := BuildEngineDeployment(model, artifact)
+	if err != nil {
+		t.Fatalf("BuildEngineDeployment: %v", err)
+	}
+	if len(dep.Spec.Template.Spec.InitContainers) != 0 {
+		t.Errorf("PVC-backed artifact must not download in the engine pod: %+v", dep.Spec.Template.Spec.InitContainers)
+	}
+	c := dep.Spec.Template.Spec.Containers[0]
+	want := []string{"/models/base", "--max-model-len=512", "--spec-model=/models/draft"}
+	if !slices.Equal(c.Args, want) {
+		t.Errorf("Args:\ngot:  %v\nwant: %v", c.Args, want)
 	}
 }
 
@@ -302,6 +361,9 @@ func TestBuildEngineDeployment_UserSuppliedHFToken(t *testing.T) {
 	}
 	if count != 1 {
 		t.Errorf("HF_TOKEN appears %d times, want exactly once (user-supplied)", count)
+	}
+	if len(dep.Spec.Template.Spec.InitContainers) != 0 {
+		t.Errorf("init containers:\ngot:  %+v\nwant: none", dep.Spec.Template.Spec.InitContainers)
 	}
 }
 

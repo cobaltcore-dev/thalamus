@@ -77,6 +77,7 @@ _Appears in:_
 | `kind` _string_ | `ModelArtifact` | | |
 | `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  | Optional: \{\} <br /> |
 | `spec` _[ModelArtifactSpec](#modelartifactspec)_ |  |  | Required: \{\} <br /> |
+| `status` _[ModelArtifactStatus](#modelartifactstatus)_ |  |  | Optional: \{\} <br /> |
 
 
 #### ModelArtifactList
@@ -130,6 +131,39 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `base` _string_ | Base is the remote location of the base model weights. |  | Pattern: `^hf://\w([\w.-]*\w)?(/\w([\w.-]*\w)?)?$` <br /> |
 | `draft` _string_ | Draft is the optional remote location of the draft model weights. |  | Optional: \{\} <br />Pattern: `^hf://\w([\w.-]*\w)?(/\w([\w.-]*\w)?)?$` <br /> |
+| `volume` _[ModelArtifactVolume](#modelartifactvolume)_ | Volume selects a PVC for prefetching. Without one the engine downloads weights. |  | Optional: \{\} <br /> |
+
+
+#### ModelArtifactStatus
+
+
+
+ModelArtifactStatus defines the observed state of an artifact.
+
+
+
+_Appears in:_
+- [ModelArtifact](#modelartifact)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#condition-v1-meta) array_ | Conditions report artifact readiness and download progress. |  | Optional: \{\} <br /> |
+
+
+#### ModelArtifactVolume
+
+
+
+ModelArtifactVolume selects the PVC used for prefetching.
+
+
+
+_Appears in:_
+- [ModelArtifactSpec](#modelartifactspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `claimName` _string_ | ClaimName is an existing PVC in the artifact's namespace. |  | Optional: \{\} <br /> |
 
 
 

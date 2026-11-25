@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -118,7 +117,7 @@ func modelIdentifiers(model *v1alpha1.Model, artifact *v1alpha1.ModelArtifact) [
 func isArtifactUsable(artifact *v1alpha1.ModelArtifact) bool {
 	return artifact != nil &&
 		artifact.GetDeletionTimestamp() == nil &&
-		controllerutil.ContainsFinalizer(artifact, ModelArtifactFinalizer)
+		artifact.IsReady()
 }
 
 // apply creates, updates, or deletes all child resources for the model.

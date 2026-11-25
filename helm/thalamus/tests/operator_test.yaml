@@ -168,3 +168,17 @@ tests:
             resources: [modelartifacts]
             verbs: [get, list, watch, update, patch]
         documentIndex: 1
+      - contains:
+          path: rules
+          content:
+            apiGroups: [thalamus.cloud]
+            resources: [modelartifacts/status]
+            verbs: [get, update, patch]
+        documentIndex: 1
+      - contains:
+          path: rules
+          content:
+            apiGroups: [batch]
+            resources: [jobs]
+            verbs: [get, list, watch, create, update, patch, delete]
+        documentIndex: 1

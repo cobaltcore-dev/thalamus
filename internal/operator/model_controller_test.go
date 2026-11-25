@@ -73,6 +73,12 @@ func withDefaultArtifacts(objs []client.Object) []client.Object {
 	for _, obj := range objs {
 		if artifact, ok := obj.(*v1alpha1.ModelArtifact); ok {
 			controllerutil.AddFinalizer(artifact, ModelArtifactFinalizer)
+			if len(artifact.Status.Conditions) == 0 {
+				artifact.Status.Conditions = []metav1.Condition{{
+					Type: "Ready", Status: metav1.ConditionTrue, Reason: "ArtifactReady",
+					ObservedGeneration: artifact.Generation,
+				}}
+			}
 		}
 	}
 	return objs
@@ -85,7 +91,7 @@ func newTestReconciler(t *testing.T, objs ...client.Object) (*ModelReconciler, c
 	s := testutil.NewScheme(t)
 	c := fake.NewClientBuilder().WithScheme(s).
 		WithObjects(withDefaultArtifacts(objs)...).
-		WithStatusSubresource(&v1alpha1.Model{}, &appsv1.Deployment{}, &inferencev1.InferencePool{}, &gatewayv1.HTTPRoute{}).
+		WithStatusSubresource(&v1alpha1.Model{}, &v1alpha1.ModelArtifact{}, &appsv1.Deployment{}, &inferencev1.InferencePool{}, &gatewayv1.HTTPRoute{}).
 		Build()
 	return &ModelReconciler{Client: c, Scheme: s, APIReader: c, GatewayName: testGatewayName, ListenerName: testGatewayListener, RouterServiceAccountName: testRouterSAName}, c
 }
@@ -509,6 +515,10 @@ func TestReconcile_WaitsForArtifactProtection(t *testing.T) {
 	assertModelCondition(t, updated, v1alpha1.ModelConditionArtifactReady, metav1.ConditionFalse, v1alpha1.ModelArtifactReasonNotReady)
 
 	controllerutil.AddFinalizer(updatedArtifact, ModelArtifactFinalizer)
+	updatedArtifact.Status.Conditions = []metav1.Condition{{
+		Type: "Ready", Status: metav1.ConditionTrue, Reason: "ArtifactReady",
+		ObservedGeneration: updatedArtifact.Generation,
+	}}
 	if err := c.Update(context.Background(), updatedArtifact); err != nil {
 		t.Fatalf("protect artifact: %v", err)
 	}
@@ -518,6 +528,43 @@ func TestReconcile_WaitsForArtifactProtection(t *testing.T) {
 	testutil.MustGet(t, c, "tiny-llm", testNamespace, updated)
 	assertModelCondition(t, updated, v1alpha1.ModelConditionReady, metav1.ConditionFalse, v1alpha1.ModelReasonEngineNotReady)
 	assertModelCondition(t, updated, v1alpha1.ModelConditionArtifactReady, metav1.ConditionTrue, v1alpha1.ModelArtifactReasonReady)
+}
+
+func TestReconcile_WaitsForArtifactReady(t *testing.T) {
+	model, artifact := testutil.Fixture("tiny-llm", testNamespace).Build()
+	controllerutil.AddFinalizer(artifact, ModelArtifactFinalizer)
+	artifact.Status.Conditions = []metav1.Condition{{
+		Type: "Ready", Status: metav1.ConditionFalse, Reason: "Downloading",
+		ObservedGeneration: artifact.Generation,
+	}}
+	r, c := newTestReconciler(t, model, artifact)
+
+	reconcileModelOnce(t, r, model.Name)
+	testutil.MustNotGet(t, c, model.EngineName(), testNamespace, &appsv1.Deployment{})
+	updatedModel := &v1alpha1.Model{}
+	testutil.MustGet(t, c, model.Name, testNamespace, updatedModel)
+	assertModelCondition(t, updatedModel, v1alpha1.ModelConditionArtifactReady, metav1.ConditionFalse, v1alpha1.ModelArtifactReasonNotReady)
+
+	updatedArtifact := &v1alpha1.ModelArtifact{}
+	testutil.MustGet(t, c, artifact.Name, testNamespace, updatedArtifact)
+	updatedArtifact.Status.Conditions = []metav1.Condition{{
+		Type: "Ready", Status: metav1.ConditionTrue, Reason: "ArtifactReady",
+		ObservedGeneration: updatedArtifact.Generation,
+	}}
+	if err := c.Status().Update(context.Background(), updatedArtifact); err != nil {
+		t.Fatalf("mark artifact ready: %v", err)
+	}
+	reconcileModelOnce(t, r, model.Name)
+	testutil.MustGet(t, c, model.EngineName(), testNamespace, &appsv1.Deployment{})
+	updatedArtifact.Status.Conditions = []metav1.Condition{{
+		Type: "Ready", Status: metav1.ConditionFalse, Reason: "DownloadFailed",
+		ObservedGeneration: updatedArtifact.Generation,
+	}}
+	if err := c.Status().Update(context.Background(), updatedArtifact); err != nil {
+		t.Fatalf("mark artifact not ready: %v", err)
+	}
+	reconcileModelOnce(t, r, model.Name)
+	testutil.MustGet(t, c, model.EngineName(), testNamespace, &appsv1.Deployment{})
 }
 
 func TestReconcile_MissingArtifact(t *testing.T) {
@@ -537,6 +584,10 @@ func TestReconcile_MissingArtifact(t *testing.T) {
 	}
 
 	controllerutil.AddFinalizer(artifact, ModelArtifactFinalizer)
+	artifact.Status.Conditions = []metav1.Condition{{
+		Type: "Ready", Status: metav1.ConditionTrue, Reason: "ArtifactReady",
+		ObservedGeneration: artifact.Generation,
+	}}
 	if err := c.Create(context.Background(), artifact); err != nil {
 		t.Fatalf("create artifact: %v", err)
 	}
