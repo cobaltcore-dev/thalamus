@@ -89,8 +89,7 @@ func defaultEnginePodSpec() *corev1.PodSpec {
 			{Name: "dshm", MountPath: "/dev/shm"},
 			{Name: "tmp", MountPath: "/tmp"},
 		},
-		SecurityContext: hardenedContainerSecurityContext(ubuntuNobody),
-
+		SecurityContext: defaultContainerSecurityContext(),
 		StartupProbe: &corev1.Probe{
 			HTTPGet: &corev1.HTTPGetAction{
 				Path: "/v1/models",
@@ -127,7 +126,38 @@ func defaultEnginePodSpec() *corev1.PodSpec {
 			{Name: "dshm", EmptyDir: &corev1.EmptyDirVolumeSource{Medium: corev1.StorageMediumMemory}},
 			{Name: "tmp", EmptyDir: &corev1.EmptyDirVolumeSource{}},
 		},
-		SecurityContext: hardenedPodSecurityContext(ubuntuNobody, new(ubuntuNobody)),
+		SecurityContext: defaultPodSecurityContext(),
+	}
+}
+
+func defaultPodSecurityContext() *corev1.PodSecurityContext {
+	return &corev1.PodSecurityContext{
+		RunAsNonRoot: new(true),
+		RunAsUser:    new(ubuntuNobody),
+		RunAsGroup:   new(ubuntuNobody),
+		// Chowns cache volume to group nobody; pre-populated PVC
+		// stays writable regardless of seeding uid
+		FSGroup: new(ubuntuNobody),
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
+	}
+}
+
+func defaultContainerSecurityContext() *corev1.SecurityContext {
+	return &corev1.SecurityContext{
+		AllowPrivilegeEscalation: new(false),
+		ReadOnlyRootFilesystem:   new(true),
+		RunAsNonRoot:             new(true),
+		RunAsUser:                new(ubuntuNobody),
+		RunAsGroup:               new(ubuntuNobody),
+		Privileged:               new(false),
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{"ALL"},
+		},
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
 	}
 }
 
