@@ -129,8 +129,8 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `base` _string_ | Base is the remote location of the base model weights. |  | Pattern: `^hf://\w([\w.-]*\w)?(/\w([\w.-]*\w)?)?$` <br /> |
-| `draft` _string_ | Draft is the optional remote location of the draft model weights. |  | Optional: \{\} <br />Pattern: `^hf://\w([\w.-]*\w)?(/\w([\w.-]*\w)?)?$` <br /> |
+| `base` _string_ | Base is the remote location of the base model weights. |  |  |
+| `draft` _string_ | Draft is the optional remote location of the draft model weights. |  | Optional: \{\} <br /> |
 | `volume` _[ModelArtifactVolume](#modelartifactvolume)_ | Volume selects a PVC for prefetching. Without one the engine downloads weights. |  | Optional: \{\} <br /> |
 
 

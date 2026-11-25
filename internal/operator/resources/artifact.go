@@ -25,6 +25,33 @@ const (
 	modelDownloadInclude   = `--include "*.safetensors" --include "*.json" --include "*.txt" --include "*.model" --include "*.jinja"`
 )
 
+// Source schemes supported in spec.base and spec.draft.
+const (
+	schemeHuggingFace = "hf"
+	schemeModelPack   = "modelpack"
+)
+
+// sourceScheme returns the scheme of a weights URL (the part before "://"),
+// defaulting to Hugging Face when the URL carries no scheme.
+func sourceScheme(url string) string {
+	if scheme, _, ok := strings.Cut(url, "://"); ok {
+		return scheme
+	}
+	return schemeHuggingFace
+}
+
+// downloadContainers returns the container(s) that fetch the artifact's weights
+// into the model volume, dispatched on the scheme of spec.base. The scheme is
+// constrained by CEL validation; anything unexpected falls back to Hugging Face.
+func downloadContainers(artifact *v1alpha1.ModelArtifact) []corev1.Container {
+	switch sourceScheme(artifact.Spec.Base) {
+	case schemeModelPack:
+		return modelPackContainers(artifact)
+	default:
+		return []corev1.Container{huggingFaceContainer(artifact)}
+	}
+}
+
 // BuildArtifactDownloadJob returns the artifact's prefetch Job.
 func BuildArtifactDownloadJob(artifact *v1alpha1.ModelArtifact, name string) *batchv1.Job {
 	claim := artifact.Spec.Volume
@@ -34,11 +61,7 @@ func BuildArtifactDownloadJob(artifact *v1alpha1.ModelArtifact, name string) *ba
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					RestartPolicy: corev1.RestartPolicyOnFailure,
-					Containers: []corev1.Container{{
-						Name: modelDownloadContainer, Image: modelDownloadImage,
-						Command: []string{"/bin/sh", "-c"}, Args: []string{downloadCommand(artifact)},
-						VolumeMounts: []corev1.VolumeMount{{Name: modelVolumeName, MountPath: modelVolumeMountPath}},
-					}},
+					Containers:    downloadContainers(artifact),
 					Volumes: []corev1.Volume{{
 						Name: modelVolumeName,
 						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
@@ -54,6 +77,17 @@ func BuildArtifactDownloadJob(artifact *v1alpha1.ModelArtifact, name string) *ba
 	return job
 }
 
+// huggingFaceContainer downloads base and draft weights with the Hugging Face CLI.
+func huggingFaceContainer(artifact *v1alpha1.ModelArtifact) corev1.Container {
+	return corev1.Container{
+		Name:         modelDownloadContainer,
+		Image:        modelDownloadImage,
+		Command:      []string{"/bin/sh", "-c"},
+		Args:         []string{downloadCommand(artifact)},
+		VolumeMounts: []corev1.VolumeMount{modelVolumeMount()},
+	}
+}
+
 func downloadCommand(artifact *v1alpha1.ModelArtifact) string {
 	commands := []string{
 		fmt.Sprintf("uvx --from huggingface_hub hf download %s --local-dir %s %s", artifact.BaseRepoID(), baseModelPath, modelDownloadInclude),
@@ -64,16 +98,15 @@ func downloadCommand(artifact *v1alpha1.ModelArtifact) string {
 	return "set -eu; " + strings.Join(commands, "; ")
 }
 
-// modelDownloadInitContainer returns the init container that downloads the weights into the pod-local model volume.
-func modelDownloadInitContainer(engine *corev1.Container, artifact *v1alpha1.ModelArtifact) corev1.Container {
-	return corev1.Container{
-		Name:         modelDownloadContainer,
-		Image:        modelDownloadImage,
-		Command:      []string{"/bin/sh", "-c"},
-		Args:         []string{downloadCommand(artifact)},
-		Env:          engine.Env,
-		VolumeMounts: slices.Concat(engine.VolumeMounts, []corev1.VolumeMount{modelVolumeMount()}),
+// modelDownloadInitContainers returns the init containers that download the weights
+// into the pod-local model volume, reusing the engine's env and volume mounts.
+func modelDownloadInitContainers(engine *corev1.Container, artifact *v1alpha1.ModelArtifact) []corev1.Container {
+	containers := downloadContainers(artifact)
+	for i := range containers {
+		containers[i].Env = slices.Concat(engine.Env, containers[i].Env)
+		containers[i].VolumeMounts = slices.Concat(engine.VolumeMounts, containers[i].VolumeMounts)
 	}
+	return containers
 }
 
 // ModelVolume returns the artifact's model volume.

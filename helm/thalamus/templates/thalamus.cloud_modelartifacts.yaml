@@ -44,11 +44,15 @@ spec:
           spec:
             properties:
               base:
-                pattern: ^hf://\w([\w.-]*\w)?(/\w([\w.-]*\w)?)?$
                 type: string
+                x-kubernetes-validations:
+                - message: spec.base must be an hf:// or modelpack:// URL
+                  rule: self.matches('^(hf|modelpack)://.+$')
               draft:
-                pattern: ^hf://\w([\w.-]*\w)?(/\w([\w.-]*\w)?)?$
                 type: string
+                x-kubernetes-validations:
+                - message: spec.draft must be an hf:// or modelpack:// URL
+                  rule: self.matches('^(hf|modelpack)://.+$')
               volume:
                 properties:
                   claimName:

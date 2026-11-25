@@ -39,7 +39,7 @@ func BuildEngineDeployment(model *v1alpha1.Model, artifact *v1alpha1.ModelArtifa
 		} else {
 			podSpec.Volumes = setVolume(podSpec.Volumes, modelEmptyDirVolume())
 			// Prepend so the weights are in place before any user init container runs.
-			podSpec.InitContainers = append([]corev1.Container{modelDownloadInitContainer(c, artifact)}, podSpec.InitContainers...)
+			podSpec.InitContainers = append(modelDownloadInitContainers(c, artifact), podSpec.InitContainers...)
 		}
 		c.VolumeMounts = setVolumeMount(c.VolumeMounts, modelVolumeMount())
 		// Prepend the model path after the merge so user args cannot drop it.
