@@ -101,19 +101,6 @@ func (a *ModelArtifact) UsesPVC() bool {
 	return a != nil && a.Spec.Volume != nil && a.Spec.Volume.ClaimName != ""
 }
 
-// BasePath is the local directory of the base model weights.
-func (a *ModelArtifact) BasePath() string {
-	return "/models/base"
-}
-
-// DraftPath is the local directory of the draft weights, empty if unset.
-func (a *ModelArtifact) DraftPath() string {
-	if a.DraftRepoID() == "" {
-		return ""
-	}
-	return "/models/draft"
-}
-
 // IsReady reports whether Ready is true for the current generation.
 func (a *ModelArtifact) IsReady() bool {
 	if a == nil {

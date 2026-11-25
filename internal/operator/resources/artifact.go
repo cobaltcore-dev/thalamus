@@ -5,6 +5,7 @@ package resources
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -17,8 +18,11 @@ import (
 const (
 	modelVolumeName        = "model"
 	modelVolumeMountPath   = "/models"
+	baseModelPath          = modelVolumeMountPath + "/base"
+	draftModelPath         = modelVolumeMountPath + "/draft"
 	modelDownloadImage     = "ghcr.io/astral-sh/uv:python3.12-bookworm-slim"
 	modelDownloadContainer = "model-download"
+	modelDownloadInclude   = `--include "*.safetensors" --include "*.json" --include "*.txt" --include "*.model" --include "*.jinja"`
 )
 
 // BuildArtifactDownloadJob returns the artifact's prefetch Job.
@@ -52,12 +56,24 @@ func BuildArtifactDownloadJob(artifact *v1alpha1.ModelArtifact, name string) *ba
 
 func downloadCommand(artifact *v1alpha1.ModelArtifact) string {
 	commands := []string{
-		fmt.Sprintf("uvx --from huggingface_hub hf download %s --local-dir %s", artifact.BaseRepoID(), artifact.BasePath()),
+		fmt.Sprintf("uvx --from huggingface_hub hf download %s --local-dir %s %s", artifact.BaseRepoID(), baseModelPath, modelDownloadInclude),
 	}
 	if draft := artifact.DraftRepoID(); draft != "" {
-		commands = append(commands, fmt.Sprintf("uvx --from huggingface_hub hf download %s --local-dir %s", draft, artifact.DraftPath()))
+		commands = append(commands, fmt.Sprintf("uvx --from huggingface_hub hf download %s --local-dir %s %s", draft, draftModelPath, modelDownloadInclude))
 	}
 	return "set -eu; " + strings.Join(commands, "; ")
+}
+
+// modelDownloadInitContainer returns the init container that downloads the weights into the pod-local model volume.
+func modelDownloadInitContainer(engine *corev1.Container, artifact *v1alpha1.ModelArtifact) corev1.Container {
+	return corev1.Container{
+		Name:         modelDownloadContainer,
+		Image:        modelDownloadImage,
+		Command:      []string{"/bin/sh", "-c"},
+		Args:         []string{downloadCommand(artifact)},
+		Env:          engine.Env,
+		VolumeMounts: slices.Concat(engine.VolumeMounts, []corev1.VolumeMount{modelVolumeMount()}),
+	}
 }
 
 // ModelVolume returns the artifact's model volume.
@@ -67,6 +83,14 @@ func ModelVolume(artifact *v1alpha1.ModelArtifact) corev1.Volume {
 		PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 			ClaimName: artifact.Spec.Volume.ClaimName,
 		},
+	}
+}
+
+// modelEmptyDirVolume returns the pod-local model volume.
+func modelEmptyDirVolume() corev1.Volume {
+	return corev1.Volume{
+		Name:     modelVolumeName,
+		EmptyDir: &corev1.EmptyDirVolumeSource{},
 	}
 }
 

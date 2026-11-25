@@ -49,7 +49,7 @@ func TestBuildEngineDeployment(t *testing.T) {
 	if c.Image != model.Spec.Serving.Engine.Containers[0].Image {
 		t.Errorf("Image:\ngot:  %q\nwant: %q", c.Image, model.Spec.Serving.Engine.Containers[0].Image)
 	}
-	wantArgs := []string{"arnir0/Tiny-LLM", "--max-model-len=512"}
+	wantArgs := []string{"/models/base", "--max-model-len=512"}
 	if !slices.Equal(c.Args, wantArgs) {
 		t.Errorf("Args:\ngot:  %v\nwant: %v", c.Args, wantArgs)
 	}
@@ -105,14 +105,26 @@ func TestBuildEngineDeployment(t *testing.T) {
 			t.Errorf("mount %q:\ngot:  %q\nwant: %q", name, mounts[name], path)
 		}
 	}
-	if _, ok := vols["model"]; ok {
-		t.Error("non-PVC artifact must not add a model volume")
+	if vols["model"].EmptyDir == nil {
+		t.Error("non-PVC artifact must add an emptyDir model volume")
 	}
-	if mounts["model"] != "" {
-		t.Error("non-PVC artifact must not mount a model volume")
+	if mounts["model"] != "/models" {
+		t.Errorf("mount %q:\ngot:  %q\nwant: %q", "model", mounts["model"], "/models")
 	}
-	if len(dep.Spec.Template.Spec.InitContainers) != 0 {
-		t.Errorf("non-PVC artifact must not add init containers: %+v", dep.Spec.Template.Spec.InitContainers)
+	init := dep.Spec.Template.Spec.InitContainers
+	if len(init) != 1 {
+		t.Fatalf("init containers:\ngot:  %d\nwant: 1", len(init))
+	}
+	if init[0].Name != "model-download" {
+		t.Errorf("init container name:\ngot:  %q\nwant: model-download", init[0].Name)
+	}
+	if init[0].Image != modelDownloadImage {
+		t.Errorf("init container image:\ngot:  %q\nwant: %q", init[0].Image, modelDownloadImage)
+	}
+	wantCommand := "set -eu; uvx --from huggingface_hub hf download arnir0/Tiny-LLM --local-dir /models/base " +
+		`--include "*.safetensors" --include "*.json" --include "*.txt" --include "*.model" --include "*.jinja"`
+	if len(init[0].Args) != 1 || init[0].Args[0] != wantCommand {
+		t.Errorf("init container args:\ngot:  %v\nwant: %v", init[0].Args, wantCommand)
 	}
 }
 
@@ -362,8 +374,21 @@ func TestBuildEngineDeployment_UserSuppliedHFToken(t *testing.T) {
 	if count != 1 {
 		t.Errorf("HF_TOKEN appears %d times, want exactly once (user-supplied)", count)
 	}
-	if len(dep.Spec.Template.Spec.InitContainers) != 0 {
-		t.Errorf("init containers:\ngot:  %+v\nwant: none", dep.Spec.Template.Spec.InitContainers)
+	init := dep.Spec.Template.Spec.InitContainers
+	if len(init) != 1 {
+		t.Fatalf("init containers:\ngot:  %d\nwant: 1", len(init))
+	}
+	found := false
+	for _, e := range init[0].Env {
+		if e.Name == "HF_TOKEN" {
+			found = true
+			if e.ValueFrom == nil || e.ValueFrom.SecretKeyRef == nil || e.ValueFrom.SecretKeyRef.Name != "hf-token" {
+				t.Errorf("init container HF_TOKEN:\ngot:  %+v\nwant: user-supplied secretKeyRef hf-token", e)
+			}
+		}
+	}
+	if !found {
+		t.Error("init container is missing HF_TOKEN")
 	}
 }
 
@@ -376,7 +401,7 @@ func TestBuildEngineDeployment_Aliases(t *testing.T) {
 	}
 	c := dep.Spec.Template.Spec.Containers[0]
 
-	want := []string{"arnir0/Tiny-LLM", "--max-model-len=512"}
+	want := []string{"/models/base", "--max-model-len=512"}
 	if !slices.Equal(c.Args, want) {
 		t.Errorf("Args:\ngot:  %v\nwant: %v", c.Args, want)
 	}
@@ -435,9 +460,9 @@ func TestBuildEngineDeployment_Draft(t *testing.T) {
 	c := dep.Spec.Template.Spec.Containers[0]
 
 	want := []string{
-		"arnir0/Tiny-LLM",
+		"/models/base",
 		"--max-model-len=512",
-		"--spec-model=arnir0/Tiny-Draft",
+		"--spec-model=/models/draft",
 	}
 	if !slices.Equal(c.Args, want) {
 		t.Errorf("Args:\ngot:  %v\nwant: %v", c.Args, want)
