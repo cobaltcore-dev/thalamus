@@ -79,7 +79,7 @@ func (r *ModelArtifactReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	status := artifact.DeepCopy().Status
 	if !artifact.UsesPVC() {
-		artifact.SetReady(metav1.ConditionTrue, v1alpha1.ModelArtifactReasonReady, "the engine downloads weights when a Model pod starts")
+		artifact.SetReady(metav1.ConditionTrue, v1alpha1.ModelArtifactReasonReady, "an init container downloads the weights when the Model pod starts")
 	} else {
 		if err := r.syncDownloadJob(ctx, artifact); err != nil {
 			return ctrl.Result{}, err

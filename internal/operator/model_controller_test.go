@@ -147,7 +147,7 @@ func TestReconcile_NativeWithAliases(t *testing.T) {
 	}
 
 	wantArgs := []string{
-		"arnir0/Tiny-LLM",
+		"/models/base",
 		"--max-model-len=512",
 	}
 	if got := dep.Spec.Template.Spec.Containers[0].Args; !slices.Equal(got, wantArgs) {
@@ -852,9 +852,9 @@ func TestReconcile_NativeWithDraft(t *testing.T) {
 	testutil.MustGet(t, c, "tiny-llm-engine", testNamespace, dep)
 
 	wantArgs := []string{
-		"arnir0/Tiny-LLM",
+		"/models/base",
 		"--max-model-len=512",
-		"--spec-model=arnir0/Tiny-Draft",
+		"--spec-model=/models/draft",
 	}
 	if got := dep.Spec.Template.Spec.Containers[0].Args; !slices.Equal(got, wantArgs) {
 		t.Errorf("engine args:\ngot:  %v\nwant: %v", got, wantArgs)
