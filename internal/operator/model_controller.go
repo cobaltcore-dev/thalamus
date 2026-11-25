@@ -11,7 +11,6 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -92,12 +91,13 @@ func (r *ModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	model.Status = status
 
 	var patchErr error
-	if !apiequality.Semantic.DeepEqual(before.Status, model.Status) {
+	statusPatched, err := patchStatusIfChanged(ctx, r.Client, before, model)
+	if err != nil {
+		patchErr = err
+	}
+	if statusPatched {
 		log.FromContext(ctx).V(levelInfo).Info("model status changed",
 			"namespace", model.Namespace, "name", model.Name, "conditions", model.Status.Conditions)
-		if err := r.Status().Patch(ctx, model, client.MergeFrom(before)); err != nil {
-			patchErr = fmt.Errorf("patch model status %s: %w", client.ObjectKeyFromObject(model), err)
-		}
 	}
 	log.FromContext(ctx).V(levelDebug).Info("reconciled model",
 		"namespace", model.Namespace, "name", model.Name, "conditions", model.Status.Conditions)
