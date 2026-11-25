@@ -34,9 +34,15 @@ func BuildEngineDeployment(model *v1alpha1.Model, artifact *v1alpha1.ModelArtifa
 
 	if artifact != nil {
 		c := helpers.GetContainerByName(&podSpec, "engine")
+		base, draft := artifact.BaseRepoID(), artifact.DraftRepoID()
+		if artifact.UsesPVC() {
+			base, draft = artifact.BasePath(), artifact.DraftPath()
+			podSpec.Volumes = setVolume(podSpec.Volumes, ModelVolume(artifact))
+			c.VolumeMounts = setVolumeMount(c.VolumeMounts, modelVolumeMount())
+		}
 		// Prepend the model path after the merge so user args cannot drop it.
-		c.Args = append([]string{artifact.BaseRepoID()}, c.Args...)
-		if draft := artifact.DraftRepoID(); draft != "" {
+		c.Args = append([]string{base}, c.Args...)
+		if draft != "" {
 			// Append last so the artifact's draft overrides any user-provided --spec-model.
 			c.Args = append(c.Args, "--spec-model="+draft)
 		}

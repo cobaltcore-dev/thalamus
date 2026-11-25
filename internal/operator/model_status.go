@@ -50,9 +50,9 @@ func artifactReadyCondition(model *v1alpha1.Model, artifact *v1alpha1.ModelArtif
 	case artifact.GetDeletionTimestamp() != nil:
 		reason = v1alpha1.ModelArtifactReasonTerminating
 		message = fmt.Sprintf("model artifact %s is being deleted; delete the Model to let the deletion complete", model.Spec.ArtifactRef.Name)
-	case !isArtifactUsable(artifact):
+	case !artifact.IsReady():
 		reason = v1alpha1.ModelArtifactReasonNotReady
-		message = fmt.Sprintf("model artifact %s is not protected by the artifact controller yet", model.Spec.ArtifactRef.Name)
+		message = fmt.Sprintf("model artifact %s is not Ready", model.Spec.ArtifactRef.Name)
 	default:
 		status = metav1.ConditionTrue
 		reason = v1alpha1.ModelArtifactReasonReady

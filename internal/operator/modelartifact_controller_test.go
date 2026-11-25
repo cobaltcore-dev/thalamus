@@ -5,8 +5,11 @@ package operator
 
 import (
 	"context"
+	"strings"
 	"testing"
 
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -24,7 +27,8 @@ import (
 func newTestModelArtifactReconciler(t *testing.T, objs ...client.Object) (*ModelArtifactReconciler, client.Client) {
 	t.Helper()
 	s := testutil.NewScheme(t)
-	c := fake.NewClientBuilder().WithScheme(s).WithObjects(objs...).Build()
+	c := fake.NewClientBuilder().WithScheme(s).WithObjects(objs...).
+		WithStatusSubresource(&v1alpha1.ModelArtifact{}, &batchv1.Job{}).Build()
 	return &ModelArtifactReconciler{Client: c, Scheme: s, APIReader: c}, c
 }
 
@@ -62,6 +66,106 @@ func TestModelArtifactReconcile_ProtectsUnreferencedArtifact(t *testing.T) {
 
 	if !artifactHasFinalizer(t, c, "weights") {
 		t.Error("live artifacts must carry the protection finalizer")
+	}
+}
+
+func TestModelArtifactReconcile_NodeLocalIsReady(t *testing.T) {
+	artifact := testutil.NewModelArtifact("weights", testNamespace)
+	artifact.Spec.Volume = &v1alpha1.ModelArtifactVolume{}
+	r, c := newTestModelArtifactReconciler(t, artifact)
+
+	reconcileModelArtifactOnce(t, r, artifact.Name)
+	reconcileModelArtifactOnce(t, r, artifact.Name)
+
+	updated := &v1alpha1.ModelArtifact{}
+	testutil.MustGet(t, c, artifact.Name, testNamespace, updated)
+	if !updated.IsReady() {
+		t.Fatalf("node-local artifact status:\ngot:  %+v", updated.Status)
+	}
+	if got := updated.Status.Conditions; len(got) != 1 || got[0].Type != "Ready" {
+		t.Errorf("artifact must expose only the Ready condition, got %+v", got)
+	}
+}
+
+func TestModelArtifactReconcile_PrefetchesPVCAndTracksJob(t *testing.T) {
+	artifact := testutil.NewModelArtifact("weights", testNamespace)
+	artifact.Spec.Volume = &v1alpha1.ModelArtifactVolume{ClaimName: "model-data"}
+	artifact.Spec.Draft = new("hf://org/Tiny-Draft")
+	r, c := newTestModelArtifactReconciler(t, artifact)
+
+	reconcileModelArtifactOnce(t, r, artifact.Name) // persist finalizer before creating resources
+	reconcileModelArtifactOnce(t, r, artifact.Name)
+
+	job := &batchv1.Job{}
+	testutil.MustGet(t, c, artifact.Name+"-download", testNamespace, job)
+	if job.Spec.BackoffLimit == nil || *job.Spec.BackoffLimit != 3 {
+		t.Errorf("job backoff limit:\ngot:  %+v\nwant: 3", job.Spec.BackoffLimit)
+	}
+	container := job.Spec.Template.Spec.Containers[0]
+	if !strings.Contains(container.Args[0], "hf download arnir0/Tiny-LLM --local-dir /models/base") {
+		t.Errorf("download command:\ngot:  %q", container.Args[0])
+	}
+	if !strings.Contains(container.Args[0], "hf download org/Tiny-Draft --local-dir /models/draft") {
+		t.Errorf("draft download command:\ngot:  %q", container.Args[0])
+	}
+	mount := container.VolumeMounts[0]
+	if mount.Name != "model" || mount.MountPath != "/models" {
+		t.Errorf("PVC mount:\ngot:  %+v", mount)
+	}
+	if job.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName != "model-data" {
+		t.Errorf("PVC claim:\ngot:  %+v", job.Spec.Template.Spec.Volumes[0])
+	}
+	updated := &v1alpha1.ModelArtifact{}
+	testutil.MustGet(t, c, artifact.Name, testNamespace, updated)
+	if updated.IsReady() || updated.Status.Conditions[0].Reason != "Downloading" {
+		t.Errorf("downloading artifact status:\ngot:  %+v", updated.Status)
+	}
+	job.Status.Failed = 1 // A failed attempt is still retryable until JobFailed is True.
+	if err := c.Status().Update(context.Background(), job); err != nil {
+		t.Fatalf("record retryable download failure: %v", err)
+	}
+	reconcileModelArtifactOnce(t, r, artifact.Name)
+	testutil.MustGet(t, c, artifact.Name, testNamespace, updated)
+	if updated.IsReady() || updated.Status.Conditions[0].Reason != "Downloading" {
+		t.Errorf("retrying artifact status:\ngot:  %+v", updated.Status)
+	}
+
+	testutil.MustGet(t, c, artifact.Name+"-download", testNamespace, job)
+	job.Status.Succeeded = 1
+	if err := c.Status().Update(context.Background(), job); err != nil {
+		t.Fatalf("mark download Job succeeded: %v", err)
+	}
+	reconcileModelArtifactOnce(t, r, artifact.Name)
+	testutil.MustGet(t, c, artifact.Name, testNamespace, updated)
+	if !updated.IsReady() {
+		t.Errorf("completed artifact status:\ngot:  %+v", updated.Status)
+	}
+}
+
+func TestModelArtifactReconcile_PrefetchFailureIsReported(t *testing.T) {
+	artifact := testutil.NewModelArtifact("weights", testNamespace)
+	artifact.Spec.Volume = &v1alpha1.ModelArtifactVolume{ClaimName: "model-data"}
+	r, c := newTestModelArtifactReconciler(t, artifact)
+	reconcileModelArtifactOnce(t, r, artifact.Name)
+	reconcileModelArtifactOnce(t, r, artifact.Name)
+
+	job := &batchv1.Job{}
+	testutil.MustGet(t, c, artifact.Name+"-download", testNamespace, job)
+	job.Status.Conditions = []batchv1.JobCondition{{
+		Type: batchv1.JobFailed, Status: corev1.ConditionTrue, Message: "download exited with status 1",
+	}}
+	if err := c.Status().Update(context.Background(), job); err != nil {
+		t.Fatalf("mark download Job failed: %v", err)
+	}
+	reconcileModelArtifactOnce(t, r, artifact.Name)
+	updated := &v1alpha1.ModelArtifact{}
+	testutil.MustGet(t, c, artifact.Name, testNamespace, updated)
+	if updated.IsReady() {
+		t.Errorf("failed artifact status:\ngot:  %+v", updated.Status)
+	}
+	condition := updated.Status.Conditions[0]
+	if condition.Reason != "DownloadFailed" || condition.Message != "download exited with status 1" {
+		t.Errorf("failure condition:\ngot:  %+v", condition)
 	}
 }
 

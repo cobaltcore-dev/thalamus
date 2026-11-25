@@ -295,6 +295,10 @@ jobs:
             example: examples/model-smollm2-360m-spec-cpu.yaml
             model_name: smollm2-360m-spec
             model_id: HuggingFaceTB/SmolLM2-360M-Instruct
+          - scenario: prefetch
+            example: examples/model-smollm2-cpu-prefetch.yaml
+            model_name: smollm2-135m-prefetch
+            model_id: HuggingFaceTB/SmolLM2-135M-Instruct
     env:
       GATEWAY_HOST: localhost
       GATEWAY_PORT: "8080"
@@ -358,6 +362,18 @@ jobs:
       - name: Apply Artifact and Model
         run: |
           kubectl apply -f ${{ github.workspace }}/${{ matrix.example }}
+
+      - name: Wait for artifact prefetch
+        if: matrix.scenario == 'prefetch'
+        run: |
+          kubectl wait modelartifact/${{ matrix.model_name }} \
+            --namespace thalamus \
+            --for=condition=Ready \
+            --timeout=600s
+          kubectl wait job/${{ matrix.model_name }}-download \
+            --namespace thalamus \
+            --for=condition=Complete \
+            --timeout=600s
 
       - name: Wait for Model readiness
         run: |

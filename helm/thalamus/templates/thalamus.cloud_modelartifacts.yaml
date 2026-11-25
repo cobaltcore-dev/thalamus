@@ -25,6 +25,9 @@ spec:
     - jsonPath: .spec.draft
       name: Draft
       type: string
+    - jsonPath: .status.conditions[?(@.type=='Ready')].status
+      name: Ready
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -46,6 +49,11 @@ spec:
               draft:
                 pattern: ^hf://\w([\w.-]*\w)?(/\w([\w.-]*\w)?)?$
                 type: string
+              volume:
+                properties:
+                  claimName:
+                    type: string
+                type: object
             required:
             - base
             type: object
@@ -54,9 +62,55 @@ spec:
               rule: '!has(self.draft) || self.base != self.draft'
             - message: spec is immutable
               rule: self == oldSelf
+          status:
+            properties:
+              conditions:
+                items:
+                  properties:
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    message:
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+            type: object
         required:
         - spec
         type: object
+        x-kubernetes-validations:
+        - message: metadata.name must be at most 54 characters.
+          rule: size(self.metadata.name) <= 54
     served: true
     storage: true
-    subresources: {}
+    subresources:
+      status: {}
