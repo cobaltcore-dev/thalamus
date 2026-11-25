@@ -1,0 +1,392 @@
+# SPDX-FileCopyrightText: Copyright 2026 SAP SE or an SAP affiliate company and cobaltcore-dev contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Bootstrap: An overall bootstrap for all specific components.
+# TODO: Arguably, we might be able to just delete this, because we expect
+# people to build their own bootstrap flavor.
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Component
+metadata:
+  name: thalamus-rgd-component
+  namespace: thalamus
+spec:
+  component: github.com/cobaltcore-dev/thalamus/thalamus
+  repositoryRef:
+    name: thalamus-repository
+  semver: "0.1.0"
+  interval: 1m
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Resource
+metadata:
+  name: thalamus-rgd-resource
+  namespace: thalamus
+spec:
+  componentRef:
+    name: thalamus-rgd-component
+  resource:
+    byReference:
+      resource:
+        name: thalamus-rgd
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Deployer
+metadata:
+  name: thalamus-rgd-deployer
+  namespace: thalamus
+spec:
+  resourceRef:
+    name: thalamus-rgd-resource
+    namespace: thalamus
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Component
+metadata:
+  name: thalamus-crds-rgd-component
+  namespace: thalamus
+spec:
+  component: github.com/cobaltcore-dev/thalamus/thalamus-crds
+  repositoryRef:
+    name: thalamus-repository
+  semver: "0.1.0"
+  interval: 1m
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Resource
+metadata:
+  name: thalamus-crds-rgd-resource
+  namespace: thalamus
+spec:
+  componentRef:
+    name: thalamus-crds-rgd-component
+  resource:
+    byReference:
+      resource:
+        name: thalamus-crds-rgd
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Deployer
+metadata:
+  name: thalamus-crds-rgd-deployer
+  namespace: thalamus
+spec:
+  resourceRef:
+    name: thalamus-crds-rgd-resource
+    namespace: thalamus
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Component
+metadata:
+  name: gateway-api-crds-rgd-component
+  namespace: thalamus
+spec:
+  component: github.com/cobaltcore-dev/thalamus/gateway-api-crds
+  repositoryRef:
+    name: thalamus-repository
+  semver: "1.5.1"
+  interval: 1m
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Resource
+metadata:
+  name: gateway-api-crds-rgd-resource
+  namespace: thalamus
+spec:
+  componentRef:
+    name: gateway-api-crds-rgd-component
+  resource:
+    byReference:
+      resource:
+        name: gateway-api-crds-rgd
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Deployer
+metadata:
+  name: gateway-api-crds-rgd-deployer
+  namespace: thalamus
+spec:
+  resourceRef:
+    name: gateway-api-crds-rgd-resource
+    namespace: thalamus
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Component
+metadata:
+  name: gateway-api-inference-extension-crds-rgd-component
+  namespace: thalamus
+spec:
+  component: github.com/cobaltcore-dev/thalamus/gateway-api-inference-extension-crds
+  repositoryRef:
+    name: thalamus-repository
+  semver: "1.5.0"
+  interval: 1m
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Resource
+metadata:
+  name: gateway-api-inference-extension-crds-rgd-resource
+  namespace: thalamus
+spec:
+  componentRef:
+    name: gateway-api-inference-extension-crds-rgd-component
+  resource:
+    byReference:
+      resource:
+        name: gateway-api-inference-extension-crds-rgd
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Deployer
+metadata:
+  name: gateway-api-inference-extension-crds-rgd-deployer
+  namespace: thalamus
+spec:
+  resourceRef:
+    name: gateway-api-inference-extension-crds-rgd-resource
+    namespace: thalamus
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Component
+metadata:
+  name: node-feature-discovery-rgd-component
+  namespace: thalamus
+spec:
+  component: github.com/cobaltcore-dev/thalamus/node-feature-discovery
+  repositoryRef:
+    name: thalamus-repository
+  semver: "0.19.0"
+  interval: 1m
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Resource
+metadata:
+  name: node-feature-discovery-rgd-resource
+  namespace: thalamus
+spec:
+  componentRef:
+    name: node-feature-discovery-rgd-component
+  resource:
+    byReference:
+      resource:
+        name: node-feature-discovery-rgd
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Deployer
+metadata:
+  name: node-feature-discovery-rgd-deployer
+  namespace: thalamus
+spec:
+  resourceRef:
+    name: node-feature-discovery-rgd-resource
+    namespace: thalamus
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Component
+metadata:
+  name: gpu-operator-rgd-component
+  namespace: thalamus
+spec:
+  component: github.com/cobaltcore-dev/thalamus/gpu-operator
+  repositoryRef:
+    name: thalamus-repository
+  semver: "v26.3.3"
+  interval: 1m
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Resource
+metadata:
+  name: gpu-operator-rgd-resource
+  namespace: thalamus
+spec:
+  componentRef:
+    name: gpu-operator-rgd-component
+  resource:
+    byReference:
+      resource:
+        name: gpu-operator-rgd
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Deployer
+metadata:
+  name: gpu-operator-rgd-deployer
+  namespace: thalamus
+spec:
+  resourceRef:
+    name: gpu-operator-rgd-resource
+    namespace: thalamus
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Component
+metadata:
+  name: kube-prometheus-stack-rgd-component
+  namespace: thalamus
+spec:
+  component: github.com/cobaltcore-dev/thalamus/kube-prometheus-stack
+  repositoryRef:
+    name: thalamus-repository
+  semver: "87.15.1"
+  interval: 1m
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Resource
+metadata:
+  name: kube-prometheus-stack-rgd-resource
+  namespace: thalamus
+spec:
+  componentRef:
+    name: kube-prometheus-stack-rgd-component
+  resource:
+    byReference:
+      resource:
+        name: kube-prometheus-stack-rgd
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Deployer
+metadata:
+  name: kube-prometheus-stack-rgd-deployer
+  namespace: thalamus
+spec:
+  resourceRef:
+    name: kube-prometheus-stack-rgd-resource
+    namespace: thalamus
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Component
+metadata:
+  name: agentgateway-crds-rgd-component
+  namespace: thalamus
+spec:
+  component: github.com/cobaltcore-dev/thalamus/agentgateway-crds
+  repositoryRef:
+    name: thalamus-repository
+  semver: "v1.3.1"
+  interval: 1m
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Resource
+metadata:
+  name: agentgateway-crds-rgd-resource
+  namespace: thalamus
+spec:
+  componentRef:
+    name: agentgateway-crds-rgd-component
+  resource:
+    byReference:
+      resource:
+        name: agentgateway-crds-rgd
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Deployer
+metadata:
+  name: agentgateway-crds-rgd-deployer
+  namespace: thalamus
+spec:
+  resourceRef:
+    name: agentgateway-crds-rgd-resource
+    namespace: thalamus
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Component
+metadata:
+  name: agentgateway-rgd-component
+  namespace: thalamus
+spec:
+  component: github.com/cobaltcore-dev/thalamus/agentgateway
+  repositoryRef:
+    name: thalamus-repository
+  semver: "v1.3.1"
+  interval: 1m
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Resource
+metadata:
+  name: agentgateway-rgd-resource
+  namespace: thalamus
+spec:
+  componentRef:
+    name: agentgateway-rgd-component
+  resource:
+    byReference:
+      resource:
+        name: agentgateway-rgd
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Deployer
+metadata:
+  name: agentgateway-rgd-deployer
+  namespace: thalamus
+spec:
+  resourceRef:
+    name: agentgateway-rgd-resource
+    namespace: thalamus
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Component
+metadata:
+  name: external-dns-rgd-component
+  namespace: thalamus
+spec:
+  component: github.com/cobaltcore-dev/thalamus/external-dns
+  repositoryRef:
+    name: thalamus-repository
+  semver: "1.19.0"
+  interval: 1m
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Resource
+metadata:
+  name: external-dns-rgd-resource
+  namespace: thalamus
+spec:
+  componentRef:
+    name: external-dns-rgd-component
+  resource:
+    byReference:
+      resource:
+        name: external-dns-rgd
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Deployer
+metadata:
+  name: external-dns-rgd-deployer
+  namespace: thalamus
+spec:
+  resourceRef:
+    name: external-dns-rgd-resource
+    namespace: thalamus
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Component
+metadata:
+  name: open-webui-rgd-component
+  namespace: thalamus
+spec:
+  component: github.com/cobaltcore-dev/thalamus/open-webui
+  repositoryRef:
+    name: thalamus-repository
+  semver: "15.2.0"
+  interval: 1m
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Resource
+metadata:
+  name: open-webui-rgd-resource
+  namespace: thalamus
+spec:
+  componentRef:
+    name: open-webui-rgd-component
+  resource:
+    byReference:
+      resource:
+        name: open-webui-rgd
+---
+apiVersion: delivery.ocm.software/v1alpha1
+kind: Deployer
+metadata:
+  name: open-webui-rgd-deployer
+  namespace: thalamus
+spec:
+  resourceRef:
+    name: open-webui-rgd-resource
+    namespace: thalamus
