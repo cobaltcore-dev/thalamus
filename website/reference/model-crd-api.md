@@ -64,7 +64,7 @@ _Appears in:_
 
 
 
-The "-download" suffix must fit in the 63-character Job name limit.
+ModelArtifact is the Schema for the modelartifacts API.
 
 
 

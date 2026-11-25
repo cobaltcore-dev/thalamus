@@ -60,6 +60,8 @@ type ModelArtifactSpec struct {
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // The "-download" suffix must fit in the 63-character Job name limit.
 // +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 54",message="metadata.name must be at most 54 characters."
+
+// ModelArtifact is the Schema for the modelartifacts API.
 type ModelArtifact struct {
 	metav1.TypeMeta `json:",inline"`
 
