@@ -22,6 +22,7 @@ const (
 	draftModelPath         = modelVolumeMountPath + "/draft"
 	modelDownloadImage     = "ghcr.io/astral-sh/uv:python3.12-bookworm-slim"
 	modelDownloadContainer = "model-download"
+	modelDownloadInclude   = `--include "*.safetensors" --include "*.json" --include "*.txt" --include "*.model" --include "*.jinja"`
 )
 
 // BuildArtifactDownloadJob returns the artifact's prefetch Job.
@@ -55,10 +56,10 @@ func BuildArtifactDownloadJob(artifact *v1alpha1.ModelArtifact, name string) *ba
 
 func downloadCommand(artifact *v1alpha1.ModelArtifact) string {
 	commands := []string{
-		fmt.Sprintf("uvx --from huggingface_hub hf download %s --local-dir %s", artifact.BaseRepoID(), baseModelPath),
+		fmt.Sprintf("uvx --from huggingface_hub hf download %s --local-dir %s %s", artifact.BaseRepoID(), baseModelPath, modelDownloadInclude),
 	}
 	if draft := artifact.DraftRepoID(); draft != "" {
-		commands = append(commands, fmt.Sprintf("uvx --from huggingface_hub hf download %s --local-dir %s", draft, draftModelPath))
+		commands = append(commands, fmt.Sprintf("uvx --from huggingface_hub hf download %s --local-dir %s %s", draft, draftModelPath, modelDownloadInclude))
 	}
 	return "set -eu; " + strings.Join(commands, "; ")
 }
