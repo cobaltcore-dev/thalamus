@@ -58,6 +58,8 @@ type ModelArtifactSpec struct {
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// The "-download" suffix must fit in the 63-character Job name limit.
+// +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 54",message="metadata.name must be at most 54 characters."
 type ModelArtifact struct {
 	metav1.TypeMeta `json:",inline"`
 
@@ -129,6 +131,9 @@ func (a *ModelArtifact) SetReady(status metav1.ConditionStatus, reason ModelArti
 		ObservedGeneration: a.Generation,
 	})
 }
+
+// DownloadJobName returns the name of the artifact's download Job.
+func (a *ModelArtifact) DownloadJobName() string { return a.Name + "-download" }
 
 func init() {
 	SchemeBuilder.Register(&ModelArtifact{}, &ModelArtifactList{})

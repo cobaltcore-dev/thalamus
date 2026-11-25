@@ -52,7 +52,7 @@ spec:
               artifactRef:
                 properties:
                   name:
-                    maxLength: 253
+                    maxLength: 54
                     minLength: 1
                     pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                     type: string

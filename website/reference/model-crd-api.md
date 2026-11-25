@@ -64,7 +64,7 @@ _Appears in:_
 
 
 
-
+The "-download" suffix must fit in the 63-character Job name limit.
 
 
 
@@ -113,7 +113,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `name` _string_ | Name is the name of the referenced ModelArtifact. |  | MaxLength: 253 <br />MinLength: 1 <br />Pattern: `^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$` <br /> |
+| `name` _string_ | Name is the name of the referenced ModelArtifact. |  | MaxLength: 54 <br />MinLength: 1 <br />Pattern: `^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$` <br /> |
 
 
 #### ModelArtifactSpec

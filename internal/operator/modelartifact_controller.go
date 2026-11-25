@@ -5,9 +5,7 @@ package operator
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
-	"strings"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -86,7 +84,7 @@ func (r *ModelArtifactReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		if err := r.syncDownloadJob(ctx, artifact); err != nil {
 			return ctrl.Result{}, err
 		}
-		job, err := getObject(ctx, r.Client, artifact.Namespace, artifactDownloadJobName(artifact.Name), &batchv1.Job{})
+		job, err := getObject(ctx, r.Client, artifact.Namespace, artifact.DownloadJobName(), &batchv1.Job{})
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -132,20 +130,9 @@ func jobFailed(job *batchv1.Job) bool {
 	return false
 }
 
-// artifactDownloadJobName returns the download Job name, truncated to 63 characters.
-func artifactDownloadJobName(name string) string {
-	suffix := "-download"
-	if len(name)+len(suffix) <= 63 {
-		return name + suffix
-	}
-	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(name)))[:8]
-	prefixLength := 63 - len(suffix) - len(hash) - 1
-	return strings.TrimRight(name[:prefixLength], "-") + "-" + hash + suffix
-}
-
 // syncDownloadJob applies the artifact's download Job.
 func (r *ModelArtifactReconciler) syncDownloadJob(ctx context.Context, artifact *v1alpha1.ModelArtifact) error {
-	job := resources.BuildArtifactDownloadJob(artifact, artifactDownloadJobName(artifact.Name))
+	job := resources.BuildArtifactDownloadJob(artifact, artifact.DownloadJobName())
 	if err := applyOwned(ctx, r.Client, r.Scheme, artifact, job); err != nil {
 		return fmt.Errorf("apply download Job for model artifact %s/%s: %w", artifact.Namespace, artifact.Name, err)
 	}
