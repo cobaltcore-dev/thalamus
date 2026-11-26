@@ -20,54 +20,54 @@ spec:
 apiVersion: thalamus.cloud/v1alpha1
 kind: ModelArtifact
 metadata:
-  name: qwen3-5-0-8b
+  name: qwen25-0-5b-modelpack
   namespace: thalamus
 spec:
-  base: hf://Qwen/Qwen3.5-0.8B
+  base: modelpack://ghcr.io/modelpack/qwen-qwen2.5-0.5b-instruct:latest
   volume:
     claimName: qwen3-5-0-8b
 ---
 apiVersion: thalamus.cloud/v1alpha1
 kind: Model
 metadata:
-  name: qwen3-5-0-8b
+  name: qwen25-0-5b-modelpack
   namespace: thalamus
 spec:
   replicas: 1
+  aliases:
+    - qwen2.5-0.5b
   artifactRef:
-    name: qwen3-5-0-8b
+    name: qwen25-0-5b-modelpack
   serving:
     engine:
-      nodeSelector:
-        nvidia.com/gpu.product: NVIDIA-L40S
       containers:
         - name: engine
-          image: keppel.global.cloud.sap/ccloud-dockerhub-mirror/vllm/vllm-openai:v0.28.0
+          image: docker.io/vllm/vllm-openai-cpu:v0.27.0
           args:
-            - --disable-uvicorn-access-log
-            - --enable-auto-tool-choice
-            - --gpu-memory-utilization=0.25
-            - --max-model-len=8192
-            - --reasoning-parser=qwen3
-            - --tool-call-parser=qwen3_coder
+            - --max-model-len=512
+            - --max-num-seqs=1
+            - --enforce-eager
+            - --override-generation-config={"temperature":0}
           env:
-            - name: HF_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: hf-token
-                  key: HF_TOKEN
+            - name: VLLM_CPU_KVCACHE_SPACE
+              value: "1"
+            - name: VLLM_CPU_OMP_THREADS_BIND
+              value: nobind
           resources:
-            limits:
-              nvidia.com/gpu: '1'
             requests:
-              nvidia.com/gpu: '1'
+              cpu: 2000m
+              memory: 6Gi
+            limits:
+              cpu: 4000m
+              memory: 6Gi
     router:
       containers:
         - name: router
-          image: keppel.global.cloud.sap/ccloud-ghcr-io-mirror/llm-d/llm-d-router-endpoint-picker:v1.0.0 
+          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v1.0.0
           resources:
-            limits:
-              memory: 2Gi
             requests:
-              cpu: '1'
-              memory: 1Gi
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 200m
+              memory: 512Mi
