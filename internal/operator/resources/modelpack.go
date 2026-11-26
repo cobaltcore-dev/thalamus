@@ -52,14 +52,12 @@ func modelPackArgs(artifact *v1alpha1.ModelArtifact, draft bool) []string {
 		outputDir, weightsURL = draftModelPath, *artifact.Spec.Draft
 	}
 
-	return []string{
+	return slices.Concat([]string{
 		"fetch",
 		"--storage-dir",
 		modelPackStorageDir,
 		"--output",
 		outputDir,
 		weightsURL,
-		"--patterns",
-		"*",
-	}
+	}, modctlPatternArgs())
 }

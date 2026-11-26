@@ -22,8 +22,28 @@ const (
 	draftModelPath         = modelVolumeMountPath + "/draft"
 	modelDownloadImage     = "ghcr.io/astral-sh/uv:python3.12-bookworm-slim"
 	modelDownloadContainer = "model-download"
-	modelDownloadInclude   = `--include "*.safetensors" --include "*.json" --include "*.txt" --include "*.model" --include "*.jinja"`
 )
+
+// modelFilePatterns limits downloads to weight, config and tokenizer files.
+var modelFilePatterns = []string{"*.safetensors", "*.json", "*.txt", "*.model", "*.jinja"}
+
+// huggingFaceIncludeArgs renders the patterns as "hf download --include" flags.
+func huggingFaceIncludeArgs() string {
+	args := make([]string, 0, len(modelFilePatterns))
+	for _, p := range modelFilePatterns {
+		args = append(args, fmt.Sprintf("--include %q", p))
+	}
+	return strings.Join(args, " ")
+}
+
+// modctlPatternArgs renders the patterns as repeated "modctl --patterns" flags.
+func modctlPatternArgs() []string {
+	args := make([]string, 0, len(modelFilePatterns)*2)
+	for _, p := range modelFilePatterns {
+		args = append(args, "--patterns", p)
+	}
+	return args
+}
 
 // Source schemes supported in spec.base and spec.draft.
 const (
@@ -89,11 +109,12 @@ func huggingFaceContainer(artifact *v1alpha1.ModelArtifact) corev1.Container {
 }
 
 func downloadCommand(artifact *v1alpha1.ModelArtifact) string {
+	include := huggingFaceIncludeArgs()
 	commands := []string{
-		fmt.Sprintf("uvx --from huggingface_hub hf download %s --local-dir %s %s", artifact.BaseRepoID(), baseModelPath, modelDownloadInclude),
+		fmt.Sprintf("uvx --from huggingface_hub hf download %s --local-dir %s %s", artifact.BaseRepoID(), baseModelPath, include),
 	}
 	if draft := artifact.DraftRepoID(); draft != "" {
-		commands = append(commands, fmt.Sprintf("uvx --from huggingface_hub hf download %s --local-dir %s %s", draft, draftModelPath, modelDownloadInclude))
+		commands = append(commands, fmt.Sprintf("uvx --from huggingface_hub hf download %s --local-dir %s %s", draft, draftModelPath, include))
 	}
 	return "set -eu; " + strings.Join(commands, "; ")
 }
