@@ -129,3 +129,22 @@ func defaultEnginePodSpec() *corev1.PodSpec {
 		SecurityContext: hardenedPodSecurityContext(ubuntuNobody, new(ubuntuNobody)),
 	}
 }
+
+// BuildEngineService returns the Service for the vLLM engine.
+func BuildEngineService(model *v1alpha1.Model) *corev1.Service {
+	return &corev1.Service{
+		Name:      model.EngineName(),
+		Namespace: model.Namespace,
+		Spec: corev1.ServiceSpec{
+			Selector: engineLabels(model),
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "vllm",
+					Port:       engineHTTPPort,
+					TargetPort: intstr.FromInt32(engineHTTPPort),
+					Protocol:   corev1.ProtocolTCP,
+				},
+			},
+		},
+	}
+}
