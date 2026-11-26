@@ -4,7 +4,6 @@
 package resources
 
 import (
-	"fmt"
 	"slices"
 	"strings"
 
@@ -27,49 +26,49 @@ const (
 // modelFilePatterns limits downloads to weight, config and tokenizer files.
 var modelFilePatterns = []string{"*.safetensors", "*.json", "*.txt", "*.model", "*.jinja"}
 
-// huggingFaceIncludeArgs renders the patterns as "hf download --include" flags.
-func huggingFaceIncludeArgs() string {
-	args := make([]string, 0, len(modelFilePatterns))
-	for _, p := range modelFilePatterns {
-		args = append(args, fmt.Sprintf("--include %q", p))
-	}
-	return strings.Join(args, " ")
-}
-
-// modctlPatternArgs renders the patterns as repeated "modctl --patterns" flags.
-func modctlPatternArgs() []string {
+// patternArgs renders the patterns as repeated flag pairs, e.g. --include or --patterns.
+func patternArgs(flag string) []string {
 	args := make([]string, 0, len(modelFilePatterns)*2)
 	for _, p := range modelFilePatterns {
-		args = append(args, "--patterns", p)
+		args = append(args, flag, p)
 	}
 	return args
 }
 
-// Source schemes supported in spec.base and spec.draft.
+// Protocols supported in spec.base and spec.draft.
 const (
-	schemeHuggingFace = "hf"
-	schemeModelPack   = "modelpack"
+	protocolHuggingFace = "hf"
+	protocolModelPack   = "modelpack"
 )
 
-// sourceScheme returns the scheme of a weights URL (the part before "://"),
-// defaulting to Hugging Face when the URL carries no scheme.
-func sourceScheme(url string) string {
-	if scheme, _, ok := strings.Cut(url, "://"); ok {
-		return scheme
-	}
-	return schemeHuggingFace
-}
-
-// downloadContainers returns the container(s) that fetch the artifact's weights
-// into the model volume, dispatched on the scheme of spec.base. The scheme is
-// constrained by CEL validation; anything unexpected falls back to Hugging Face.
+// downloadContainers returns one downloader container per weights fetch (base
+// and optional draft), using modctl for modelpack:// artifacts and the
+// Hugging Face CLI otherwise.
 func downloadContainers(artifact *v1alpha1.ModelArtifact) []corev1.Container {
-	switch sourceScheme(artifact.Spec.Base) {
-	case schemeModelPack:
-		return []corev1.Container{modelPackContainer(artifact)}
-	default:
-		return []corev1.Container{huggingFaceContainer(artifact)}
+	fetches := []struct{ repoID, outputDir string }{
+		{artifact.BaseRepoID(), baseModelPath},
 	}
+	if draft := artifact.DraftRepoID(); draft != "" {
+		fetches = append(fetches, struct{ repoID, outputDir string }{draft, draftModelPath})
+	}
+
+	protocol, _, _ := strings.Cut(artifact.Spec.Base, "://")
+	containers := make([]corev1.Container, 0, len(fetches))
+	for i, fetch := range fetches {
+		name := modelDownloadContainer
+		if i > 0 {
+			name += "-draft"
+		}
+		switch protocol {
+		case protocolModelPack:
+			containers = append(containers, modelPackContainer(name, fetch.repoID, fetch.outputDir))
+		case protocolHuggingFace:
+			fallthrough
+		default:
+			containers = append(containers, huggingFaceContainer(name, fetch.repoID, fetch.outputDir))
+		}
+	}
+	return containers
 }
 
 // BuildArtifactDownloadJob returns the artifact's prefetch Job.
@@ -97,26 +96,18 @@ func BuildArtifactDownloadJob(artifact *v1alpha1.ModelArtifact, name string) *ba
 	return job
 }
 
-// huggingFaceContainer downloads base and draft weights with the Hugging Face CLI.
-func huggingFaceContainer(artifact *v1alpha1.ModelArtifact) corev1.Container {
+// huggingFaceContainer downloads weights with the Hugging Face CLI.
+func huggingFaceContainer(name, repoID, outputDir string) corev1.Container {
 	return corev1.Container{
-		Name:         modelDownloadContainer,
-		Image:        modelDownloadImage,
-		Command:      []string{"/bin/sh", "-c"},
-		Args:         []string{downloadCommand(artifact)},
+		Name:    name,
+		Image:   modelDownloadImage,
+		Command: []string{"uvx"},
+		Args: slices.Concat(
+			[]string{"--from", "huggingface_hub", "hf", "download", repoID, "--local-dir", outputDir},
+			patternArgs("--include"),
+		),
 		VolumeMounts: []corev1.VolumeMount{modelVolumeMount()},
 	}
-}
-
-func downloadCommand(artifact *v1alpha1.ModelArtifact) string {
-	include := huggingFaceIncludeArgs()
-	commands := []string{
-		fmt.Sprintf("uvx --from huggingface_hub hf download %s --local-dir %s %s", artifact.BaseRepoID(), baseModelPath, include),
-	}
-	if draft := artifact.DraftRepoID(); draft != "" {
-		commands = append(commands, fmt.Sprintf("uvx --from huggingface_hub hf download %s --local-dir %s %s", draft, draftModelPath, include))
-	}
-	return "set -eu; " + strings.Join(commands, "; ")
 }
 
 // modelDownloadInitContainers returns the init containers that download the weights
@@ -124,7 +115,7 @@ func downloadCommand(artifact *v1alpha1.ModelArtifact) string {
 func modelDownloadInitContainers(engine *corev1.Container, artifact *v1alpha1.ModelArtifact) []corev1.Container {
 	containers := downloadContainers(artifact)
 	for i := range containers {
-		containers[i].Env = slices.Concat(engine.Env, containers[i].Env)
+		containers[i].Env = engine.Env
 		containers[i].VolumeMounts = slices.Concat(engine.VolumeMounts, containers[i].VolumeMounts)
 	}
 	return containers

@@ -90,6 +90,7 @@ func defaultEnginePodSpec() *corev1.PodSpec {
 			{Name: "tmp", MountPath: "/tmp"},
 		},
 		SecurityContext: hardenedContainerSecurityContext(ubuntuNobody),
+
 		StartupProbe: &corev1.Probe{
 			HTTPGet: &corev1.HTTPGetAction{
 				Path: "/v1/models",
