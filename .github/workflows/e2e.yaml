@@ -300,9 +300,9 @@ jobs:
             model_name: smollm2-135m-prefetch
             model_id: HuggingFaceTB/SmolLM2-135M-Instruct
           - scenario: modelpack
-            example: examples/model-tiny-qwen2-modelpack.yaml
-            model_name: tiny-qwen2-modelpack
-            model_id: tiny-qwen2
+            example: examples/model-qwen2.5-0.5b-modelpack.yaml
+            model_name: qwen25-0-5b-modelpack
+            model_id: qwen2.5-0.5b
     env:
       GATEWAY_HOST: localhost
       GATEWAY_PORT: "8080"

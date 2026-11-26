@@ -1,28 +1,28 @@
 # Copyright SAP SE
 # SPDX-License-Identifier: Apache-2.0
 
-# A tiny CPU Model whose weights are fetched from an OCI registry with modctl,
+# A small CPU Model whose weights are fetched from an OCI registry with modctl,
 # exercising the ModelPack downloader path in the E2E validation suite.
 ---
 apiVersion: thalamus.cloud/v1alpha1
 kind: ModelArtifact
 metadata:
-  name: tiny-qwen2-modelpack
+  name: qwen25-0-5b-modelpack
   namespace: thalamus
 spec:
-  base: modelpack://ghcr.io/modelpack/trl-internal-testing-tiny-qwen2forcausallm-2.5:latest
+  base: modelpack://ghcr.io/modelpack/qwen-qwen2.5-0.5b-instruct:latest
 ---
 apiVersion: thalamus.cloud/v1alpha1
 kind: Model
 metadata:
-  name: tiny-qwen2-modelpack
+  name: qwen25-0-5b-modelpack
   namespace: thalamus
 spec:
   replicas: 1
   aliases:
-    - tiny-qwen2
+    - qwen2.5-0.5b
   artifactRef:
-    name: tiny-qwen2-modelpack
+    name: qwen25-0-5b-modelpack
   serving:
     engine:
       containers:
