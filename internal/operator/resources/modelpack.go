@@ -18,7 +18,7 @@ const (
 // downloaderEnv is required for modctl to run properly in rootless environment
 var downloaderEnv = []corev1.EnvVar{
 	{Name: "USER", Value: strconv.FormatInt(ubuntuNobody, 10)},
-	{Name: "HOME", Value: modelVolumeMountPath + "/.home"},
+	//{Name: "HOME", Value: modelVolumeMountPath + "/.home"},
 }
 
 // modelPackContainer downloads base and optional draft weights with modctl in a
