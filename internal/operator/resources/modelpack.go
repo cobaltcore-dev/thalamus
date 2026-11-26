@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	modelPackImage      = "ghcr.io/modelpack/modctl:0.2"
+	modelPackImage      = "ghcr.io/modelpack/modctl:0.2.3"
 	modelPackStorageDir = modelVolumeMountPath + "/.modctl"
 )
 
