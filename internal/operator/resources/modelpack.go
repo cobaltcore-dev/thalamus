@@ -36,14 +36,18 @@ func modelPackContainer(artifact *v1alpha1.ModelArtifact) corev1.Container {
 	}
 }
 
-func modelPackCommand(artifact *v1alpha1.ModelArtifact) string {
-	commands := []string{modelPackFetch(artifact.Spec.Base, baseModelPath)}
-	if artifact.Spec.Draft != nil {
-		commands = append(commands, modelPackFetch(*artifact.Spec.Draft, draftModelPath))
+func modelPackArgs(artifact *v1alpha1.ModelArtifact, draft bool) []string {
+	outputDir, weightsURL := baseModelPath, artifact.Spec.Base
+	if draft && artifact.Spec.Draft != nil {
+		outputDir, weightsURL = draftModelPath, *artifact.Spec.Draft
 	}
-	return "set -eu; " + strings.Join(commands, "; ")
-}
 
-func modelPackFetch(weightsURL, outputDir string) string {
-	return fmt.Sprintf("modctl fetch --storage-dir %s --output %s %s %s", modelPackStorageDir, outputDir, weightsURL, modctlPatternFlags())
+	return slices.Concat([]string{
+		"fetch",
+		"--storage-dir",
+		modelPackStorageDir,
+		"--output",
+		outputDir,
+		weightsURL,
+	}, modctlPatternArgs())
 }

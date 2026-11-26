@@ -36,14 +36,13 @@ func huggingFaceIncludeArgs() string {
 	return strings.Join(args, " ")
 }
 
-// modctlPatternFlags renders the patterns as quoted "modctl --patterns" flags for
-// use inside a shell command; quoting stops the shell from expanding the globs.
-func modctlPatternFlags() string {
-	flags := make([]string, 0, len(modelFilePatterns))
+// modctlPatternArgs renders the patterns as repeated "modctl --patterns" flags.
+func modctlPatternArgs() []string {
+	args := make([]string, 0, len(modelFilePatterns)*2)
 	for _, p := range modelFilePatterns {
-		flags = append(flags, fmt.Sprintf("--patterns %q", p))
+		args = append(args, "--patterns", p)
 	}
-	return strings.Join(flags, " ")
+	return args
 }
 
 // Source schemes supported in spec.base and spec.draft.
