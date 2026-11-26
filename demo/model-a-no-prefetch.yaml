@@ -1,0 +1,53 @@
+# Model A: no PVC, no prefetch.
+# The engine fetches the weights from the Hub when the pod starts.
+# Instruct variant: the base model has no chat template, so the chat endpoints
+# (and OpenWebUI) would fail with it.
+apiVersion: thalamus.cloud/v1alpha1
+kind: ModelArtifact
+metadata:
+  name: smollm2-135m-instruct
+  namespace: thalamus
+spec:
+  base: hf://HuggingFaceTB/SmolLM2-135M-Instruct
+---
+apiVersion: thalamus.cloud/v1alpha1
+kind: Model
+metadata:
+  name: smollm2-135m-instruct
+  namespace: thalamus
+spec:
+  replicas: 1
+  artifactRef:
+    name: smollm2-135m-instruct
+  serving:
+    engine:
+      nodeSelector:
+        nvidia.com/gpu.product: NVIDIA-L40S
+      containers:
+        - name: engine
+          image: keppel.global.cloud.sap/ccloud-dockerhub-mirror/vllm/vllm-openai:v0.28.0
+          args:
+            - --disable-uvicorn-access-log
+            - --gpu-memory-utilization=0.25
+            - --max-model-len=8192
+          env:
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hf-token
+                  key: HF_TOKEN
+          resources:
+            limits:
+              nvidia.com/gpu: '1'
+            requests:
+              nvidia.com/gpu: '1'
+    router:
+      containers:
+        - name: router
+          image: keppel.global.cloud.sap/ccloud-ghcr-io-mirror/llm-d/llm-d-router-endpoint-picker:v1.0.0
+          resources:
+            limits:
+              memory: 2Gi
+            requests:
+              cpu: '1'
+              memory: 1Gi

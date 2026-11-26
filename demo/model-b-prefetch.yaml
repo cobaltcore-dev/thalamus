@@ -1,0 +1,70 @@
+# Model B: prefetched into a PVC.
+# The download Job fills the PVC before the Model is deployed, so the engine
+# starts from local weights instead of fetching them.
+#
+# Demo order: apply the PersistentVolumeClaim and the ModelArtifact first
+# (the download Job starts, the artifact becomes Ready), then apply the Model.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwen3-5-0-8b
+  namespace: thalamus
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: csi-manila-nfs-eu-de-2b
+---
+apiVersion: thalamus.cloud/v1alpha1
+kind: ModelArtifact
+metadata:
+  name: qwen3-5-0-8b
+  namespace: thalamus
+spec:
+  base: hf://Qwen/Qwen3.5-0.8B
+  volume:
+    claimName: qwen3-5-0-8b
+---
+apiVersion: thalamus.cloud/v1alpha1
+kind: Model
+metadata:
+  name: qwen3-5-0-8b
+  namespace: thalamus
+spec:
+  replicas: 1
+  artifactRef:
+    name: qwen3-5-0-8b
+  serving:
+    engine:
+      nodeSelector:
+        nvidia.com/gpu.product: NVIDIA-L40S
+      containers:
+        - name: engine
+          image: keppel.global.cloud.sap/ccloud-dockerhub-mirror/vllm/vllm-openai:v0.28.0
+          args:
+            - --disable-uvicorn-access-log
+            - --gpu-memory-utilization=0.25
+            - --max-model-len=8192
+          env:
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hf-token
+                  key: HF_TOKEN
+          resources:
+            limits:
+              nvidia.com/gpu: '1'
+            requests:
+              nvidia.com/gpu: '1'
+    router:
+      containers:
+        - name: router
+          image: keppel.global.cloud.sap/ccloud-ghcr-io-mirror/llm-d/llm-d-router-endpoint-picker:v0.9.0 
+          resources:
+            limits:
+              memory: 2Gi
+            requests:
+              cpu: '1'
+              memory: 1Gi
