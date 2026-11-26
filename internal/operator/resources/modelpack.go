@@ -25,13 +25,12 @@ var downloaderEnv = []corev1.EnvVar{
 // single container, chaining the fetches with ";" like the Hugging Face path.
 func modelPackContainer(artifact *v1alpha1.ModelArtifact) corev1.Container {
 	return corev1.Container{
-		Name:            modelDownloadContainer,
-		Image:           modelPackImage,
-		ImagePullPolicy: corev1.PullNever,
-		Env:             slices.Clone(downloaderEnv),
-		Command:         []string{"/bin/sh", "-c"},
-		Args:            []string{modelPackCommand(artifact)},
-		VolumeMounts:    []corev1.VolumeMount{modelVolumeMount()},
+		Name:         modelDownloadContainer,
+		Image:        modelPackImage,
+		Env:          slices.Clone(downloaderEnv),
+		Command:      []string{"/bin/sh", "-c"},
+		Args:         []string{modelPackCommand(artifact)},
+		VolumeMounts: []corev1.VolumeMount{modelVolumeMount()},
 	}
 }
 
