@@ -9,7 +9,6 @@ import (
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -48,10 +47,11 @@ func (r *ModelArtifactReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		case !controllerutil.ContainsFinalizer(artifact, ModelArtifactFinalizer):
 			artifact.SetReady(metav1.ConditionFalse, v1alpha1.ModelArtifactReasonNotReady, "artifact protection finalizer is missing")
 		}
-		if !apiequality.Semantic.DeepEqual(before.Status, artifact.Status) {
-			if err := r.Status().Patch(ctx, artifact, client.MergeFrom(before)); err != nil {
-				return ctrl.Result{}, fmt.Errorf("patch model artifact %s/%s status: %w", artifact.Namespace, artifact.Name, err)
-			}
+		statusPatched, err := patchStatusIfChanged(ctx, r.Client, before, artifact)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if statusPatched {
 			if artifact.GetDeletionTimestamp() == nil {
 				return ctrl.Result{}, nil
 			}
@@ -62,10 +62,11 @@ func (r *ModelArtifactReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if err := r.syncFinalizer(ctx, artifact); err != nil {
 		return ctrl.Result{}, err
 	}
-	if !apiequality.Semantic.DeepEqual(before.Finalizers, artifact.Finalizers) {
-		if err := r.Patch(ctx, artifact, client.MergeFromWithOptions(before, client.MergeFromWithOptimisticLock{})); err != nil {
-			return ctrl.Result{}, fmt.Errorf("patch model artifact %s/%s finalizer: %w", artifact.Namespace, artifact.Name, err)
-		}
+	finalizersPatched, err := patchFinalizersIfChanged(ctx, r.Client, before, artifact)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if finalizersPatched {
 		if artifact.GetDeletionTimestamp() != nil {
 			log.FromContext(ctx).V(levelInfo).Info("releasing model artifact",
 				"namespace", artifact.Namespace, "name", artifact.Name)
@@ -77,7 +78,6 @@ func (r *ModelArtifactReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
-	status := artifact.DeepCopy().Status
 	if !artifact.UsesPVC() {
 		artifact.SetReady(metav1.ConditionTrue, v1alpha1.ModelArtifactReasonReady, "an init container downloads the weights when the Model pod starts")
 	} else {
@@ -91,10 +91,8 @@ func (r *ModelArtifactReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		artifactDownloadStatus(artifact, job)
 	}
 
-	if !apiequality.Semantic.DeepEqual(status, artifact.Status) {
-		if err := r.Status().Patch(ctx, artifact, client.MergeFrom(before)); err != nil {
-			return ctrl.Result{}, fmt.Errorf("patch model artifact %s/%s status: %w", artifact.Namespace, artifact.Name, err)
-		}
+	if _, err := patchStatusIfChanged(ctx, r.Client, before, artifact); err != nil {
+		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }
