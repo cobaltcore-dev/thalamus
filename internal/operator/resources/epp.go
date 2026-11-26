@@ -101,14 +101,7 @@ func BuildEPPDeployment(model *v1alpha1.Model, serviceAccountName string) (*apps
 func defaultEPPPodSpec(model *v1alpha1.Model) *corev1.PodSpec {
 	return &corev1.PodSpec{
 		TerminationGracePeriodSeconds: new(int64(130)),
-		SecurityContext: &corev1.PodSecurityContext{
-			RunAsNonRoot: new(true),
-			RunAsUser:    new(distrolessNobody),
-			RunAsGroup:   new(distrolessNobody),
-			SeccompProfile: &corev1.SeccompProfile{
-				Type: corev1.SeccompProfileTypeRuntimeDefault,
-			},
-		},
+		SecurityContext:               hardenedPodSecurityContext(distrolessNobody, nil),
 		Containers: []corev1.Container{
 			{
 				Name: "router",
@@ -143,20 +136,7 @@ func defaultEPPPodSpec(model *v1alpha1.Model) *corev1.PodSpec {
 					GRPC:          &corev1.GRPCAction{Port: eppGRPCHealthPort, Service: new(eppHealthService)},
 					PeriodSeconds: 2,
 				},
-				SecurityContext: &corev1.SecurityContext{
-					AllowPrivilegeEscalation: new(false),
-					ReadOnlyRootFilesystem:   new(true),
-					RunAsNonRoot:             new(true),
-					RunAsUser:                new(distrolessNobody),
-					RunAsGroup:               new(distrolessNobody),
-					Privileged:               new(false),
-					Capabilities: &corev1.Capabilities{
-						Drop: []corev1.Capability{"ALL"},
-					},
-					SeccompProfile: &corev1.SeccompProfile{
-						Type: corev1.SeccompProfileTypeRuntimeDefault,
-					},
-				},
+				SecurityContext: hardenedContainerSecurityContext(distrolessNobody),
 			},
 		},
 		Volumes: []corev1.Volume{
