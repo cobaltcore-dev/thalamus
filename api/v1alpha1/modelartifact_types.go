@@ -82,18 +82,27 @@ type ModelArtifactList struct {
 	Items           []ModelArtifact `json:"items"`
 }
 
-// BaseRepoID returns the base model identifier without the hf:// scheme.
+// BaseRepoID returns the base model identifier without its scheme.
 func (a *ModelArtifact) BaseRepoID() string {
-	return strings.TrimPrefix(a.Spec.Base, "hf://")
+	return stripScheme(a.Spec.Base)
 }
 
-// DraftRepoID returns the draft model identifier without the hf:// scheme,
+// DraftRepoID returns the draft model identifier without its scheme,
 // or an empty string when no draft is configured.
 func (a *ModelArtifact) DraftRepoID() string {
 	if a.Spec.Draft == nil {
 		return ""
 	}
-	return strings.TrimPrefix(*a.Spec.Draft, "hf://")
+	return stripScheme(*a.Spec.Draft)
+}
+
+// stripScheme removes the "<scheme>://" prefix from a weights URL, leaving the
+// bare repository identifier shared by every source type.
+func stripScheme(url string) string {
+	if _, rest, ok := strings.Cut(url, "://"); ok {
+		return rest
+	}
+	return url
 }
 
 // UsesPVC reports whether the artifact prefetches to a PVC.

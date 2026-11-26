@@ -75,4 +75,14 @@ func TestModelArtifactRepoIDs(t *testing.T) {
 	if got := artifact.DraftRepoID(); got != "" {
 		t.Errorf("DraftRepoID() without draft:\ngot:  %q\nwant: %q", got, "")
 	}
+
+	modelpack := &ModelArtifact{
+		Spec: ModelArtifactSpec{
+			Base: "modelpack://ghcr.io/modelpack/tiny-qwen:latest",
+		},
+	}
+	want := "ghcr.io/modelpack/tiny-qwen:latest"
+	if got := modelpack.BaseRepoID(); got != want {
+		t.Errorf("BaseRepoID() modelpack:\ngot:  %q\nwant: %q", got, want)
+	}
 }

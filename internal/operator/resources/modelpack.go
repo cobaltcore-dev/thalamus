@@ -35,19 +35,19 @@ func modelPackContainer(artifact *v1alpha1.ModelArtifact) corev1.Container {
 }
 
 func modelPackCommand(artifact *v1alpha1.ModelArtifact) string {
-	commands := []string{modelPackFetch(artifact.Spec.Base, baseModelPath)}
-	if artifact.Spec.Draft != nil {
-		commands = append(commands, modelPackFetch(*artifact.Spec.Draft, draftModelPath))
+	commands := []string{modelPackFetch(artifact.BaseRepoID(), baseModelPath)}
+	if draft := artifact.DraftRepoID(); draft != "" {
+		commands = append(commands, modelPackFetch(draft, draftModelPath))
 	}
 	return "set -eu; " + strings.Join(commands, "; ")
 }
 
-func modelPackFetch(weightsURL, outputDir string) string {
+func modelPackFetch(repoID, outputDir string) string {
 	args := slices.Concat([]string{
 		"modctl", "fetch",
 		"--storage-dir", modelPackStorageDir,
 		"--output", outputDir,
-		weightsURL,
+		repoID,
 	}, modctlPatternArgs())
 	return strings.Join(args, " ")
 }
