@@ -2,6 +2,8 @@
 # The engine fetches the weights from the Hub when the pod starts.
 # Instruct variant: the base model has no chat template, so the chat endpoints
 # (and OpenWebUI) would fail with it.
+# The chat template has no tool support, so the tool-call parser is only there
+# to keep OpenWebUI's tool_choice=auto requests from being rejected.
 apiVersion: thalamus.cloud/v1alpha1
 kind: ModelArtifact
 metadata:
@@ -28,8 +30,10 @@ spec:
           image: keppel.global.cloud.sap/ccloud-dockerhub-mirror/vllm/vllm-openai:v0.28.0
           args:
             - --disable-uvicorn-access-log
+            - --enable-auto-tool-choice
             - --gpu-memory-utilization=0.25
             - --max-model-len=8192
+            - --tool-call-parser=hermes
           env:
             - name: HF_TOKEN
               valueFrom:

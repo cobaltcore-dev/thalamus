@@ -45,8 +45,11 @@ spec:
           image: keppel.global.cloud.sap/ccloud-dockerhub-mirror/vllm/vllm-openai:v0.28.0
           args:
             - --disable-uvicorn-access-log
+            - --enable-auto-tool-choice
             - --gpu-memory-utilization=0.25
             - --max-model-len=8192
+            - --reasoning-parser=qwen3
+            - --tool-call-parser=qwen3_coder
           env:
             - name: HF_TOKEN
               valueFrom:
@@ -61,7 +64,7 @@ spec:
     router:
       containers:
         - name: router
-          image: keppel.global.cloud.sap/ccloud-ghcr-io-mirror/llm-d/llm-d-router-endpoint-picker:v0.9.0 
+          image: keppel.global.cloud.sap/ccloud-ghcr-io-mirror/llm-d/llm-d-router-endpoint-picker:v1.0.0 
           resources:
             limits:
               memory: 2Gi
