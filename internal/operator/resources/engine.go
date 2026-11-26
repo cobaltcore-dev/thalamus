@@ -50,9 +50,7 @@ func BuildEngineDeployment(model *v1alpha1.Model, artifact *v1alpha1.ModelArtifa
 		}
 	}
 
-	labels := map[string]string{
-		"thalamus.cloud/engine": model.EngineName(),
-	}
+	labels := engineLabels(model)
 
 	return &appsv1.Deployment{
 		Name:      model.EngineName(),
@@ -162,7 +160,7 @@ func BuildEngineService(model *v1alpha1.Model) *corev1.Service {
 		Name:      model.EngineName(),
 		Namespace: model.Namespace,
 		Spec: corev1.ServiceSpec{
-			Selector: map[string]string{"thalamus.cloud/engine": model.EngineName()},
+			Selector: engineLabels(model),
 			Ports: []corev1.ServicePort{
 				{
 					Name:       "vllm",
