@@ -302,7 +302,7 @@ jobs:
           - scenario: modelpack
             example: examples/model-tiny-qwen2-modelpack.yaml
             model_name: tiny-qwen2-modelpack
-            model_id: ghcr.io/modelpack/trl-internal-testing-tiny-qwen2forcausallm-2.5:latest
+            model_id: tiny-qwen2
     env:
       GATEWAY_HOST: localhost
       GATEWAY_PORT: "8080"

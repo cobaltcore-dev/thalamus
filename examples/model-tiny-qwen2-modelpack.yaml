@@ -19,6 +19,8 @@ metadata:
   namespace: thalamus
 spec:
   replicas: 1
+  aliases:
+    - tiny-qwen2
   artifactRef:
     name: tiny-qwen2-modelpack
   serving:
