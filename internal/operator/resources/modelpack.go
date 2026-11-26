@@ -1,7 +1,6 @@
 package resources
 
 import (
-	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -36,18 +35,20 @@ func modelPackContainer(artifact *v1alpha1.ModelArtifact) corev1.Container {
 	}
 }
 
-func modelPackArgs(artifact *v1alpha1.ModelArtifact, draft bool) []string {
-	outputDir, weightsURL := baseModelPath, artifact.Spec.Base
-	if draft && artifact.Spec.Draft != nil {
-		outputDir, weightsURL = draftModelPath, *artifact.Spec.Draft
+func modelPackCommand(artifact *v1alpha1.ModelArtifact) string {
+	commands := []string{modelPackFetch(artifact.Spec.Base, baseModelPath)}
+	if artifact.Spec.Draft != nil {
+		commands = append(commands, modelPackFetch(*artifact.Spec.Draft, draftModelPath))
 	}
+	return "set -eu; " + strings.Join(commands, "; ")
+}
 
-	return slices.Concat([]string{
-		"fetch",
-		"--storage-dir",
-		modelPackStorageDir,
-		"--output",
-		outputDir,
+func modelPackFetch(weightsURL, outputDir string) string {
+	args := slices.Concat([]string{
+		"modctl", "fetch",
+		"--storage-dir", modelPackStorageDir,
+		"--output", outputDir,
 		weightsURL,
 	}, modctlPatternArgs())
+	return strings.Join(args, " ")
 }
