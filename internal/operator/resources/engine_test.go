@@ -121,10 +121,16 @@ func TestBuildEngineDeployment(t *testing.T) {
 	if init[0].Image != modelDownloadImage {
 		t.Errorf("init container image:\ngot:  %q\nwant: %q", init[0].Image, modelDownloadImage)
 	}
-	wantCommand := "set -eu; uvx --from huggingface_hub hf download arnir0/Tiny-LLM --local-dir /models/base " +
-		`--include "*.safetensors" --include "*.json" --include "*.txt" --include "*.model" --include "*.jinja"`
-	if len(init[0].Args) != 1 || init[0].Args[0] != wantCommand {
-		t.Errorf("init container args:\ngot:  %v\nwant: %v", init[0].Args, wantCommand)
+	if !slices.Equal(init[0].Command, []string{"uvx"}) {
+		t.Errorf("init container command:\ngot:  %v\nwant: [uvx]", init[0].Command)
+	}
+	wantArgs = []string{
+		"--from", "huggingface_hub", "hf", "download", "arnir0/Tiny-LLM", "--local-dir", "/models/base",
+		"--include", "*.safetensors", "--include", "*.json", "--include", "*.txt",
+		"--include", "*.model", "--include", "*.jinja",
+	}
+	if !slices.Equal(init[0].Args, wantArgs) {
+		t.Errorf("init container args:\ngot:  %v\nwant: %v", init[0].Args, wantArgs)
 	}
 }
 

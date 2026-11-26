@@ -5,7 +5,7 @@ package operator
 
 import (
 	"context"
-	"strings"
+	"slices"
 	"testing"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -101,14 +101,20 @@ func TestModelArtifactReconcile_PrefetchesPVCAndTracksJob(t *testing.T) {
 	if job.Spec.BackoffLimit == nil || *job.Spec.BackoffLimit != 3 {
 		t.Errorf("job backoff limit:\ngot:  %+v\nwant: 3", job.Spec.BackoffLimit)
 	}
-	container := job.Spec.Template.Spec.Containers[0]
-	if !strings.Contains(container.Args[0], "hf download arnir0/Tiny-LLM --local-dir /models/base") {
-		t.Errorf("download command:\ngot:  %q", container.Args[0])
+	containers := job.Spec.Template.Spec.Containers
+	if len(containers) != 2 {
+		t.Fatalf("job containers:\ngot:  %d\nwant: 2", len(containers))
 	}
-	if !strings.Contains(container.Args[0], "hf download org/Tiny-Draft --local-dir /models/draft") {
-		t.Errorf("draft download command:\ngot:  %q", container.Args[0])
+	if !slices.Contains(containers[0].Args, "arnir0/Tiny-LLM") ||
+		!slices.Contains(containers[0].Args, "/models/base") {
+		t.Errorf("download args:\ngot:  %v", containers[0].Args)
 	}
-	mount := container.VolumeMounts[0]
+	if containers[1].Name != "model-download-draft" ||
+		!slices.Contains(containers[1].Args, "org/Tiny-Draft") ||
+		!slices.Contains(containers[1].Args, "/models/draft") {
+		t.Errorf("draft download args:\ngot:  %v", containers[1].Args)
+	}
+	mount := containers[0].VolumeMounts[0]
 	if mount.Name != "model" || mount.MountPath != "/models" {
 		t.Errorf("PVC mount:\ngot:  %+v", mount)
 	}

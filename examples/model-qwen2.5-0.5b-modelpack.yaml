@@ -1,0 +1,58 @@
+# Copyright SAP SE
+# SPDX-License-Identifier: Apache-2.0
+
+# A small CPU Model whose weights are fetched from an OCI registry with modctl,
+# exercising the ModelPack downloader path in the E2E validation suite.
+---
+apiVersion: thalamus.cloud/v1alpha1
+kind: ModelArtifact
+metadata:
+  name: qwen25-0-5b-modelpack
+  namespace: thalamus
+spec:
+  base: modelpack://ghcr.io/modelpack/qwen-qwen2.5-0.5b-instruct:latest
+---
+apiVersion: thalamus.cloud/v1alpha1
+kind: Model
+metadata:
+  name: qwen25-0-5b-modelpack
+  namespace: thalamus
+spec:
+  replicas: 1
+  aliases:
+    - qwen2.5-0.5b
+  artifactRef:
+    name: qwen25-0-5b-modelpack
+  serving:
+    engine:
+      containers:
+        - name: engine
+          image: docker.io/vllm/vllm-openai-cpu:v0.27.0
+          args:
+            - --max-model-len=512
+            - --max-num-seqs=1
+            - --enforce-eager
+            - --override-generation-config={"temperature":0}
+          env:
+            - name: VLLM_CPU_KVCACHE_SPACE
+              value: "1"
+            - name: VLLM_CPU_OMP_THREADS_BIND
+              value: nobind
+          resources:
+            requests:
+              cpu: 2000m
+              memory: 6Gi
+            limits:
+              cpu: 4000m
+              memory: 6Gi
+    router:
+      containers:
+        - name: router
+          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v1.0.0
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 200m
+              memory: 512Mi
