@@ -36,13 +36,14 @@ func huggingFaceIncludeArgs() string {
 	return strings.Join(args, " ")
 }
 
-// modctlPatternArgs renders the patterns as repeated "modctl --patterns" flags.
-func modctlPatternArgs() []string {
-	args := make([]string, 0, len(modelFilePatterns)*2)
+// modctlPatternFlags renders the patterns as quoted "modctl --patterns" flags for
+// use inside a shell command; quoting stops the shell from expanding the globs.
+func modctlPatternFlags() string {
+	flags := make([]string, 0, len(modelFilePatterns))
 	for _, p := range modelFilePatterns {
-		args = append(args, "--patterns", p)
+		flags = append(flags, fmt.Sprintf("--patterns %q", p))
 	}
-	return args
+	return strings.Join(flags, " ")
 }
 
 // Source schemes supported in spec.base and spec.draft.
@@ -66,7 +67,7 @@ func sourceScheme(url string) string {
 func downloadContainers(artifact *v1alpha1.ModelArtifact) []corev1.Container {
 	switch sourceScheme(artifact.Spec.Base) {
 	case schemeModelPack:
-		return modelPackContainers(artifact)
+		return []corev1.Container{modelPackContainer(artifact)}
 	default:
 		return []corev1.Container{huggingFaceContainer(artifact)}
 	}

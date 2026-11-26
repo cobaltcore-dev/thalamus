@@ -1,8 +1,10 @@
 package resources
 
 import (
+	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -20,44 +22,28 @@ var downloaderEnv = []corev1.EnvVar{
 	{Name: "HOME", Value: modelVolumeMountPath + "/.home"},
 }
 
-// modelPackContainers downloads base and draft weights from ModelPack images,
-// one modctl container per weight set.
-func modelPackContainers(artifact *v1alpha1.ModelArtifact) []corev1.Container {
-	containers := []corev1.Container{modelPackContainer(artifact, false)}
-	if artifact.Spec.Draft != nil {
-		containers = append(containers, modelPackContainer(artifact, true))
-	}
-	return containers
-}
-
-func modelPackContainer(artifact *v1alpha1.ModelArtifact, draft bool) corev1.Container {
-	name := modelDownloadContainer
-	if draft {
-		name = modelDownloadContainer + "-draft"
-	}
-
+// modelPackContainer downloads base and optional draft weights with modctl in a
+// single container, chaining the fetches with ";" like the Hugging Face path.
+func modelPackContainer(artifact *v1alpha1.ModelArtifact) corev1.Container {
 	return corev1.Container{
-		Name:            name,
+		Name:            modelDownloadContainer,
 		Image:           modelPackImage,
 		ImagePullPolicy: corev1.PullNever,
 		Env:             slices.Clone(downloaderEnv),
-		Args:            modelPackArgs(artifact, draft),
+		Command:         []string{"/bin/sh", "-c"},
+		Args:            []string{modelPackCommand(artifact)},
 		VolumeMounts:    []corev1.VolumeMount{modelVolumeMount()},
 	}
 }
 
-func modelPackArgs(artifact *v1alpha1.ModelArtifact, draft bool) []string {
-	outputDir, weightsURL := baseModelPath, artifact.Spec.Base
-	if draft && artifact.Spec.Draft != nil {
-		outputDir, weightsURL = draftModelPath, *artifact.Spec.Draft
+func modelPackCommand(artifact *v1alpha1.ModelArtifact) string {
+	commands := []string{modelPackFetch(artifact.Spec.Base, baseModelPath)}
+	if artifact.Spec.Draft != nil {
+		commands = append(commands, modelPackFetch(*artifact.Spec.Draft, draftModelPath))
 	}
+	return "set -eu; " + strings.Join(commands, "; ")
+}
 
-	return slices.Concat([]string{
-		"fetch",
-		"--storage-dir",
-		modelPackStorageDir,
-		"--output",
-		outputDir,
-		weightsURL,
-	}, modctlPatternArgs())
+func modelPackFetch(weightsURL, outputDir string) string {
+	return fmt.Sprintf("modctl fetch --storage-dir %s --output %s %s %s", modelPackStorageDir, outputDir, weightsURL, modctlPatternFlags())
 }
