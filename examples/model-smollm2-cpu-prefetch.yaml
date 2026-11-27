@@ -4,21 +4,6 @@
 # A small CPU-suitable Model using a PVC prefilled by the artifact download Job.
 ---
 apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: model-data
-spec:
-  capacity:
-    storage: 2Gi
-  accessModes:
-    - ReadWriteOnce
-  persistentVolumeReclaimPolicy: Delete
-  storageClassName: ""
-  hostPath:
-    path: /var/local/thalamus-model-data
-    type: DirectoryOrCreate
----
-apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: model-data
@@ -29,8 +14,6 @@ spec:
   resources:
     requests:
       storage: 2Gi
-  storageClassName: ""
-  volumeName: model-data
 ---
 apiVersion: thalamus.cloud/v1alpha1
 kind: ModelArtifact

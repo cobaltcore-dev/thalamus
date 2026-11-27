@@ -121,6 +121,16 @@ func TestBuildEngineDeployment(t *testing.T) {
 	if init[0].Image != modelDownloadImage {
 		t.Errorf("init container image:\ngot:  %q\nwant: %q", init[0].Image, modelDownloadImage)
 	}
+	sc = init[0].SecurityContext
+	if sc == nil || sc.RunAsUser == nil || *sc.RunAsUser != wantEngineUID {
+		t.Errorf("init container securityContext:\ngot:  %+v\nwant: runAsUser %d", sc, wantEngineUID)
+	}
+	if sc.AllowPrivilegeEscalation == nil || *sc.AllowPrivilegeEscalation {
+		t.Errorf("init container securityContext must not allow privilege escalation:\ngot:  %+v", sc)
+	}
+	if sc.ReadOnlyRootFilesystem == nil || !*sc.ReadOnlyRootFilesystem {
+		t.Errorf("init container securityContext must set a read-only root filesystem:\ngot:  %+v", sc)
+	}
 	if !slices.Equal(init[0].Command, []string{"uvx"}) {
 		t.Errorf("init container command:\ngot:  %v\nwant: [uvx]", init[0].Command)
 	}

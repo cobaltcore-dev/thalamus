@@ -67,6 +67,13 @@ func downloadContainers(artifact *v1alpha1.ModelArtifact) []corev1.Container {
 		default:
 			containers = append(containers, huggingFaceContainer(name, fetch.repoID, fetch.outputDir))
 		}
+		containers[i].SecurityContext = hardenedContainerSecurityContext(ubuntuNobody)
+		containers[i].Env = cacheEnv
+		// Scratch space for the read-only root filesystem.
+		containers[i].VolumeMounts = append(containers[i].VolumeMounts,
+			corev1.VolumeMount{Name: "cache", MountPath: "/cache"},
+			corev1.VolumeMount{Name: "tmp", MountPath: "/tmp"},
+		)
 	}
 	return containers
 }
@@ -79,14 +86,19 @@ func BuildArtifactDownloadJob(artifact *v1alpha1.ModelArtifact, name string) *ba
 			BackoffLimit: ptr.To[int32](3),
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
-					RestartPolicy: corev1.RestartPolicyOnFailure,
-					Containers:    downloadContainers(artifact),
-					Volumes: []corev1.Volume{{
-						Name: modelVolumeName,
-						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: claim.ClaimName,
+					RestartPolicy:   corev1.RestartPolicyOnFailure,
+					SecurityContext: hardenedPodSecurityContext(ubuntuNobody, new(ubuntuNobody)),
+					Containers:      downloadContainers(artifact),
+					Volumes: []corev1.Volume{
+						{
+							Name: modelVolumeName,
+							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+								ClaimName: claim.ClaimName,
+							},
 						},
-					}},
+						{Name: "cache", EmptyDir: &corev1.EmptyDirVolumeSource{}},
+						{Name: "tmp", EmptyDir: &corev1.EmptyDirVolumeSource{}},
+					},
 				},
 			},
 		},
@@ -116,7 +128,9 @@ func modelDownloadInitContainers(engine *corev1.Container, artifact *v1alpha1.Mo
 	containers := downloadContainers(artifact)
 	for i := range containers {
 		containers[i].Env = engine.Env
-		containers[i].VolumeMounts = slices.Concat(engine.VolumeMounts, containers[i].VolumeMounts)
+		for _, m := range engine.VolumeMounts {
+			containers[i].VolumeMounts = setVolumeMount(containers[i].VolumeMounts, m)
+		}
 	}
 	return containers
 }
