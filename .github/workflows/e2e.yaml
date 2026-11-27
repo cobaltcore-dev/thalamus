@@ -367,16 +367,11 @@ jobs:
         run: |
           kubectl apply -f ${{ github.workspace }}/${{ matrix.example }}
 
-      - name: Wait for artifact prefetch
-        if: matrix.scenario == 'prefetch'
+      - name: Wait for artifact readiness
         run: |
           kubectl wait modelartifact/${{ matrix.model_name }} \
             --namespace thalamus \
             --for=condition=Ready \
-            --timeout=600s
-          kubectl wait job/${{ matrix.model_name }}-download \
-            --namespace thalamus \
-            --for=condition=Complete \
             --timeout=600s
 
       - name: Wait for Model readiness
