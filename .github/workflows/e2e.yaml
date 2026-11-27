@@ -282,7 +282,7 @@ jobs:
     name: Inference (v1 endpoints, ${{ matrix.scenario }})
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -448,6 +448,48 @@ jobs:
             fi
           done
           echo "PASS: base model name is absent from /v1/models and rejected with 404"
+
+      - name: Scale to zero and back
+        run: |
+          kubectl patch model ${{ matrix.model_name }} \
+            --namespace thalamus \
+            --type merge \
+            -p '{"spec":{"replicas":0}}'
+
+          kubectl wait model/${{ matrix.model_name }} \
+            --namespace thalamus \
+            --for=jsonpath='{.status.conditions[?(@.type=="Ready")].reason}'=NoReplicasDesired \
+            --timeout=120s
+          kubectl wait --for=delete deployment/${{ matrix.model_name }}-engine \
+            --namespace thalamus --timeout=120s
+          kubectl wait --for=delete deployment/${{ matrix.model_name }}-epp \
+            --namespace thalamus --timeout=120s
+          echo "PASS: scale to zero removed the serving children"
+
+          kubectl patch model ${{ matrix.model_name }} \
+            --namespace thalamus \
+            --type merge \
+            -p '{"spec":{"replicas":2}}'
+          kubectl wait model/${{ matrix.model_name }} \
+            --namespace thalamus \
+            --for=condition=Ready \
+            --timeout=600s
+          echo "PASS: model scaled back to two ready replicas"
+
+      - name: Verify artifact protection blocks deletion
+        if: matrix.scenario == 'speculative-decoding'
+        run: |
+          if kubectl delete modelartifact/${{ matrix.model_name }} \
+            --namespace thalamus --timeout=30s; then
+            echo "FAIL: artifact was deleted while a Model still references it"
+            exit 1
+          fi
+          if ! kubectl get modelartifact/${{ matrix.model_name }} \
+            --namespace thalamus >/dev/null 2>&1; then
+            echo "FAIL: artifact did not survive the deletion attempt"
+            exit 1
+          fi
+          echo "PASS: artifact deletion is blocked while referenced"
 
       - name: Verify uninstall removes models and CRDs
         run: |
