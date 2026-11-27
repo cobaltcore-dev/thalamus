@@ -4,6 +4,8 @@
 package resources
 
 import (
+	"slices"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -68,18 +70,22 @@ func BuildEngineDeployment(model *v1alpha1.Model, artifact *v1alpha1.ModelArtifa
 	}, nil
 }
 
+// cacheEnv points caches at the cache volume instead of $HOME,
+// keeping the read-only root filesystem workable.
+var cacheEnv = []corev1.EnvVar{
+	{Name: "HOME", Value: "/cache"},
+	{Name: "HF_HOME", Value: "/cache/huggingface"},
+	{Name: "XDG_CACHE_HOME", Value: "/cache"},
+}
+
 // defaultEnginePodSpec is the out-of-the-box engine pod spec,
 // configuration from spec.serving.engine is merged on top of it.
 func defaultEnginePodSpec() *corev1.PodSpec {
-	env := []corev1.EnvVar{
-		// Point the engine caches at the cache volume instead of $HOME.
-		{Name: "HOME", Value: "/cache"},
-		{Name: "HF_HOME", Value: "/cache/huggingface"},
-		{Name: "XDG_CACHE_HOME", Value: "/cache"},
+	env := slices.Concat(cacheEnv, []corev1.EnvVar{
 		// Aliases are not passed to the engine; skip model name validation
 		// instead so alias changes do not require an engine restart.
 		{Name: "VLLM_SKIP_MODEL_NAME_VALIDATION", Value: "1"},
-	}
+	})
 	container := corev1.Container{
 		Name:  "engine",
 		Env:   env,
